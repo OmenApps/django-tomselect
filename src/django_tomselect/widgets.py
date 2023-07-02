@@ -117,7 +117,7 @@ class TomSelectWidget(forms.Select):
 
 
 class TomSelectTabularWidget(TomSelectWidget):
-    """A Tom SelectWidget widget that displays results in a table with a table header."""
+    """TomSelectWidget widget that displays results in a table with header."""
 
     def __init__(
         self,
@@ -140,7 +140,7 @@ class TomSelectTabularWidget(TomSelectWidget):
               Defaults to value_field.title().
             label_field_label: table header label for the label field column.
               Defaults to the verbose_name of the model.
-            show_value_field: if True, show the value field column in the table.  # ToDo: Implement
+            show_value_field: if True, show the value field column in the table.
             args: additional positional arguments passed to TomSelectWidget
             kwargs: additional keyword arguments passed to TomSelectWidget
         """

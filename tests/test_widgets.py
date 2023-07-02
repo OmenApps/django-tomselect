@@ -69,7 +69,7 @@ class TestTomSelectWidget(WidgetTestCase):
     def test_init_sets_default_search_lookups_from_label_field(self):
         """
         Assert that init sets the default for `search_lookups` to the value of
-        `[f"{self.value_field}__icontains, {self.label_field}__icontains"]`
+        `[f"{self.value_field}__icontains, {self.label_field}__icontains"]`.
         """
         widget = TomSelectWidget(Edition, label_field="foo")
         assert widget.search_lookups == ["id__icontains", "foo__icontains"]

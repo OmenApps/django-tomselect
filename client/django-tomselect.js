@@ -125,7 +125,7 @@ function getPlugins (elem) {
   if (elem.hasAttribute('is-tabular')) {
     plugins.dropdown_header = {
       html: function (settings) {
-        let header = ""
+        let header = ''
 
         if (settings.showValueField === true) {
           header = `<div class="col-1"><span class="${settings.labelClass}">${settings.valueFieldLabel}</span></div>
@@ -168,7 +168,7 @@ function getRenderTemplates (elem) {
   }
   if (elem.hasAttribute('is-tabular')) {
     templates.option = function (data, escape) {
-      let columns = "";
+      let columns = ''
 
       if (this.settings.showValueField === true) {
         columns = `<div class="col-1">${data[this.settings.valueField]}</div>

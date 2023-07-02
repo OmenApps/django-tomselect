@@ -6,9 +6,9 @@ from django_tomselect.views import AutocompleteView
 
 from .forms import (
     AddForm,
-    ListViewForm,
     CreateForm,
     FilteredForm,
+    ListViewForm,
     MultipleForm,
     SimpleForm,
     TabularForm,
