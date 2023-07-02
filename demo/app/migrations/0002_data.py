@@ -4,29 +4,29 @@ from django.db import migrations
 
 
 def forwards_func(apps, schema_editor):
-    Ausgabe = apps.get_model("app", "Ausgabe")
-    Magazin = apps.get_model("app", "Magazin")
-    data = [{"name": f"2022-{n}", "jahr": "2022", "num": str(n), "lnum": f"{n+100}"} for n in range(1, 50)]
+    Edition = apps.get_model("app", "Edition")
+    Magazine = apps.get_model("app", "Magazine")
+    data = [{"name": f"2022-{n}", "year": "2022", "pages": str(n), "pub_num": f"{n+100}"} for n in range(1, 50)]
     data.insert(
         10,
         {
             "name": "VERY LONG NAME THAT IS PROBABLY GOING TO CAUSE SOME PROBLEMS 2022",
-            "jahr": "",
-            "num": "",
-            "lnum": "5000000",
+            "year": "",
+            "pages": "",
+            "pub_num": "5000000",
         },
     )
-    mag = Magazin.objects.create(name="Testmagazin")
-    _other = Magazin.objects.create(name="NoRelations")
+    mag = Magazine.objects.create(name="Test Magazine")
+    _other = Magazine.objects.create(name="No Relations")
     for d in data:
-        Ausgabe.objects.create(**d, magazin=mag)
+        Edition.objects.create(**d, magazine=mag)
 
 
 def reverse_func(apps, schema_editor):
-    Ausgabe = apps.get_model("app", "Ausgabe")
-    Magazin = apps.get_model("app", "Magazin")
-    Ausgabe.objects.all().delete()
-    Magazin.objects.all().delete()
+    Edition = apps.get_model("app", "Edition")
+    Magazine = apps.get_model("app", "Magazine")
+    Edition.objects.all().delete()
+    Magazine.objects.all().delete()
 
 
 class Migration(migrations.Migration):

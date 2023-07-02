@@ -5,6 +5,7 @@ from django import http, views
 from django.apps import apps
 from django.contrib.auth import get_permission_codename
 from django.db import transaction
+from django.db.models import Q
 
 SEARCH_VAR = "q"
 SEARCH_LOOKUP_VAR = "sl"
@@ -16,7 +17,7 @@ PAGE_SIZE = 20
 
 
 class AutocompleteView(views.generic.list.BaseListView):
-    """Base list view for queries from TomSelect select elements."""
+    """Base list view for queries from Tom Select select elements."""
 
     paginate_by = PAGE_SIZE
     page_kwarg = PAGE_VAR
@@ -26,7 +27,11 @@ class AutocompleteView(views.generic.list.BaseListView):
         request_data = getattr(request, request.method)
         self.model = apps.get_model(request_data["model"])
         self.create_field = request_data.get("create-field")
-        self.search_lookup = request_data.get(SEARCH_LOOKUP_VAR)
+        self.search_lookups = []
+        if SEARCH_LOOKUP_VAR in request_data:
+            values = unquote(request_data[SEARCH_LOOKUP_VAR])
+            self.search_lookups = json.loads(values)
+
         self.values_select = []
         if VALUES_VAR in request_data:
             values = unquote(request_data[VALUES_VAR])
@@ -55,7 +60,8 @@ class AutocompleteView(views.generic.list.BaseListView):
 
     def search(self, queryset, q):
         """Filter the result queryset against the search term."""
-        return queryset.filter(**{self.search_lookup: q})
+        kwargs = {item: q for item in self.search_lookups}
+        return queryset.filter(Q(**kwargs, _connector=Q.OR))
 
     def order_queryset(self, queryset):
         """Order the result queryset."""

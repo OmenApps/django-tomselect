@@ -1,72 +1,74 @@
 from django import forms
 
-from mizdb_tomselect.widgets import MIZSelect, MIZSelectTabular
+from django_tomselect.widgets import TomSelectTabularWidget, TomSelectWidget
 
-from .models import Ausgabe, Magazin
+from .models import Edition, Magazine
 
 
 class Form(forms.Form):
-    mizselect = forms.ModelChoiceField(
-        Ausgabe.objects.all(),
-        widget=MIZSelect(
-            Ausgabe,
+    tomselect = forms.ModelChoiceField(
+        Edition.objects.all(),
+        widget=TomSelectWidget(
+            Edition,
             attrs={"class": "form-control mb-3"},
-            changelist_url="changelist",
+            listview_url="listview",
             add_url="add",
             create_field="name",
         ),
         required=False,
     )
-    mizselect_tabular = forms.ModelChoiceField(
-        Ausgabe.objects.all(),
-        widget=MIZSelectTabular(
-            Ausgabe,
-            extra_columns={"jahr": "Jahr", "num": "Nummer", "lnum": "lfd.Nummer"},
-            label_field_label="Ausgabe",
+    tomselect_tabular = forms.ModelChoiceField(
+        Edition.objects.all(),
+        widget=TomSelectTabularWidget(
+            Edition,
+            extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
+            label_field_label="Edition",
             attrs={"class": "form-control mb-3"},
-            changelist_url="changelist",
+            listview_url="listview",
             add_url="add",
         ),
         required=False,
     )
 
     # Multiple selection:
-    mizselect_multiple = forms.ModelChoiceField(
-        Ausgabe.objects.all(),
-        widget=MIZSelect(
-            Ausgabe,
+    tomselect_multiple = forms.ModelChoiceField(
+        Edition.objects.all(),
+        widget=TomSelectWidget(
+            Edition,
             attrs={"class": "form-control mb-3"},
             multiple=True,
-            changelist_url="changelist",
+            listview_url="listview",
         ),
         required=False,
     )
-    mizselect_tabular_multiple = forms.ModelChoiceField(
-        Ausgabe.objects.all(),
-        widget=MIZSelectTabular(
-            Ausgabe,
-            extra_columns={"jahr": "Jahr", "num": "Nummer", "lnum": "lfd.Nummer"},
-            label_field_label="Ausgabe",
+    tomselect_tabular_multiple_with_value_field = forms.ModelChoiceField(
+        Edition.objects.all(),
+        widget=TomSelectTabularWidget(
+            Edition,
+            extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
+            label_field_label="Edition",
             multiple=True,
             attrs={"class": "form-control mb-3"},
             add_url="add",
             create_field="name",
+            show_value_field=True,
+            search_lookups=["pages__icontains", "year__icontains", "pub_num__icontains"],
         ),
         required=False,
     )
 
 
 class FilteredForm(forms.Form):
-    magazin = forms.ModelChoiceField(queryset=Magazin.objects.all(), widget=MIZSelect(Magazin))
-    ausgabe = forms.ModelChoiceField(
-        Ausgabe.objects.all(),
-        widget=MIZSelect(
-            Ausgabe,
+    magazine = forms.ModelChoiceField(queryset=Magazine.objects.all(), widget=TomSelectWidget(Magazine))
+    edition = forms.ModelChoiceField(
+        Edition.objects.all(),
+        widget=TomSelectWidget(
+            Edition,
             attrs={"class": "form-control mb-3"},
-            changelist_url="changelist",
+            listview_url="listview",
             add_url="add",
             create_field="name",
-            filter_by=("magazin", "magazin_id"),
+            filter_by=("magazine", "magazine_id"),
         ),
         required=False,
     )

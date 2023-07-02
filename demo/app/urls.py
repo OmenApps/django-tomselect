@@ -19,13 +19,13 @@ from django.urls import path
 from django.views.generic import FormView
 
 from .forms import FilteredForm, Form
-from .views import DemoAutocompleteView, add_view, changelist_view
+from .views import DemoAutocompleteView, add_view, listview_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", FormView.as_view(form_class=Form, template_name="base.html"), name="demo"),
     path("autocomplete/", DemoAutocompleteView.as_view(), name="autocomplete"),
-    path("changelist/", changelist_view, name="changelist"),
+    path("listview/", listview_view, name="listview"),
     path("add/", add_view, name="add"),
     path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base.html"), name="filtered"),
 ]

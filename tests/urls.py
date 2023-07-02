@@ -2,7 +2,7 @@ from django.http import HttpResponse
 from django.urls import include, path
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-from mizdb_tomselect.views import AutocompleteView
+from django_tomselect.views import AutocompleteView
 
 
 @ensure_csrf_cookie

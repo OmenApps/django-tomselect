@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/mizdb-tomselect.iml" filepath="$PROJECT_DIR$/.idea/mizdb-tomselect.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/django-tomselect.iml" filepath="$PROJECT_DIR$/.idea/django-tomselect.iml" />
     </modules>
   </component>
 </project>

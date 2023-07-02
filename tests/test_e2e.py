@@ -2,28 +2,28 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from playwright.sync_api import expect
-from testapp.models import Ausgabe, Magazin
+from testapp.models import Edition, Magazine
 
-from mizdb_tomselect.views import PAGE_SIZE
+from django_tomselect.views import PAGE_SIZE
 
 # Mark all tests in this module as end-to-end tests (excluded from running by default):
 pytestmark = pytest.mark.e2e
 
 
 @pytest.fixture
-def magazin():
-    return Magazin.objects.create(name="Testmagazin")
+def magazine():
+    return Magazine.objects.create(name="Test Magazine")
 
 
 @pytest.fixture(autouse=True)
-def other_magazin():
-    return Magazin.objects.create(name="Other")
+def other_magazine():
+    return Magazine.objects.create(name="Other")
 
 
 @pytest.fixture(autouse=True)  # TODO: is autouse=True necessary?
-def data(magazin):
+def data(magazine):
     return [
-        Ausgabe.objects.create(name=f"2022-{i + 1:02}", num=i + 1, lnum=100 + i, jahr="2022", magazin=magazin)
+        Edition.objects.create(name=f"2022-{i + 1:02}", pages=i + 1, pub_num=100 + i, year="2022", magazine=magazine)
         for i in range(PAGE_SIZE * 3)
     ]
 
@@ -157,7 +157,7 @@ def test_virtual_scroll(_page, view_name, search, data):
     with _page.expect_event("requestfinished"):
         get_last_dropdown_item(_page).scroll_into_view_if_needed()
     expect(get_select_options(_page)).to_have_count(len(data))
-    expect(get_last_dropdown_item(_page)).to_have_text("Keine weiteren Ergebnisse")
+    expect(get_last_dropdown_item(_page)).to_have_text("No more results")
 
 
 @pytest.mark.django_db
@@ -217,33 +217,82 @@ class TestTabularSelect:
 
     def test_header_columns(self, _page, header_columns):
         """Assert that the dropdown header has the expected columns."""
+        expect(header_columns).to_have_count(4)
+        label_col, year_col, pages_col, pub_num_col = header_columns.all()
+        expect(label_col).to_have_class("col-5")
+        expect(label_col).to_have_text("Edition")
+        expect(year_col).to_have_class("col")
+        expect(year_col).to_have_text("Year")
+        expect(pages_col).to_have_class("col")
+        expect(pages_col).to_have_text("Pages")
+        expect(pub_num_col).to_have_class("col")
+        expect(pub_num_col).to_have_text("Publication Number")
+
+    def test_options_have_columns(self, _page, option_columns, first_object):
+        """Assert that the data of the options are assigned to columns."""
+        expect(option_columns).to_have_count(4)
+        label_col, year_col, pages_col, pub_num_col = option_columns.all()
+        expect(label_col).to_have_class("col-5")
+        expect(label_col).to_have_text(first_object.name)
+        expect(year_col).to_have_class("col")
+        expect(year_col).to_have_text(str(first_object.year))
+        expect(pages_col).to_have_class("col")
+        expect(pages_col).to_have_text(str(first_object.pages))
+        expect(pub_num_col).to_have_class("col")
+        expect(pub_num_col).to_have_text(str(first_object.pub_num))
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("view_name", ["tabular-with-value-field"])
+class TestTabularSelectWithValueField:
+    @pytest.fixture
+    def dropdown_header(self, _page, wrapper_focus):
+        """Return the dropdown header."""
+        return _page.locator(".ts-dropdown .dropdown-header")
+
+    @pytest.fixture
+    def header_columns(self, _page, dropdown_header):
+        """Return the column divs of the dropdown header."""
+        return dropdown_header.locator(".row > *")
+
+    @pytest.fixture
+    def option_columns(self, _page, wrapper_focus):
+        """Return the column divs of a select option."""
+        return get_select_options(_page).first.locator("*")
+
+    def test_has_dropdown_header(self, _page, dropdown_header):
+        """Assert that the dropdown has the expected table header."""
+        expect(dropdown_header).to_be_attached()
+
+    def test_header_columns(self, _page, header_columns):
+        """Assert that the dropdown header has the expected columns."""
         expect(header_columns).to_have_count(5)
-        id_col, label_col, jahr_col, num_col, lnum_col = header_columns.all()
+        id_col, label_col, year_col, pages_col, pub_num_col = header_columns.all()
         expect(id_col).to_have_class("col-1")
         expect(id_col).to_have_text("Id")
         expect(label_col).to_have_class("col-5")
-        expect(label_col).to_have_text("Ausgabe")
-        expect(jahr_col).to_have_class("col")
-        expect(jahr_col).to_have_text("Jahr")
-        expect(num_col).to_have_class("col")
-        expect(num_col).to_have_text("Nummer")
-        expect(lnum_col).to_have_class("col")
-        expect(lnum_col).to_have_text("lfd.Nummer")
+        expect(label_col).to_have_text("Edition")
+        expect(year_col).to_have_class("col")
+        expect(year_col).to_have_text("Year")
+        expect(pages_col).to_have_class("col")
+        expect(pages_col).to_have_text("Pages")
+        expect(pub_num_col).to_have_class("col")
+        expect(pub_num_col).to_have_text("Publication Number")
 
     def test_options_have_columns(self, _page, option_columns, first_object):
         """Assert that the data of the options are assigned to columns."""
         expect(option_columns).to_have_count(5)
-        id_col, label_col, jahr_col, num_col, lnum_col = option_columns.all()
+        id_col, label_col, year_col, pages_col, pub_num_col = option_columns.all()
         expect(id_col).to_have_class("col-1")
         expect(id_col).to_have_text(str(first_object.pk))
         expect(label_col).to_have_class("col-5")
         expect(label_col).to_have_text(first_object.name)
-        expect(jahr_col).to_have_class("col")
-        expect(jahr_col).to_have_text(str(first_object.jahr))
-        expect(num_col).to_have_class("col")
-        expect(num_col).to_have_text(str(first_object.num))
-        expect(lnum_col).to_have_class("col")
-        expect(lnum_col).to_have_text(str(first_object.lnum))
+        expect(year_col).to_have_class("col")
+        expect(year_col).to_have_text(str(first_object.year))
+        expect(pages_col).to_have_class("col")
+        expect(pages_col).to_have_text(str(first_object.pages))
+        expect(pub_num_col).to_have_class("col")
+        expect(pub_num_col).to_have_text(str(first_object.pub_num))
 
 
 ################################################################################
@@ -264,16 +313,16 @@ def add_button(_page, dropdown_footer):
 
 
 @pytest.fixture
-def changelist_button(dropdown_footer):
-    """Return the changelist button in the dropdown footer."""
+def listview_button(dropdown_footer):
+    """Return the listview button in the dropdown footer."""
     return dropdown_footer.locator(".cl-btn")
 
 
-@pytest.mark.parametrize("view_name,has_footer", [("add", True), ("changelist", True), ("simple", False)])
+@pytest.mark.parametrize("view_name,has_footer", [("add", True), ("listview", True), ("simple", False)])
 def test_has_footer(view_name, has_footer, dropdown_footer, context):
     """
     Assert that a footer div is added to the dropdown content if the select
-    element declares a 'changelist' URL or a 'add' URL.
+    element declares a 'listview' URL or a 'add' URL.
     """
     if has_footer:
         # Note that the footer will be attached for an 'add' URL even if the
@@ -311,13 +360,13 @@ class TestFooterAddButton:
         Assert that the text of the add button updates along with the user
         typing in a search term.
         """
-        expect(add_button).to_have_text("Hinzufügen")
+        expect(add_button).to_have_text("Add value")
         with _page.expect_event("requestfinished"):
             search_input.fill("202")
-        expect(add_button).to_have_text("'202' hinzufügen...")
+        expect(add_button).to_have_text("Add value '202'")
         with _page.expect_event("requestfinished"):
             search_input.fill("2022")
-        expect(add_button).to_have_text("'2022' hinzufügen...")
+        expect(add_button).to_have_text("Add value '2022'")
 
     def test_add_button_click_no_search_term(self, logged_in, _page, add_button, live_server):
         """
@@ -368,43 +417,43 @@ class TestFooterAddButton:
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("view_name", ["changelist"])
-class TestFooterChangelistButton:
-    def test_has_visible_changelist_button(self, changelist_button):
-        """Assert that the dropdown footer contains a visible 'changelist' button."""
-        expect(changelist_button).to_be_visible()
+@pytest.mark.parametrize("view_name", ["listview"])
+class TestFooterListviewButton:
+    def test_has_visible_listview_button(self, listview_button):
+        """Assert that the dropdown footer contains a visible 'listview' button."""
+        expect(listview_button).to_be_visible()
 
-    def test_changelist_query_string_contains_search_term(self, _page, changelist_button, search_input):
+    def test_listview_query_string_contains_search_term(self, _page, listview_button, search_input):
         """
-        Assert that the URL to the changelist contains the current search term
+        Assert that the URL to the listview contains the current search term
         in the query string.
         """
-        assert changelist_button.get_attribute("href") == reverse("changelist_page")
+        assert listview_button.get_attribute("href") == reverse("listview_page")
         with _page.expect_request_finished():
             search_input.fill("2022")
-        assert "q=2022" in changelist_button.get_attribute("href")
+        assert "q=2022" in listview_button.get_attribute("href")
 
 
 @pytest.fixture
-def magazin_select(_page):
-    select = _page.get_by_label("Magazin")
+def magazine_select(_page):
+    select = _page.get_by_label("Magazine")
     select.wait_for()
     return select
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("view_name", ["filtered"])
-def test_options_filtered(_page, magazin_select, magazin, other_magazin, ts_wrapper):
+def test_options_filtered(_page, magazine_select, magazine, other_magazine, ts_wrapper, view_name):
     """
-    Assert that the options of the 'ausgabe' field are filtered with the values
-    of the forwarded field 'magazin'.
+    Assert that the options of the 'edition' field are filtered with the values
+    of the forwarded field 'magazine'.
     """
-    magazin_select.select_option(value=str(other_magazin.pk))
+    magazine_select.select_option(value=str(other_magazine.pk))
     with _page.expect_request_finished():
         ts_wrapper.click()
     expect(get_select_options(_page)).to_have_count(0)
-    magazin_select.focus()
-    magazin_select.select_option(value=str(magazin.pk))
+    magazine_select.focus()
+    magazine_select.select_option(value=str(magazine.pk))
     with _page.expect_request_finished():
         ts_wrapper.click()
     expect(get_select_options(_page)).not_to_have_count(0)

@@ -1,6 +1,6 @@
 from django.http import HttpResponse
 
-from mizdb_tomselect.views import AutocompleteView
+from django_tomselect.views import AutocompleteView
 
 
 class DemoAutocompleteView(AutocompleteView):
@@ -8,8 +8,8 @@ class DemoAutocompleteView(AutocompleteView):
         return True  # no auth in this demo app
 
 
-def changelist_view(request):
-    return HttpResponse("This is a dummy changelist page.")
+def listview_view(request):
+    return HttpResponse("This is a dummy listview page.")
 
 
 def add_view(request):

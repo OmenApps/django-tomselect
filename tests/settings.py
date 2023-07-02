@@ -33,7 +33,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.staticfiles",
-    "mizdb_tomselect",
+    "django_tomselect",
     "testapp",
 ]
 

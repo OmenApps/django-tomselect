@@ -1,25 +1,42 @@
 from django import forms
 
-from mizdb_tomselect.widgets import MIZSelect, MIZSelectTabular
+from django_tomselect.widgets import TomSelectTabularWidget, TomSelectWidget
 
-from .models import Ausgabe, Magazin
+from .models import Edition, Magazine
 
-kwargs = {"model": Ausgabe, "url": "ac"}
+kwargs = {"model": Edition, "url": "ac"}
 
 
 class SimpleForm(forms.Form):
-    field = forms.ModelChoiceField(Ausgabe.objects.all(), widget=MIZSelect(**kwargs), required=False)
+    field = forms.ModelChoiceField(Edition.objects.all(), widget=TomSelectWidget(**kwargs), required=False)
 
 
 class MultipleForm(forms.Form):
-    field = forms.ModelChoiceField(Ausgabe.objects.all(), widget=MIZSelect(**kwargs, multiple=True), required=False)
+    field = forms.ModelChoiceField(
+        Edition.objects.all(), widget=TomSelectWidget(**kwargs, multiple=True), required=False
+    )
 
 
 class TabularForm(forms.Form):
     field = forms.ModelChoiceField(
-        Ausgabe.objects.all(),
-        widget=MIZSelectTabular(
-            **kwargs, extra_columns={"jahr": "Jahr", "num": "Nummer", "lnum": "lfd.Nummer"}, label_field_label="Ausgabe"
+        Edition.objects.all(),
+        widget=TomSelectTabularWidget(
+            **kwargs,
+            extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
+            label_field_label="Edition",
+        ),
+        required=False,
+    )
+
+
+class TabularWithValueFieldForm(forms.Form):
+    field = forms.ModelChoiceField(
+        Edition.objects.all(),
+        widget=TomSelectTabularWidget(
+            **kwargs,
+            extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
+            label_field_label="Edition",
+            show_value_field=True,
         ),
         required=False,
     )
@@ -27,7 +44,7 @@ class TabularForm(forms.Form):
 
 class CreateForm(forms.Form):
     field = forms.ModelChoiceField(
-        Ausgabe.objects.all(), widget=MIZSelect(**kwargs, create_field="name"), required=False
+        Edition.objects.all(), widget=TomSelectWidget(**kwargs, create_field="name"), required=False
     )
 
 
@@ -35,23 +52,25 @@ class AddForm(forms.Form):
     """Test form with a widget with a 'add' URL."""
 
     field = forms.ModelChoiceField(
-        Ausgabe.objects.all(), widget=MIZSelect(**kwargs, add_url="add_page", create_field="name")
+        Edition.objects.all(), widget=TomSelectWidget(**kwargs, add_url="add_page", create_field="name")
     )
 
 
-class ChangeForm(forms.Form):
-    """Test form with a widget with a 'changelist' URL."""
+class ListViewForm(forms.Form):
+    """Test form with a widget with a 'listview' URL."""
 
-    field = forms.ModelChoiceField(Ausgabe.objects.all(), widget=MIZSelect(changelist_url="changelist_page", **kwargs))
+    field = forms.ModelChoiceField(
+        Edition.objects.all(), widget=TomSelectWidget(listview_url="listview_page", **kwargs)
+    )
 
 
 class FilteredForm(forms.Form):
     """
-    Test form where the results of the 'ausgabe' field are filtered by the value
-    of the 'magazin' field.
+    Test form where the results of the 'edition' field are filtered by the value
+    of the 'magazine' field.
     """
 
-    magazin = forms.ModelChoiceField(Magazin.objects.all())
-    ausgabe = forms.ModelChoiceField(
-        Ausgabe.objects.all(), widget=MIZSelect(filter_by=("magazin", "magazin_id"), **kwargs)
+    magazine = forms.ModelChoiceField(Magazine.objects.all())
+    edition = forms.ModelChoiceField(
+        Edition.objects.all(), widget=TomSelectWidget(filter_by=("magazine", "magazine_id"), **kwargs)
     )

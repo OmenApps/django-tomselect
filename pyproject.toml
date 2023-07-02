@@ -3,12 +3,13 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mizdb-tomselect"
-version = "0.3.3"
+name = "django-tomselect"
+version = "0.4.0"
 authors = [
+  { name="Jack Linke", email="jacklinke@gmail.com" },
   { name="Philip Becker", email="yummytea1@gmail.com" },
 ]
-description = "Django autocomplete widgets and views using TomSelect"
+description = "Django autocomplete widgets and views using Tom Select"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -20,7 +21,7 @@ classifiers = [
 ]
 
 [project.urls]
-Source = "https://github.com/Actionb/mizdb-tomselect"
+Source = "https://github.com/jacklinke/django-tomselect"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -33,7 +34,7 @@ where = ["src"]
 
 [tool.coverage.run]
 branch = true
-source = ["mizdb_tomselect"]
+source = ["django_tomselect"]
 
 [tool.coverage.paths]
 source = ["src", ".tox/*/site-packages"]

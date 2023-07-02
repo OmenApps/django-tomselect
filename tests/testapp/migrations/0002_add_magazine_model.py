@@ -11,17 +11,17 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name="Magazin",
+            name="Magazine",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("name", models.CharField(max_length=50, verbose_name="Magazin Name")),
+                ("name", models.CharField(max_length=50, verbose_name="Name")),
             ],
         ),
         migrations.AddField(
-            model_name="ausgabe",
-            name="magazin",
+            model_name="edition",
+            name="magazine",
             field=models.ForeignKey(
-                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="testapp.magazin"
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="testapp.magazine"
             ),
         ),
     ]

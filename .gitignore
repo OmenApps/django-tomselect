@@ -1,5 +1,4 @@
 node_modules/
-src/mizdb_tomselect/static/mizdb_tomselect/js/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

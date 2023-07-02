@@ -9,9 +9,9 @@ from django.db.models.sql.where import NothingNode
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.test import Client
 from django.urls import reverse
-from testapp.models import Ausgabe
+from testapp.models import Edition
 
-from mizdb_tomselect.views import (
+from django_tomselect.views import (
     FILTERBY_VAR,
     PAGE_SIZE,
     PAGE_VAR,
@@ -24,29 +24,29 @@ from mizdb_tomselect.views import (
 
 @pytest.fixture
 def obj():
-    return Ausgabe.objects.create(name="Test", num="1", lnum="2", jahr="3")
+    return Edition.objects.create(name="Test", pages="1", pub_num="2", year="3")
 
 
 @pytest.fixture(autouse=True)
 def not_found():
     # Add a 'control' object that should never be included in the search results.
-    return Ausgabe.objects.create(name="Not Found")
+    return Edition.objects.create(name="Not Found")
 
 
 @pytest.fixture
 def pages():
     # Create enough data for multiple pages.
     return [
-        Ausgabe.objects.create(name=f"2022-{i + 1:02}", num=i + 1, lnum=100 + i, jahr="2022")
+        Edition.objects.create(name=f"2022-{i + 1:02}", pages=i + 1, pub_num=100 + i, year="2022")
         for i in range(PAGE_SIZE * 2)
     ]
 
 
 @pytest.fixture
 def perms_user():
-    # Create a user that has 'add' permission for model Ausgabe
+    # Create a user that has 'add' permission for model Edition
     user = get_user_model().objects.create_user(username="perms", password="foo")
-    user.user_permissions.add(Permission.objects.get(codename=get_permission_codename("add", Ausgabe._meta)))
+    user.user_permissions.add(Permission.objects.get(codename=get_permission_codename("add", Edition._meta)))
     return user
 
 
@@ -60,14 +60,16 @@ class TestAutocompleteView:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.url = reverse("autocomplete")
-        self.model_label = f"{Ausgabe._meta.app_label}.{Ausgabe._meta.model_name}"
+        self.model_label = f"{Edition._meta.app_label}.{Edition._meta.model_name}"
 
     def test_get_contains_result(self, admin_client, obj):
         """The response of a search query should contain the expected result."""
-        query_string = urlencode({"model": self.model_label, SEARCH_VAR: "test", SEARCH_LOOKUP_VAR: "name__icontains"})
+        query_string = urlencode(
+            {"model": self.model_label, SEARCH_VAR: "test", SEARCH_LOOKUP_VAR: '["name__icontains"]'}
+        )
         response = admin_client.get(f"{self.url}?{query_string}")
         data = json.loads(response.content)
-        assert data["results"] == list(Ausgabe.objects.filter(pk=obj.pk).values())
+        assert data["results"] == list(Edition.objects.filter(pk=obj.pk).values())
 
     @pytest.mark.parametrize("page_number,has_more", [(1, True), (2, False)])
     def test_context_pagination(self, admin_client, pages, page_number, has_more):
@@ -79,7 +81,7 @@ class TestAutocompleteView:
             "model": self.model_label,
             SEARCH_VAR: "2022",
             PAGE_VAR: str(page_number),
-            SEARCH_LOOKUP_VAR: "name__icontains",
+            SEARCH_LOOKUP_VAR: '["name__icontains"]',
         }
         response = admin_client.get(self.url, data=request_data)
         data = json.loads(response.content)
@@ -88,10 +90,10 @@ class TestAutocompleteView:
 
     def test_post_creates_new_object(self, admin_client):
         """A successful POST request should create a new model object."""
-        request_data = {"model": self.model_label, "name": "New Ausgabe", "create-field": "name"}
+        request_data = {"model": self.model_label, "name": "New Edition", "create-field": "name"}
         response = admin_client.post(self.url, data=request_data)
         assert response.status_code == 200
-        assert Ausgabe.objects.filter(name="New Ausgabe").exists()
+        assert Edition.objects.filter(name="New Edition").exists()
 
     def test_post_context_contains_object_data(self, admin_client):
         """
@@ -100,11 +102,11 @@ class TestAutocompleteView:
         """
         request_data = {
             "model": self.model_label,
-            "name": "New Ausgabe",
+            "name": "New Edition",
             "create-field": "name",
         }
         response = admin_client.post(self.url, data=request_data)
-        new = Ausgabe.objects.get(name="New Ausgabe")
+        new = Edition.objects.get(name="New Edition")
         data = json.loads(response.content)
         assert data["pk"] == new.pk
         assert data["text"] == str(new)
@@ -147,7 +149,7 @@ class TestAutocompleteView:
 
         request_data = {
             "model": self.model_label,
-            "name": "New Ausgabe",
+            "name": "New Edition",
             "create-field": "name",
             "csrfmiddlewaretoken": token.coded_value if has_csrf_token else "",
         }
@@ -159,7 +161,7 @@ class TestAutocompleteView:
 
     def test_get_no_search_term(self, client):
         """Assert that a GET request without a search term still returns results."""
-        query_string = urlencode({"model": self.model_label, SEARCH_LOOKUP_VAR: "name__icontains"})
+        query_string = urlencode({"model": self.model_label, SEARCH_LOOKUP_VAR: '["name__icontains"]'})
         response = client.get(f"{self.url}?{query_string}")
         data = json.loads(response.content)
         assert data["results"]
@@ -170,7 +172,7 @@ class TestAutocompleteView:
         results.
         """
         query_string = urlencode(
-            {"model": self.model_label, SEARCH_LOOKUP_VAR: "name__icontains", FILTERBY_VAR: "lnum=2"}
+            {"model": self.model_label, SEARCH_LOOKUP_VAR: '["name__icontains"]', FILTERBY_VAR: "pub_num=2"}
         )
         response = client.get(f"{self.url}?{query_string}")
         data = json.loads(response.content)
@@ -183,7 +185,7 @@ class TestAutocompleteView:
         has no value.
         """
         query_string = urlencode(
-            {"model": self.model_label, SEARCH_LOOKUP_VAR: "name__icontains", FILTERBY_VAR: "lnum="}
+            {"model": self.model_label, SEARCH_LOOKUP_VAR: '["name__icontains"]', FILTERBY_VAR: "pub_num="}
         )
         response = client.get(f"{self.url}?{query_string}")
         data = json.loads(response.content)
@@ -194,7 +196,7 @@ class TestAutocompleteView:
 class TestAutocompleteViewUnitTests:
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.model = Ausgabe
+        self.model = Edition
         self.queryset = self.model.objects.all()
         self.model_label = f"{self.model._meta.app_label}.{self.model._meta.model_name}"
 
@@ -213,7 +215,6 @@ class TestAutocompleteViewUnitTests:
 
     @pytest.fixture
     def post_request(self, rf, minimal_request_data, request_data):
-        print(f"{request_data=}")
         return rf.post("/", data={**minimal_request_data, **request_data})
 
     @pytest.fixture
@@ -235,23 +236,23 @@ class TestAutocompleteViewUnitTests:
         """Assert that setup() sets the `create_field` attribute."""
         assert view.create_field == "create_field"
 
-    @pytest.mark.parametrize("request_data", [{SEARCH_LOOKUP_VAR: "search_lookup"}])
-    def test_setup_sets_search_lookup(self, view, setup_view, request_data):
-        """Assert that setup() sets the `search_lookup` attribute."""
-        assert view.search_lookup == "search_lookup"
+    @pytest.mark.parametrize("request_data", [{SEARCH_LOOKUP_VAR: '["search_lookups"]'}])
+    def test_setup_sets_search_lookups(self, view, setup_view, request_data):
+        """Assert that setup() sets the `search_lookups` attribute."""
+        assert view.search_lookups == ["search_lookups"]
 
-    @pytest.mark.parametrize("request_data", [{VALUES_VAR: quote(json.dumps(["id", "name", "jahr", "num"]))}])
+    @pytest.mark.parametrize("request_data", [{VALUES_VAR: quote(json.dumps(["id", "name", "year", "pages"]))}])
     def test_setup_sets_values_select(self, view, setup_view, request_data):
         """Assert that setup() sets the `values_select` attribute."""
-        assert view.values_select == ["id", "name", "jahr", "num"]
+        assert view.values_select == ["id", "name", "year", "pages"]
 
-    @pytest.mark.parametrize("request_data", [{FILTERBY_VAR: quote("magazin_id=1")}])
+    @pytest.mark.parametrize("request_data", [{FILTERBY_VAR: quote("magazine_id=1")}])
     def test_apply_filter_by(self, view, request_data):
         """Assert that apply_filter_by applies the expected ^filter to the queryset."""
         queryset = view.apply_filter_by(self.queryset)
         assert len(queryset.query.where.children) == 1
         lookup = queryset.query.where.children[0]
-        assert lookup.lhs.target == self.model._meta.get_field("magazin")
+        assert lookup.lhs.target == self.model._meta.get_field("magazine")
         assert lookup.rhs == 1
 
     @pytest.mark.parametrize("request_data", [{}])
@@ -263,7 +264,7 @@ class TestAutocompleteViewUnitTests:
         queryset = view.apply_filter_by(self.queryset)
         assert len(queryset.query.where.children) == 0
 
-    @pytest.mark.parametrize("request_data", [{FILTERBY_VAR: quote("magazin_id=")}])
+    @pytest.mark.parametrize("request_data", [{FILTERBY_VAR: quote("magazine_id=")}])
     def test_apply_filter_by_no_filter_value(self, view, request_data):
         """
         Assert that apply_filter_by returns an empty queryset if no filter
@@ -275,7 +276,7 @@ class TestAutocompleteViewUnitTests:
 
     def test_search(self, view):
         """Assert that search filters the queryset against the given search term."""
-        view.search_lookup = "name__icontains"
+        view.search_lookups = ["name__icontains"]
         queryset = view.search(self.queryset, "Test")
         assert len(queryset.query.where.children) == 1
         lookup = queryset.query.where.children[0]
@@ -284,9 +285,9 @@ class TestAutocompleteViewUnitTests:
 
     def test_order_queryset(self, view, setup_view):
         """Assert that order_queryset applies ordering to the queryset."""
-        assert view.order_queryset(self.queryset).query.order_by == ("magazin", "name")
+        assert view.order_queryset(self.queryset).query.order_by == ("magazine", "name")
 
-    @pytest.mark.parametrize("request_data", [{SEARCH_VAR: quote("Test"), SEARCH_LOOKUP_VAR: "name__icontains"}])
+    @pytest.mark.parametrize("request_data", [{SEARCH_VAR: quote("Test"), SEARCH_LOOKUP_VAR: '["name__icontains"]'}])
     def test_get_queryset_calls_search(self, view, setup_view, request_data):
         """Assert that get_queryset calls search if a search term is given."""
         search_mock = Mock()
@@ -295,7 +296,7 @@ class TestAutocompleteViewUnitTests:
             search_mock.assert_called()
 
     @pytest.mark.parametrize(
-        "request_data", [{FILTERBY_VAR: quote("magazin_id=1"), SEARCH_LOOKUP_VAR: "name__icontains"}]
+        "request_data", [{FILTERBY_VAR: quote("magazine_id=1"), SEARCH_LOOKUP_VAR: '["name__icontains"]'}]
     )
     def test_get_queryset_calls_apply_filter_by(self, view, setup_view, request_data):
         """Assert that get_queryset calls apply_filter_by if FILTERBY_VAR is given."""
@@ -311,11 +312,11 @@ class TestAutocompleteViewUnitTests:
             view.get_queryset()
             order_queryset_mock.assert_called()
 
-    @pytest.mark.parametrize("request_data", [{VALUES_VAR: quote(json.dumps(["id", "name", "jahr", "num"]))}])
+    @pytest.mark.parametrize("request_data", [{VALUES_VAR: quote(json.dumps(["id", "name", "year", "pages"]))}])
     def test_get_result_values(self, view, setup_view, request_data, obj):
         """Assert that get_result_values returns a list of queryset values."""
         results = view.get_result_values(self.queryset.filter(pk=obj.pk))
-        assert results == [{"id": obj.pk, "name": "Test", "jahr": "3", "num": "1"}]
+        assert results == [{"id": obj.pk, "name": "Test", "year": "3", "pages": "1"}]
 
     def test_get(self, view, setup_view, admin_user, obj):
         """Assert that get returns the expected response."""

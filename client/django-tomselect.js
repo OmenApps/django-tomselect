@@ -66,6 +66,7 @@ function getSettings (elem) {
     elem.filterByElem = getElementByPrefixedName(filterBy[0], [getFormPrefix(elem)])
     elem.filterByLookup = filterBy[1]
   }
+
   return {
     preload: 'focus',
     maxOptions: null,
@@ -78,6 +79,7 @@ function getSettings (elem) {
 
     valueField: elem.dataset.valueField,
     labelField: elem.dataset.labelField,
+    showValueField: elem.dataset.showValueField ? JSON.parse(elem.dataset.showValueField) : false,
     createField: elem.dataset.createField,
     extraColumns: elem.extraColumns,
     labelColClass: elem.labelColClass,
@@ -116,15 +118,22 @@ function getPlugins (elem) {
   }
 
   if (elem.hasAttribute('is-multiple')) {
-    plugins.remove_button = { title: 'Entfernen' }
-    plugins.clear_button = { title: 'Auswahl aufheben' }
+    plugins.remove_button = { title: 'Removed' }
+    plugins.clear_button = { title: 'Clear' }
   }
 
   if (elem.hasAttribute('is-tabular')) {
     plugins.dropdown_header = {
       html: function (settings) {
-        let header = `<div class="col-1"><span class="${settings.labelClass}">${settings.valueFieldLabel}</span></div>
+        let header = ""
+
+        if (settings.showValueField === true) {
+          header = `<div class="col-1"><span class="${settings.labelClass}">${settings.valueFieldLabel}</span></div>
                       <div class="${settings.labelColClass}"><span class="${settings.labelClass}">${settings.labelFieldLabel}</span></div>`
+        } else {
+          header = `<div class="${settings.labelColClass}"><span class="${settings.labelClass}">${settings.labelFieldLabel}</span></div>`
+        }
+
         for (const h of settings.extraHeaders) {
           header += `<div class="col"><span class="${settings.labelClass}">${h}</span></div>`
         }
@@ -133,6 +142,7 @@ function getPlugins (elem) {
       valueFieldLabel: elem.dataset.valueFieldLabel,
       labelFieldLabel: elem.dataset.labelFieldLabel,
       labelColClass: elem.labelColClass,
+      showValueField: elem.dataset.showValueField ? JSON.parse(elem.dataset.showValueField) : false,
       extraHeaders: JSON.parse(elem.dataset.extraHeaders),
       headerClass: 'container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header',
       titleRowClass: 'row'
@@ -144,22 +154,29 @@ function getPlugins (elem) {
 function getRenderTemplates (elem) {
   const templates = {
     no_results: function (data, escape) {
-      return '<div class="no-results">Keine Ergebnisse</div>'
+      return '<div class="no-results">No Results</div>'
     },
     option_create: function (data, escape) {
-      return '<div class="create bg-secondary text-bg-secondary">Hinzufügen <strong>' + escape(data.input) + '</strong>&hellip;</div>'
+      return '<div class="create bg-secondary text-bg-secondary">Add value <strong>' + escape(data.input) + '</strong>&hellip;</div>'
     },
     loading_more: function (data, escape) {
-      return '<div class="loading-more-results py-2 d-flex align-items-center"><div class="spinner"></div> Lade mehr Ergebnisse </div>'
+      return '<div class="loading-more-results py-2 d-flex align-items-center"><div class="spinner"></div> Load more results </div>'
     },
     no_more_results: function (data, escape) {
-      return '<div class="no-more-results">Keine weiteren Ergebnisse</div>'
+      return '<div class="no-more-results">No more results</div>'
     }
   }
   if (elem.hasAttribute('is-tabular')) {
     templates.option = function (data, escape) {
-      let columns = `<div class="col-1">${data[this.settings.valueField]}</div>
-                     <div class="${this.settings.labelColClass}">${data[this.settings.labelField]}</div>`
+      let columns = "";
+
+      if (this.settings.showValueField === true) {
+        columns = `<div class="col-1">${data[this.settings.valueField]}</div>
+                   <div class="${this.settings.labelColClass}">${data[this.settings.labelField]}</div>`
+      } else {
+        columns = `<div class="${this.settings.labelColClass}">${data[this.settings.labelField]}</div>`
+      }
+
       for (const c of this.settings.extraColumns) {
         columns += `<div class="col">${escape(data[c] || '')}</div>`
       }
@@ -170,9 +187,9 @@ function getRenderTemplates (elem) {
 }
 
 function attachFooter (ts, elem) {
-  const changelistURL = elem.dataset.changelistUrl
+  const listviewURL = elem.dataset.listviewUrl
   const addURL = elem.dataset.addUrl
-  if (changelistURL || addURL) {
+  if (listviewURL || addURL) {
     const footer = document.createElement('div')
     footer.classList.add('d-flex', 'mt-1', 'dropdown-footer')
 
@@ -181,7 +198,7 @@ function attachFooter (ts, elem) {
       addBtn.classList.add('btn', 'btn-success', 'add-btn', 'd-none')
       addBtn.href = addURL
       addBtn.target = '_blank'
-      addBtn.innerHTML = 'Hinzufügen'
+      addBtn.innerHTML = 'Add value'
       footer.appendChild(addBtn)
       ts.on('load', () => {
         if (ts.settings.showCreateOption) {
@@ -192,12 +209,12 @@ function attachFooter (ts, elem) {
       })
       ts.on('type', (query) => {
         if (query) {
-          addBtn.innerHTML = `'${query}' hinzufügen...`
+          addBtn.innerHTML = `Add value '${query}'`
         } else {
-          addBtn.innerHTML = 'Hinzufügen'
+          addBtn.innerHTML = 'Add value'
         }
       })
-      ts.on('blur', () => { addBtn.innerHTML = 'Hinzufügen' })
+      ts.on('blur', () => { addBtn.innerHTML = 'Add value' })
 
       // If given a create field, try adding new model objects via AJAX request.
       const createField = elem.dataset.createField
@@ -237,24 +254,24 @@ function attachFooter (ts, elem) {
       }
     }
 
-    if (changelistURL) {
-      const changelistLink = document.createElement('a')
-      changelistLink.classList.add('btn', 'btn-info', 'ms-auto', 'cl-btn')
-      changelistLink.href = changelistURL
-      changelistLink.target = '_blank'
-      changelistLink.innerHTML = 'Änderungsliste'
-      footer.appendChild(changelistLink)
+    if (listviewURL) {
+      const listviewLink = document.createElement('a')
+      listviewLink.classList.add('btn', 'btn-info', 'ms-auto', 'cl-btn')
+      listviewLink.href = listviewURL
+      listviewLink.target = '_blank'
+      listviewLink.innerHTML = 'List View'
+      footer.appendChild(listviewLink)
       ts.on('type', (query) => {
         // TODO: include value of filterBy in query
         if (query) {
-          // Update the URL to the changelist to include the query
+          // Update the URL to the listview to include the query
           const queryString = new URLSearchParams({ q: encodeURIComponent(query) }).toString()
-          changelistLink.href = `${changelistURL}?${queryString}`
+          listviewLink.href = `${listviewURL}?${queryString}`
         } else {
-          changelistLink.href = changelistURL
+          listviewLink.href = listviewURL
         }
       })
-      ts.on('blur', () => { changelistLink.href = changelistURL })
+      ts.on('blur', () => { listviewLink.href = listviewURL })
     }
 
     ts.dropdown.appendChild(footer)

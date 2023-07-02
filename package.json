@@ -7,7 +7,7 @@
     "tom-select": "^2.2.2"
   },
   "scripts": {
-    "build": "esbuild client/mizselect.js --bundle --outfile=src/mizdb_tomselect/static/mizdb_tomselect/js/mizselect.js",
+    "build": "esbuild client/django-tomselect.js --bundle --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.js",
     "lint": "npx standard client/"
   }
 }

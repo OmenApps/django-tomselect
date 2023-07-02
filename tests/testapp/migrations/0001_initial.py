@@ -10,17 +10,17 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name="Ausgabe",
+            name="Edition",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("name", models.CharField(max_length=50, verbose_name="Ausgabe")),
-                ("jahr", models.CharField(max_length=50, verbose_name="Jahre")),
-                ("num", models.CharField(max_length=50, verbose_name="Nummer")),
-                ("lnum", models.CharField(max_length=50, verbose_name="lfd.Nummer")),
+                ("name", models.CharField(max_length=50, verbose_name="Edition")),
+                ("year", models.CharField(max_length=50, verbose_name="Year")),
+                ("pages", models.CharField(max_length=50, verbose_name="Pages")),
+                ("pub_num", models.CharField(max_length=50, verbose_name="Publication Number")),
             ],
             options={
-                "verbose_name": "Ausgabe",
-                "verbose_name_plural": "Ausgaben",
+                "verbose_name": "Edition",
+                "verbose_name_plural": "Editions",
             },
         ),
     ]

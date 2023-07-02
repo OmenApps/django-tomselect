@@ -1,21 +1,30 @@
-# TomSelect for Django (MIZDB)
+# Tom Select for Django
 
-Django autocomplete widgets and views using [TomSelect](https://tom-select.js.org/).
+Django autocomplete widgets and views using [Tom Select](https://tom-select.js.org/).
 
-Note that this was written specifically with the [MIZDB](https://github.com/Actionb/MIZDB) app in mind - it may not apply to your app.
+This package provides a Django autocomplete widget and view that can be used
+together to provide a user interface for selecting a model instance from a
+database table.
+
+The package is adapted from the fantastic work of 
+[Philip Becker](https://pypi.org/user/actionb/) in 
+[mizdb-tomselect](https://www.pypi.org/project/mizdb-tomselect/), with the goal 
+of a more generalized solution for Django autocompletion.
+
 <!-- TOC -->
-* [TomSelect for Django (MIZDB)](#tomselect-for-django-mizdb)
+* [Tom Select for Django](#tom-select-for-django)
   * [Installation](#installation)
   * [Usage](#usage)
   * [Widgets](#widgets)
-    * [MIZSelect](#mizselect)
-    * [MIZSelectTabular](#mizselecttabular)
+    * [TomSelectWidget](#tomselectwidget)
+    * [TomSelectTabularWidget](#tomselecttabularwidget)
+      * [Adding more columns](#adding-more-columns-)
   * [Function & Features](#function--features)
     * [Searching](#searching)
     * [Option creation](#option-creation)
       * [AJAX request](#ajax-request)
-    * [Changelist link](#changelist-link)
-    * [Filter against values of another field](#filter-against-values-of-another-field)
+    * [List View link](#list-view-link)
+    * [Chained Dropdown Filtering](#chained-dropdown-filtering)
   * [Development & Demo](#development--demo)
 <!-- TOC -->
 
@@ -24,16 +33,19 @@ Note that this was written specifically with the [MIZDB](https://github.com/Acti
 ## Installation
 
 Install:
+
 ```bash
-pip install -U mizdb-tomselect
+pip install -U django-tomselect
 ```
+
 ## Usage
 
 Add to installed apps:
+
 ```python
 INSTALLED_APPS = [
-    ...
-    "mizdb_tomselect"
+    # ...
+    "django_tomselect"
 ]
 ```
 
@@ -43,11 +55,11 @@ Configure an endpoint for autocomplete requests:
 # urls.py
 from django.urls import path
 
-from mizdb_tomselect.views import AutocompleteView
+from django_tomselect.views import AutocompleteView
 
 urlpatterns = [
-    ...
-    path('autocomplete/', AutocompleteView.as_view(), name='my_autocomplete_view')
+    # ...
+    path("autocomplete/", AutocompleteView.as_view(), name="my_autocomplete_view")
 ]
 ```
 
@@ -56,39 +68,43 @@ Use the widgets in a form.
 ```python
 from django import forms
 
-from mizdb_tomselect.widgets import MIZSelect, MIZSelectTabular
+from django_tomselect.widgets import TomSelectWidget, TomSelectTabularWidget
 from .models import City, Person
 
 
 class MyForm(forms.Form):
     city = forms.ModelChoiceField(
         City.objects.all(),
-        widget=MIZSelect(City, url='my_autocomplete_view'),
+        widget=TomSelectWidget(City, url="my_autocomplete_view"),
     )
 
-    # Display results in a table, with additional columns for fields 
-    # 'first_name' and 'last_name':
+    # Display results in a table, with additional columns for fields
+    # "first_name" and "last_name":
     person = forms.ModelChoiceField(
         Person.objects.all(),
-        widget=MIZSelectTabular(
+        widget=TomSelectTabularWidget(
             Person,
-            url='my_autocomplete_view',
-            search_lookup="full_name__icontains",
-            # for extra columns pass a mapping of model field: column header label
-            extra_columns={'first_name': "First Name", "last_name": "Last Name"},
+            url="my_autocomplete_view",
+            search_lookups=[
+                "full_name__icontains",
+            ],
+            # for extra columns pass a mapping of {"model_field": "Column Header Label"}
+            extra_columns={"first_name": "First Name", "last_name": "Last Name"},
             # The column header label for the labelField column
-            label_field_label='Full Name',
+            label_field_label="Full Name",
         ),
     )
+
 ``` 
 
 NOTE: Make sure to include [bootstrap](https://getbootstrap.com/docs/5.2/getting-started/download/) somewhere. For example in the template:
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MIZDB TomSelect Demo</title>
+    <title>Django Tom Select Demo</title>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
     {{ form.media }}
@@ -110,57 +126,77 @@ NOTE: Make sure to include [bootstrap](https://getbootstrap.com/docs/5.2/getting
 ## Widgets
 
 The widgets pass attributes necessary to make autocomplete requests to the
-HTML element via the dataset property. The TomSelect element is then initialized
+HTML element via the dataset property. The Tom Select element is then initialized
 from the attributes in the dataset property.
 
-### MIZSelect
+### TomSelectWidget
 
-Base autocomplete widget. The arguments of MIZSelect are:
+Base autocomplete widget. The arguments of TomSelectWidget are:
 
-| Argument       | Default value                          | Description                                                                                    |
-|----------------|----------------------------------------|------------------------------------------------------------------------------------------------|
-| model          | **required**                           | the model class that provides the choices                                                      |
-| url            | `"autocomplete"`                       | URL pattern name of the autocomplete view                                                      |
-| value_field    | `f"{model._meta.pk.name}"`             | model field that provides the value of an option                                               |
-| label_field    | `getattr(model, "name_field", "name")` | model field that provides the label of an option                                               |
-| search_lookup  | `f"{label_field}__icontains"`          | the lookup to use when filtering the results                                                   |
-| create_field   |                                        | model field to create new objects with ([see below](#ajax-request))                            |
-| multiple       | False                                  | if True, allow selecting multiple options                                                      |
-| changelist_url |                                        | URL name of the changelist view for this model ([see below](#changelist-link))                 |
-| add_url        |                                        | URL name of the add view for this model([see below](#option-creation))                         |
-| filter_by      |                                        | a 2-tuple defining an additional filter ([see below](#filter-against-values-of-another-field)) |
+| Argument       | Default value                                                                                                                                   | Description                                                                                    |
+|----------------|-------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| model          | **required**                                                                                                                                    | the model class that provides the choices                                                      |
+| url            | `"autocomplete"`                                                                                                                                | URL pattern name of the autocomplete view                                                      |
+| value_field    | `f"{model._meta.pk.name}"`                                                                                                                      | model field that provides the value of an option                                               |
+| label_field    | `getattr(model, "name_field", "name")`                                                                                                          | model field that provides the label of an option                                               |
+| search_lookups | <code>[<br/>&nbsp;&nbsp;&nbsp;&nbsp;f"{self.value_field}__icontains",<br/>&nbsp;&nbsp;&nbsp;&nbsp;f"{self.label_field}__icontains",<br/>]<code> | the list of lookups to use when filtering the results                                          |
+| create_field   |                                                                                                                                                 | model field to create new objects with ([see below](#ajax-request))                            |
+| multiple       | False                                                                                                                                           | if True, allow selecting multiple options                                                      |
+| listview_url   |                                                                                                                                                 | URL name of the list view for this model ([see below](#list-view-link))                        |
+| add_url        |                                                                                                                                                 | URL name of the add view for this model([see below](#option-creation))                         |
+| filter_by      |                                                                                                                                                 | a 2-tuple defining an additional filter ([see below](#filter-against-values-of-another-field)) |
 
 
-### MIZSelectTabular
-
+### TomSelectTabularWidget
 
 This widget displays the results in tabular form. A table header will be added
 to the dropdown. By default, the table contains two columns: one column for the choice 
 value (commonly the "ID" of the option) and one column for the choice label (the 
 human-readable part of the choice).
 
-![Tabular select preview](./assets/mizselect_tabular.png "Tabular select preview")
+![Tabular select preview](./assets/tomselect_tabular.png "Tabular select preview")
 
-MIZSelectTabular has the following additional arguments:
+TomSelectTabularWidget has the following additional arguments:
 
-| Argument           | Default value                   | Description                         |
-|--------------------|---------------------------------|-------------------------------------|
-| extra_columns      |                                 | a mapping for additional columns    |
-| value_field_label  | `f"{value_field.title()}"`      | table header for the value column   |
-| label_field_label  | `f"{model._meta.verbose_name}"` | table header for the label column   |
+| Argument          | Default value                   | Description                                  |
+|-------------------|---------------------------------|----------------------------------------------|
+| extra_columns     |                                 | a mapping for additional columns             |
+| value_field_label | `f"{value_field.title()}"`      | table header for the value column            |
+| label_field_label | `f"{model._meta.verbose_name}"` | table header for the label column            |
+| label_field_label | `f"{model._meta.verbose_name}"` | table header for the label column            |
+| show_value_field  | `False`                         | show the value field column (typically `id`) |
 
 #### Adding more columns 
 
-To add more columns, pass a `result attribute name: column label` mapping to the widget
-argument `extra_columns`.
+To add more columns, pass a dictionary mapping field names to column labels as
+`extra_columns` to the widget's arguments.
 
-The column label is the table header label for a given column.  
+```python
+from django import forms
+from django_tomselect.widgets import TomSelectTabularWidget
+from .models import Person
 
-The attribute name tells TomSelect what value to look up on a result for the column.
 
-**Important**: that means that the result visible to TomSelect must have an attribute
+class MyForm(forms.Form):
+    person = forms.ModelChoiceField(
+        Person.objects.all(),
+        widget=TomSelectTabularWidget(
+            Person,
+            url="my_autocomplete_view",
+            # for extra columns pass a mapping of {"model_field": "Column Header Label"}
+            extra_columns={"first_name": "First Name", "last_name": "Last Name"},
+        ),
+    )
+
+```
+
+The column label is the header label for a given column in the table.  
+
+The attribute name tells Tom Select what value to look up on a result for the column.
+
+**Important**: that means that the result visible to Tom Select must have an attribute
 or property with that name or the column will remain empty. 
-The results for TomSelect are created by the view calling `values()` on the 
+The results for Tom Select are created by the view calling `values()` on the 
 result queryset, so you must make sure that the attribute name is available
 on the view's root queryset as either a model field or as an annotation.
 
@@ -170,13 +206,16 @@ on the view's root queryset as either a model field or as an annotation.
 
 ### Searching
 
-The AutocompleteView filters the result queryset against the `search_lookup`
+The AutocompleteView filters the result queryset against the `search_lookups`
 passed to the widget. The default value for the lookup is `name__icontains`.
 Overwrite the `AutocompleteView.search` method to modify the search process.
+
 ```python
+from django_tomselect.views import AutocompleteView
+
+
 class MyAutocompleteView(AutocompleteView):
-    
-    def search(self, request, queryset, q):
+    def search(self, queryset, q):
         # Filter using your own queryset method:
         return queryset.search(q)
 ```
@@ -189,14 +228,20 @@ bottom of the dropdown.
 
 ```python
 # urls.py
+from django.urls import path
+from django_tomselect.views import AutocompleteView
+from django_tomselect.widgets import TomSelectWidget
+from .models import City
+from .views import CityAddView
+
 urlpatterns = [
-    ...
-    path('autocomplete/', AutocompleteView.as_view(), name='my_autocomplete_view'),
-    path('city/add/', CityAddView.as_view(), name='city_add'),
+    # ...
+    path("autocomplete/", AutocompleteView.as_view(), name="my_autocomplete_view"),
+    path("city/add/", CityAddView.as_view(), name="city_add"),
 ]
 
 # forms.py
-widget = MIZSelect(City, url='my_autocomplete_view', add_url='city_add')
+widget = TomSelectWidget(City, url="my_autocomplete_view", add_url="city_add")
 ```
 
 Clicking on that button sends the user to the add page of the model.
@@ -218,53 +263,67 @@ class AutocompleteView:
 
 Override the view's `create_object` method to change the creation process.
 
-### Changelist link
+### List View link
 
-The dropdown will include a link to the changelist of the given model if you
-pass in the URL pattern name of the changelist view.
+The dropdown will include a link to the list view of the given model if you
+pass in the URL pattern name of the list view.
 
 ```python
 # urls.py
+from django.urls import path
+from django_tomselect.views import AutocompleteView
+from django_tomselect.widgets import TomSelectWidget
+from .models import City
+from .views import CityListView
+
 urlpatterns = [
-    ...
-    path('autocomplete/', AutocompleteView.as_view(), name='my_autocomplete_view'),
-    path('city/change/', CityChangelistView.as_view(), name='city_changelist'),
+    # ...
+    path("autocomplete/", AutocompleteView.as_view(), name="my_autocomplete_view"),
+    path("city/list/", CityListView.as_view(), name="city_listview"),
 ]
 
 # forms.py
-widget = MIZSelect(City, url='my_autocomplete_view', changelist_url='city_changelist')
+widget = TomSelectWidget(City, url="my_autocomplete_view", listview_url="city_listview")
 ```
 
-### Filter against values of another field
+### Chained Dropdown Filtering
 
-Use the `filter_by` argument to restrict the available options to the value of 
-another field. The parameter must be a 2-tuple: `(name_of_the_other_form_field, django_field_lookup)`
+Use the `filter_by` argument to restrict the available options of one 
+TomSelectWidget to the value selected in another form field. The parameter must 
+be a 2-tuple:  `(name_of_the_other_form_field, django_field_lookup)`
+
 ```python
 # models.py
+from django import forms
+from django.db import models
+from django_tomselect.widgets import TomSelectWidget
+
+
 class Person(models.Model):
     name = models.CharField(max_length=50)
     city = models.ForeignKey("City", on_delete=models.SET_NULL, blank=True, null=True)
-    
+
+
 class City(models.Model):
     name = models.CharField(max_length=50)
     is_capitol = models.BooleanField(default=False)
+
 
 # forms.py
 class PersonsFromCapitolsForm(forms.Form):
     capitol = forms.ModelChoiceField(queryset=City.objects.filter(is_capitol=True))
     person = forms.ModelChoiceField(
         queryset=Person.objects.all(),
-        widget=MIZSelect(
-            Person,
-            filter_by=("capitol", "city_id")
-        )
+        widget=TomSelectWidget(Person, filter_by=("capitol", "city_id")),
     )
 ```
+
 This will result in the Person result queryset to be filtered against 
-`city_id` with the current value of the `capitol` formfield.  
-NOTE: When using `filter_by`, the declaring element now **requires** that the other field 
-provides a value. If the other field does not have a value, the search will not 
-return any results.
+`city_id` for the currently selected `capitol` formfield value.  
+NOTE: When using `filter_by`, the declaring element now **requires** that the 
+other field provides a value, since its choices are dependent on the other 
+field. If the other field does not have a value, the search will not return any 
+results.
 
 ----
 

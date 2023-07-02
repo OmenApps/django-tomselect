@@ -2,13 +2,22 @@ from django.http import HttpResponse
 from django.urls import path
 from django.views.generic import FormView
 
-from mizdb_tomselect.views import AutocompleteView
+from django_tomselect.views import AutocompleteView
 
-from .forms import AddForm, ChangeForm, CreateForm, FilteredForm, MultipleForm, SimpleForm, TabularForm
+from .forms import (
+    AddForm,
+    ListViewForm,
+    CreateForm,
+    FilteredForm,
+    MultipleForm,
+    SimpleForm,
+    TabularForm,
+    TabularWithValueFieldForm,
+)
 
 
-def changelist_view(request):
-    return HttpResponse("This is a dummy changelist page.")
+def listview_view(request):
+    return HttpResponse("This is a dummy listview page.")
 
 
 def add_view(request):
@@ -19,11 +28,16 @@ urlpatterns = [
     path("simple/", FormView.as_view(form_class=SimpleForm, template_name="base.html"), name="simple"),
     path("multiple/", FormView.as_view(form_class=MultipleForm, template_name="base.html"), name="multiple"),
     path("tabular/", FormView.as_view(form_class=TabularForm, template_name="base.html"), name="tabular"),
+    path(
+        "tabular-with-value-field/",
+        FormView.as_view(form_class=TabularWithValueFieldForm, template_name="base.html"),
+        name="tabular-with-value-field",
+    ),
     path("create/", FormView.as_view(form_class=CreateForm, template_name="base.html"), name="create"),
     path("with_add/", FormView.as_view(form_class=AddForm, template_name="base.html"), name="add"),
-    path("with_change/", FormView.as_view(form_class=ChangeForm, template_name="base.html"), name="changelist"),
+    path("with_listview/", FormView.as_view(form_class=ListViewForm, template_name="base.html"), name="listview"),
     path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base.html"), name="filtered"),
     path("ac/", AutocompleteView.as_view(), name="ac"),
     path("add/", add_view, name="add_page"),
-    path("changelist/", changelist_view, name="changelist_page"),
+    path("listview/", listview_view, name="listview_page"),
 ]

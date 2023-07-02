@@ -2,7 +2,7 @@
 # tox takes its coverage config from pyproject.toml.
 [run]
 branch = True
-source = mizdb_tomselect
+source = django_tomselect
 disable_warnings = module-not-measured
 
 [paths]

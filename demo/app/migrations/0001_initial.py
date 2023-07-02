@@ -11,35 +11,35 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name="Ausgabe",
+            name="Edition",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("name", models.CharField(max_length=50, verbose_name="Ausgabe")),
-                ("jahr", models.CharField(max_length=50, verbose_name="Jahre")),
-                ("num", models.CharField(max_length=50, verbose_name="Nummer")),
-                ("lnum", models.CharField(max_length=50, verbose_name="lfd.Nummer")),
+                ("name", models.CharField(max_length=50, verbose_name="Name")),
+                ("year", models.CharField(max_length=50, verbose_name="Year")),
+                ("pages", models.CharField(max_length=50, verbose_name="Pages")),
+                ("pub_num", models.CharField(max_length=50, verbose_name="Pub Number")),
             ],
             options={
-                "verbose_name": "Ausgabe",
-                "verbose_name_plural": "Ausgaben",
+                "verbose_name": "Edition",
+                "verbose_name_plural": "Editions",
             },
         ),
         migrations.CreateModel(
-            name="Magazin",
+            name="Magazine",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("name", models.CharField(max_length=50, verbose_name="Magazin Name")),
+                ("name", models.CharField(max_length=50, verbose_name="Name")),
             ],
             options={
-                "verbose_name": "Magazin",
-                "verbose_name_plural": "Magazine",
+                "verbose_name": "Magazine",
+                "verbose_name_plural": "Magazines",
             },
         ),
         migrations.AddField(
-            model_name="ausgabe",
-            name="magazin",
+            model_name="edition",
+            name="magazine",
             field=models.ForeignKey(
-                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="app.magazin"
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="app.magazine"
             ),
         ),
     ]
