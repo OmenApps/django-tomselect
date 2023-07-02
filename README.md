@@ -154,7 +154,7 @@ to the dropdown. By default, the table contains two columns: one column for the 
 value (commonly the "ID" of the option) and one column for the choice label (the 
 human-readable part of the choice).
 
-![Tabular select preview](./assets/tomselect_tabular.png "Tabular select preview")
+![Tabular select preview](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/assets/tomselect_tabular.png "Tabular select preview")
 
 TomSelectTabularWidget has the following additional arguments:
 
