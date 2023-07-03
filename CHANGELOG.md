@@ -1,5 +1,11 @@
 # Changelog
 
+## django-tomselect 0.4.1
+
+- Minor linting improvements
+- Expand and correct text in README
+- Correct licence header
+
 ## django-tomselect 0.4.0
 
 - Rename package to `django-tomselect`
