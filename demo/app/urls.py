@@ -23,9 +23,11 @@ from .views import DemoAutocompleteView, add_view, listview_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", FormView.as_view(form_class=Form, template_name="base.html"), name="demo"),
+    path("", FormView.as_view(form_class=Form, template_name="base5.html"), name="demo"),
+    path("bs4/", FormView.as_view(form_class=Form, template_name="base4.html"), name="demo-bs4"),
     path("autocomplete/", DemoAutocompleteView.as_view(), name="autocomplete"),
     path("listview/", listview_view, name="listview"),
     path("add/", add_view, name="add"),
-    path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base.html"), name="filtered"),
+    path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base5.html"), name="filtered"),
+    path("filtered-bs4/", FormView.as_view(form_class=FilteredForm, template_name="base4.html"), name="filtered-bs4"),
 ]

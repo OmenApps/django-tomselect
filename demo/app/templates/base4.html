@@ -1,0 +1,21 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Django Tom Select Demo</title>
+    <link href="{% static 'bootstrap-legacy/dist/css/bootstrap.css' %}" rel="stylesheet">
+    <link href="{% static 'bootswatch-legacy/dist/flatly/bootstrap.css' %}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="{% static 'bootstrap-legacy/dist/js/bootstrap.bundle.js' %}"></script>
+    {{ form.media }}
+</head>
+<body>
+<div class="container">
+    <form>
+        {% csrf_token %}
+        {{ form.as_div }}
+        <button type="submit" class="btn btn-success">Save</button>
+    </form>
+</div>
+</body>
+</html>

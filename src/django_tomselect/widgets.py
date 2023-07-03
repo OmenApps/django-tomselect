@@ -3,6 +3,8 @@ import json
 from django import forms
 from django.urls import reverse
 
+from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION
+
 
 class TomSelectWidget(forms.Select):
     """
@@ -18,12 +20,13 @@ class TomSelectWidget(forms.Select):
         url="autocomplete",
         value_field="",
         label_field="",
-        search_lookups="",
+        search_lookups=(),
         create_field="",
         multiple=False,
         listview_url="",
         add_url="",
         filter_by=(),
+        bootstrap_version=DJANGO_TOMSELECT_BOOTSTRAP_VERSION,
         **kwargs,
     ):
         """
@@ -51,6 +54,9 @@ class TomSelectWidget(forms.Select):
               results against the value of the form field using the given
               Django field lookup. For example:
                ('foo', 'bar__id') => results.filter(bar__id=data['foo'])
+            bootstrap_version: the Bootstrap version to use for the widget. Can
+                be set project-wide via settings.TOMSELECT_BOOTSTRAP_VERSION,
+                or per-widget instance. Defaults to 5.
             kwargs: additional keyword arguments passed to forms.Select
         """
         self.model = model
@@ -66,6 +72,7 @@ class TomSelectWidget(forms.Select):
         self.listview_url = listview_url
         self.add_url = add_url
         self.filter_by = filter_by
+        self.bootstrap_version = bootstrap_version if bootstrap_version in (4, 5) else 5
         super().__init__(**kwargs)
 
     def optgroups(self, name, value, attrs=None):
@@ -106,14 +113,28 @@ class TomSelectWidget(forms.Select):
         )
         return attrs
 
-    class Media:
-        css = {
-            "all": [
-                "vendor/tom-select/css/tom-select.bootstrap5.css",
-                "django_tomselect/css/django-tomselect.css",
-            ],
-        }
-        js = ["django_tomselect/js/django-tomselect.js"]
+    @property
+    def media(self):
+        if self.bootstrap_version == 4:
+            return forms.Media(
+                css={
+                    "all": [
+                        "vendor/tom-select/css/tom-select.bootstrap4.css",
+                        "django_tomselect/css/django-tomselect.css",
+                    ],
+                },
+                js=["django_tomselect/js/django-tomselect.js"],
+            )
+        else:
+            return forms.Media(
+                css={
+                    "all": [
+                        "vendor/tom-select/css/tom-select.bootstrap5.css",
+                        "django_tomselect/css/django-tomselect.css",
+                    ],
+                },
+                js=["django_tomselect/js/django-tomselect.js"],
+            )
 
 
 class TomSelectTabularWidget(TomSelectWidget):

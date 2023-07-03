@@ -19,7 +19,10 @@ of a more generalized solution for Django autocompletion.
     * [TomSelectWidget](#tomselectwidget)
     * [TomSelectTabularWidget](#tomselecttabularwidget)
       * [Adding more columns](#adding-more-columns-)
+  * [Settings](#settings)
+    * [TOMSELECT_BOOTSTRAP_VERSION](#tomselectbootstrapversion)
   * [Function & Features](#function--features)
+    * [Modifying the initial QuerySet](#modifying-the-initial-queryset)
     * [Searching](#searching)
     * [Option creation](#option-creation)
       * [AJAX request](#ajax-request)
@@ -133,19 +136,19 @@ from the attributes in the dataset property.
 
 Base autocomplete widget. The arguments of TomSelectWidget are:
 
-| Argument       | Default value                                                                                                                                   | Description                                                                                    |
-|----------------|-------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| model          | **required**                                                                                                                                    | the model class that provides the choices                                                      |
-| url            | `"autocomplete"`                                                                                                                                | URL pattern name of the autocomplete view                                                      |
-| value_field    | `f"{model._meta.pk.name}"`                                                                                                                      | model field that provides the value of an option                                               |
-| label_field    | `getattr(model, "name_field", "name")`                                                                                                          | model field that provides the label of an option                                               |
-| search_lookups | <code>[<br/>&nbsp;&nbsp;&nbsp;&nbsp;f"{self.value_field}__icontains",<br/>&nbsp;&nbsp;&nbsp;&nbsp;f"{self.label_field}__icontains",<br/>]<code> | the list of lookups to use when filtering the results                                          |
-| create_field   |                                                                                                                                                 | model field to create new objects with ([see below](#ajax-request))                            |
-| multiple       | False                                                                                                                                           | if True, allow selecting multiple options                                                      |
-| listview_url   |                                                                                                                                                 | URL name of the list view for this model ([see below](#list-view-link))                        |
-| add_url        |                                                                                                                                                 | URL name of the add view for this model([see below](#option-creation))                         |
-| filter_by      |                                                                                                                                                 | a 2-tuple defining an additional filter ([see below](#chained-dropdown-filtering)) |
-
+| Argument          | Default value                                                           | Description                                                                        |
+|-------------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| model             | **required**                                                            | the model class that provides the choices                                          |
+| url               | `"autocomplete"`                                                        | URL pattern name of the autocomplete view                                          |
+| value_field       | `f"{model._meta.pk.name}"`                                              | model field that provides the value of an option                                   |
+| label_field       | `getattr(model, "name_field", "name")`                                  | model field that provides the label of an option                                   |
+| search_lookups    | `[f"{self.value_field}__icontains", f"{self.label_field}__icontains"]`  | the list of lookups to use when filtering the results                              |
+| create_field      | ""                                                                      | model field to create new objects with ([see below](#ajax-request))                |
+| multiple          | False                                                                   | if True, allow selecting multiple options                                          |
+| listview_url      | ""                                                                      | URL name of the list view for this model ([see below](#list-view-link))            |
+| add_url           | ""                                                                      | URL name of the add view for this model([see below](#option-creation))             |
+| filter_by         | ()                                                                      | a 2-tuple defining an additional filter ([see below](#chained-dropdown-filtering)) |
+| bootstrap_version | 5                                                                       | the bootstrap version to use, either `4` or `5`                                    |
 
 ### TomSelectTabularWidget
 
@@ -199,6 +202,18 @@ or property with that name or the column will remain empty.
 The results for Tom Select are created by the view calling `values()` on the 
 result queryset, so you must make sure that the attribute name is available
 on the view's root queryset as either a model field or as an annotation.
+
+----
+
+## Settings
+
+### TOMSELECT_BOOTSTRAP_VERSION
+
+The bootstrap version to use. Either `4` or `5`. Defaults to `5`.
+
+This sets the project-wide default for the `bootstrap_version` argument of the
+widgets. You can overwrite the default for a specific widget by passing the
+`bootstrap_version` argument to the widget.
 
 ----
 

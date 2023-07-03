@@ -1,5 +1,9 @@
 # Changelog
 
+## django-tomselect 0.4.2
+
+- Add ability to specify the bootstrap version to use at project & widget level
+
 ## django-tomselect 0.4.1
 
 - Minor linting improvements
