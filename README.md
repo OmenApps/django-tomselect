@@ -144,7 +144,7 @@ Base autocomplete widget. The arguments of TomSelectWidget are:
 | multiple       | False                                                                                                                                           | if True, allow selecting multiple options                                                      |
 | listview_url   |                                                                                                                                                 | URL name of the list view for this model ([see below](#list-view-link))                        |
 | add_url        |                                                                                                                                                 | URL name of the add view for this model([see below](#option-creation))                         |
-| filter_by      |                                                                                                                                                 | a 2-tuple defining an additional filter ([see below](#filter-against-values-of-another-field)) |
+| filter_by      |                                                                                                                                                 | a 2-tuple defining an additional filter ([see below](#chained-dropdown-filtering)) |
 
 
 ### TomSelectTabularWidget
@@ -204,9 +204,25 @@ on the view's root queryset as either a model field or as an annotation.
 
 ## Function & Features
 
+### Modifying the initial QuerySet
+
+If you want to modify all autocomplete queries for a subclassed AutocompleteView, you can use `super()` with the `get_queryset()` method.
+
+```python
+from django_tomselect.views import AutocompleteView
+
+
+class MyAutocompleteView(AutocompleteView):
+    def get_queryset(self):
+        """Toy example of filtering all queries in this view to id values less than 10"""
+        queryset = super().get_queryset()
+        queryset.filter(id__lt=10)
+        return queryset
+```
+
 ### Searching
 
-The AutocompleteView filters the result queryset against the `search_lookups`
+The AutocompleteView filters the result QuerySet against the `search_lookups`
 passed to the widget. The default value for the lookup is `name__icontains`.
 Overwrite the `AutocompleteView.search` method to modify the search process.
 
