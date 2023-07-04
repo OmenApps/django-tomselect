@@ -119,7 +119,7 @@ class TomSelectWidget(forms.Select):
             return forms.Media(
                 css={
                     "all": [
-                        "vendor/tom-select/css/tom-select.bootstrap4.css",
+                        "django_tomselect/vendor/tom-select/css/tom-select.bootstrap4.css",
                         "django_tomselect/css/django-tomselect.css",
                     ],
                 },
@@ -129,7 +129,7 @@ class TomSelectWidget(forms.Select):
             return forms.Media(
                 css={
                     "all": [
-                        "vendor/tom-select/css/tom-select.bootstrap5.css",
+                        "django_tomselect/vendor/tom-select/css/tom-select.bootstrap5.css",
                         "django_tomselect/css/django-tomselect.css",
                     ],
                 },
