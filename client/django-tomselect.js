@@ -1,6 +1,7 @@
 import TomSelect from 'tom-select/src/tom-select'
 
 /* eslint-disable camelcase */
+import checkbox_options from 'tom-select/src/plugins/checkbox_options/plugin'
 import clear_button from 'tom-select/src/plugins/clear_button/plugin'
 import dropdown_header from 'tom-select/src/plugins/dropdown_header/plugin'
 import dropdown_input from 'tom-select/src/plugins/dropdown_input/plugin'
@@ -8,6 +9,7 @@ import remove_button from 'tom-select/src/plugins/remove_button/plugin'
 import virtual_scroll from 'tom-select/src/plugins/virtual_scroll/plugin'
 /* eslint-enable camelcase */
 
+TomSelect.define('checkbox_options', checkbox_options)
 TomSelect.define('clear_button', clear_button)
 TomSelect.define('dropdown_header', dropdown_header)
 TomSelect.define('dropdown_input', dropdown_input)
@@ -278,32 +280,57 @@ function attachFooter (ts, elem) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', (event) => {
-  document.querySelectorAll('[is-tomselect]').forEach((elem) => {
-    const ts = new TomSelect(elem, getSettings(elem))
-    attachFooter(ts, elem)
 
-    // Reload the default/initial options when the input is cleared:
-    ts.on('type', (query) => {
-      if (!query) {
-        ts.load('')
-        ts.refreshOptions()
-      }
-    })
-    if (elem.filterByElem) {
-      // Force re-fetching the options when the value of the filterBy element
-      // changes.
-      elem.filterByElem.addEventListener('change', () => {
-        // Reset the pagination (query:url) mapping of the virtual_scroll
-        // plugin. This is necessary because the filter value is not part of
-        // the query string, which means that the mapping might return an URL
-        // that is incorrect for the current filter.
-        ts.getUrl(null)
-        // Clear all options, but leave the selected items.
-        ts.clearOptions()
-        // Remove the flag that this element has already been loaded.
-        ts.wrapper.classList.remove('preloaded')
-      })
+function attachTomSelectToElem (elem=null) {
+  const ts = new TomSelect(elem, getSettings(elem))
+  attachFooter(ts, elem)
+
+  // Reload the default/initial options when the input is cleared:
+  ts.on('type', (query) => {
+    if (!query) {
+      ts.load('')
+      ts.refreshOptions()
     }
   })
+  if (elem.filterByElem) {
+    // Force re-fetching the options when the value of the filterBy element
+    // changes.
+    elem.filterByElem.addEventListener('change', () => {
+      // Reset the pagination (query:url) mapping of the virtual_scroll
+      // plugin. This is necessary because the filter value is not part of
+      // the query string, which means that the mapping might return an URL
+      // that is incorrect for the current filter.
+      ts.getUrl(null)
+      // Clear all options, but leave the selected items.
+      ts.clearOptions()
+      // Remove the flag that this element has already been loaded.
+      ts.wrapper.classList.remove('preloaded')
+    })
+  }
+}
+
+function processElementsForTomSelect (elemID=null) {
+  if (elemID) {
+    // Only attach to the given element.
+    const elem = document.querySelector(`[id="${elemID}"]`)
+    // Perform a sanity check to make sure the element exists.
+    if (!elem) {
+        console.error(`No element with name "${elemID}" found.`);
+        return;
+    }
+    attachTomSelectToElem(elem);
+  } else {
+    document.querySelectorAll('[is-tomselect]').forEach((elem) => {
+      attachTomSelectToElem(elem);
+    });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", (event) => {
+  processElementsForTomSelect();
+});
+
+window.addEventListener("triggerTomSelect", e => {
+  processElementsForTomSelect(e.detail.elemID);
 })
+// Trigger event with `window.dispatchEvent(new CustomEvent('triggerTomSelect', { detail: { elemID: 'id_form_field' } }))`

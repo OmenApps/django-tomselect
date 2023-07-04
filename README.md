@@ -28,6 +28,7 @@ of a more generalized solution for Django autocompletion.
       * [AJAX request](#ajax-request)
     * [List View link](#list-view-link)
     * [Chained Dropdown Filtering](#chained-dropdown-filtering)
+  * [Manually Initializing Tom Select Fields](#manually-initializing-tom-select-fields)
   * [Development & Demo](#development--demo)
 <!-- TOC -->
 
@@ -355,6 +356,28 @@ NOTE: When using `filter_by`, the declaring element now **requires** that the
 other field provides a value, since its choices are dependent on the other 
 field. If the other field does not have a value, the search will not return any 
 results.
+
+----
+
+## Manually Initializing Tom Select Fields
+
+If a form is added dynamically after the page loads (e.g.: with htmx), the new form 
+fields will not be initialized as django-tomselect fields. In order to manually 
+initialize them, dispatch a `triggerTomSelect` event, providing the id of the 
+form field as a value in `detail` as follows.
+
+```javascript
+<script>
+  document.addEventListener("DOMContentLoaded", (event) => {
+    window.dispatchEvent(new CustomEvent('triggerTomSelect', {
+      detail: {
+        elemID: 'id_tomselect_tabular'
+      }
+    }))
+  });
+</script>
+
+````
 
 ----
 

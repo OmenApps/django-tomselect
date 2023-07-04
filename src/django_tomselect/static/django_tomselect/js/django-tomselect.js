@@ -3904,8 +3904,68 @@
     }
   };
 
+  // node_modules/tom-select/src/plugins/checkbox_options/plugin.ts
+  function plugin_default() {
+    var self2 = this;
+    var orig_onOptionSelect = self2.onOptionSelect;
+    self2.settings.hideSelected = false;
+    var UpdateCheckbox = function(option) {
+      setTimeout(() => {
+        var checkbox = option.querySelector("input");
+        if (checkbox instanceof HTMLInputElement) {
+          if (option.classList.contains("selected")) {
+            checkbox.checked = true;
+          } else {
+            checkbox.checked = false;
+          }
+        }
+      }, 1);
+    };
+    self2.hook("after", "setupTemplates", () => {
+      var orig_render_option = self2.settings.render.option;
+      self2.settings.render.option = (data, escape_html2) => {
+        var rendered = getDom(orig_render_option.call(self2, data, escape_html2));
+        var checkbox = document.createElement("input");
+        checkbox.addEventListener("click", function(evt) {
+          preventDefault(evt);
+        });
+        checkbox.type = "checkbox";
+        const hashed = hash_key(data[self2.settings.valueField]);
+        if (hashed && self2.items.indexOf(hashed) > -1) {
+          checkbox.checked = true;
+        }
+        rendered.prepend(checkbox);
+        return rendered;
+      };
+    });
+    self2.on("item_remove", (value) => {
+      var option = self2.getOption(value);
+      if (option) {
+        option.classList.remove("selected");
+        UpdateCheckbox(option);
+      }
+    });
+    self2.on("item_add", (value) => {
+      var option = self2.getOption(value);
+      if (option) {
+        UpdateCheckbox(option);
+      }
+    });
+    self2.hook("instead", "onOptionSelect", (evt, option) => {
+      if (option.classList.contains("selected")) {
+        option.classList.remove("selected");
+        self2.removeItem(option.dataset.value);
+        self2.refreshOptions();
+        preventDefault(evt, true);
+        return;
+      }
+      orig_onOptionSelect.call(self2, evt, option);
+      UpdateCheckbox(option);
+    });
+  }
+
   // node_modules/tom-select/src/plugins/clear_button/plugin.ts
-  function plugin_default(userOptions) {
+  function plugin_default2(userOptions) {
     const self2 = this;
     const options = Object.assign({
       className: "clear-button",
@@ -3932,7 +3992,7 @@
   }
 
   // node_modules/tom-select/src/plugins/dropdown_header/plugin.ts
-  function plugin_default2(userOptions) {
+  function plugin_default3(userOptions) {
     const self2 = this;
     const options = Object.assign({
       title: "Untitled",
@@ -3958,7 +4018,7 @@
   }
 
   // node_modules/tom-select/src/plugins/dropdown_input/plugin.ts
-  function plugin_default3() {
+  function plugin_default4() {
     const self2 = this;
     self2.settings.shouldOpen = true;
     self2.hook("before", "setup", () => {
@@ -4009,7 +4069,7 @@
   }
 
   // node_modules/tom-select/src/plugins/remove_button/plugin.ts
-  function plugin_default4(userOptions) {
+  function plugin_default5(userOptions) {
     const options = Object.assign({
       label: "&times;",
       title: "Remove",
@@ -4046,7 +4106,7 @@
   }
 
   // node_modules/tom-select/src/plugins/virtual_scroll/plugin.ts
-  function plugin_default5() {
+  function plugin_default6() {
     const self2 = this;
     const orig_canLoad = self2.canLoad;
     const orig_clearActiveOption = self2.clearActiveOption;
@@ -4171,11 +4231,12 @@
   }
 
   // client/django-tomselect.js
-  TomSelect.define("clear_button", plugin_default);
-  TomSelect.define("dropdown_header", plugin_default2);
-  TomSelect.define("dropdown_input", plugin_default3);
-  TomSelect.define("remove_button", plugin_default4);
-  TomSelect.define("virtual_scroll", plugin_default5);
+  TomSelect.define("checkbox_options", plugin_default);
+  TomSelect.define("clear_button", plugin_default2);
+  TomSelect.define("dropdown_header", plugin_default3);
+  TomSelect.define("dropdown_input", plugin_default4);
+  TomSelect.define("remove_button", plugin_default5);
+  TomSelect.define("virtual_scroll", plugin_default6);
   function getFormPrefix(elem) {
     const parts = elem.getAttribute("name").split("-").slice(0, -1);
     if (parts.length) {
@@ -4408,24 +4469,42 @@
       ts.dropdown.appendChild(footer);
     }
   }
-  document.addEventListener("DOMContentLoaded", (event) => {
-    document.querySelectorAll("[is-tomselect]").forEach((elem) => {
-      const ts = new TomSelect(elem, getSettings2(elem));
-      attachFooter(ts, elem);
-      ts.on("type", (query) => {
-        if (!query) {
-          ts.load("");
-          ts.refreshOptions();
-        }
-      });
-      if (elem.filterByElem) {
-        elem.filterByElem.addEventListener("change", () => {
-          ts.getUrl(null);
-          ts.clearOptions();
-          ts.wrapper.classList.remove("preloaded");
-        });
+  function attachTomSelectToElem(elem = null) {
+    const ts = new TomSelect(elem, getSettings2(elem));
+    attachFooter(ts, elem);
+    ts.on("type", (query) => {
+      if (!query) {
+        ts.load("");
+        ts.refreshOptions();
       }
     });
+    if (elem.filterByElem) {
+      elem.filterByElem.addEventListener("change", () => {
+        ts.getUrl(null);
+        ts.clearOptions();
+        ts.wrapper.classList.remove("preloaded");
+      });
+    }
+  }
+  function processElementsForTomSelect(elemID = null) {
+    if (elemID) {
+      const elem = document.querySelector(`[id="${elemID}"]`);
+      if (!elem) {
+        console.error(`No element with name "${elemID}" found.`);
+        return;
+      }
+      attachTomSelectToElem(elem);
+    } else {
+      document.querySelectorAll("[is-tomselect]").forEach((elem) => {
+        attachTomSelectToElem(elem);
+      });
+    }
+  }
+  document.addEventListener("DOMContentLoaded", (event) => {
+    processElementsForTomSelect();
+  });
+  window.addEventListener("triggerTomSelect", (e) => {
+    processElementsForTomSelect(e.detail.elemID);
   });
 })();
 /*! Bundled license information:
