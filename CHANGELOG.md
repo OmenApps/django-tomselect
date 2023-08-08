@@ -1,5 +1,9 @@
 # Changelog
 
+## django-tomselect NEXT
+
+- For forms with initial data, display the selected option on load
+
 ## django-tomselect 0.4.2
 
 - Add ability to trigger tomselect creation on individual elements
