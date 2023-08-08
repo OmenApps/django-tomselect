@@ -76,7 +76,20 @@ class TomSelectWidget(forms.Select):
         super().__init__(**kwargs)
 
     def optgroups(self, name, value, attrs=None):
-        return []  # Never provide any options; let the view serve the options.
+        """Provide only the selected options, let the view handle the rest."""
+        selections = [str(c) for c in value if c]
+        all_choices = copy.copy(self.choices)
+        
+        if self.url:
+            self._filter_choices(selections)
+        elif not self.allow_multiple_selected:
+            if self.placeholder:
+                self.choices.insert(0, (None, ""))
+        
+        result = super().optgroups(name, value, attrs)
+        
+        self.choices = all_choices
+        return result
 
     def get_url(self):
         """Hook to specify the autocomplete URL."""
@@ -112,6 +125,14 @@ class TomSelectWidget(forms.Select):
             }
         )
         return attrs
+
+    def _filter_choices(self, selections):
+        try:
+            self.choices.queryset = self.choices.queryset.filter(
+                pk__in=[c for c in selections if c]
+            )
+        except ValueError:
+            pass
 
     @property
     def media(self):
