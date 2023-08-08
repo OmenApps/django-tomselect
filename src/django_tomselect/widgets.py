@@ -77,6 +77,8 @@ class TomSelectWidget(forms.Select):
 
     def optgroups(self, name, value, attrs=None):
         """Provide only the selected options, let the view handle the rest."""
+        # implementation courtesy django-autocomplete-light
+        # https://github.com/yourlabs/django-autocomplete-light/blob/3.9.8/src/dal/widgets.py#L131
         selections = [str(c) for c in value if c]
         all_choices = copy.copy(self.choices)
         
