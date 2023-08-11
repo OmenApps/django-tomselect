@@ -1,8 +1,10 @@
+import copy
 import json
 
 from django import forms
-from django.urls import reverse
+from django.urls import resolve, reverse
 
+from .request import ProxyRequest
 from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION
 
 
@@ -16,24 +18,23 @@ class TomSelectWidget(forms.Select):
 
     def __init__(
         self,
-        model,
         url="autocomplete",
         value_field="",
         label_field="",
         search_lookups=(),
         create_field="",
-        multiple=False,
         listview_url="",
         add_url="",
+        edit_url="",
         filter_by=(),
         bootstrap_version=DJANGO_TOMSELECT_BOOTSTRAP_VERSION,
+        format_overrides=dict(),
         **kwargs,
     ):
         """
         Instantiate a TomSelectWidget widget.
 
         Args:
-            model: the django model that the choices are derived from
             url: the URL pattern name of the view that serves the choices and
               handles requests from the Tom Select element
             value_field: the name of the model field that corresponds to the
@@ -47,9 +48,9 @@ class TomSelectWidget(forms.Select):
               the given search term to filter the results
             create_field: the name of the model field used to create new
               model objects with
-            multiple: if True, allow selecting multiple options
             listview_url: URL name of the listview view for this model
             add_url: URL name of the add view for this model
+            edit_url: URL name of the 'change' view for this model
             filter_by: a 2-tuple (form_field_name, field_lookup) to filter the
               results against the value of the form field using the given
               Django field lookup. For example:
@@ -57,28 +58,38 @@ class TomSelectWidget(forms.Select):
             bootstrap_version: the Bootstrap version to use for the widget. Can
                 be set project-wide via settings.TOMSELECT_BOOTSTRAP_VERSION,
                 or per-widget instance. Defaults to 5.
+            format_overrides: a dictionary of formatting overrides to pass to
+                the widget. See package docs for details.
             kwargs: additional keyword arguments passed to forms.Select
         """
-        self.model = model
+        self.model = None
         self.url = url
-        self.value_field = value_field or self.model._meta.pk.name
-        self.label_field = label_field or getattr(self.model, "name_field", "name")
-        self.search_lookups = search_lookups or [
-            f"{self.value_field}__icontains",
-            f"{self.label_field}__icontains",
-        ]
+        self.value_field = value_field
+        self.label_field = label_field
+        self.search_lookups = search_lookups
         self.create_field = create_field
-        self.multiple = multiple
         self.listview_url = listview_url
         self.add_url = add_url
+        self.edit_url = edit_url
         self.filter_by = filter_by
         self.bootstrap_version = bootstrap_version if bootstrap_version in (4, 5) else 5
+        self.format_overrides = format_overrides
         super().__init__(**kwargs)
-
+        
     def optgroups(self, name, value, attrs=None):
-        return []  # Never provide any options; let the view serve the options.
+        """Only query for selected model objects."""
+        print("self.choices.queryset: ", self.choices.queryset)
 
-    def get_url(self):
+        # inspired by dal.widgets.WidgetMixin from django-autocomplete-light
+        selected_choices = [str(c) for c in value if c]  # Is this right?
+        all_choices = copy.copy(self.choices)
+        # TODO: empty values in selected_choices will be filtered out twice
+        self.choices.queryset = self.choices.queryset.filter(pk__in=[c for c in selected_choices if c])
+        results = super().optgroups(name, value, attrs)
+        self.choices = all_choices
+        return results
+
+    def get_autocomplete_url(self):
         """Hook to specify the autocomplete URL."""
         return reverse(self.url)
 
@@ -92,15 +103,42 @@ class TomSelectWidget(forms.Select):
         if self.listview_url:
             return reverse(self.listview_url)
 
+    def get_edit_url(self):
+        """Hook to specify the URL to the model's 'change' page."""
+        if self.edit_url:
+            return unquote(reverse(self.edit_url, args=["{pk}"]))
+
+    def get_queryset(self):
+        # Get the model from the field's QuerySet
+        self.model = self.choices.queryset.model
+
+        # Create a ProxyRequest that we can pass to the view to obtain its queryset
+        proxy_request = ProxyRequest(model=self.model)
+
+        autocomplete_view = resolve(self.get_autocomplete_url()).func.view_class()
+        autocomplete_view.setup(model=self.model, request=proxy_request)
+        return autocomplete_view.get_queryset()
+
     def build_attrs(self, base_attrs, extra_attrs=None):
         """Build HTML attributes for the widget."""
+
+        self.get_queryset()
+
+        self.value_field = self.value_field or self.model._meta.pk.name
+        self.label_field = self.label_field or getattr(self.model, "name_field", "name")
+
+        self.search_lookups = self.search_lookups or [
+            f"{self.value_field}__icontains",
+            f"{self.label_field}__icontains",
+        ]
+
         attrs = super().build_attrs(base_attrs, extra_attrs)
         opts = self.model._meta
+
         attrs.update(
             {
                 "is-tomselect": True,
-                "is-multiple": self.multiple,
-                "data-autocomplete-url": self.get_url(),
+                "data-autocomplete-url": self.get_autocomplete_url(),
                 "data-model": f"{opts.app_label}.{opts.model_name}",
                 "data-search-lookup": json.dumps(self.search_lookups),
                 "data-value-field": self.value_field,
@@ -108,7 +146,9 @@ class TomSelectWidget(forms.Select):
                 "data-create-field": self.create_field,
                 "data-listview-url": self.get_listview_url() or "",
                 "data-add-url": self.get_add_url() or "",
+                "data-edit-url": self.get_edit_url() or "",
                 "data-filter-by": json.dumps(list(self.filter_by)),
+                "data-format-overrides": json.dumps(self.format_overrides),
             }
         )
         return attrs
@@ -185,3 +225,23 @@ class TomSelectTabularWidget(TomSelectWidget):
             }
         )
         return attrs
+
+
+
+
+class MultipleSelectionMixin:
+    """Enable multiple selection with TomSelect."""
+
+    def build_attrs(self, base_attrs, extra_attrs=None):
+        """Build HTML attributes for the widget."""
+        attrs = super().build_attrs(base_attrs, extra_attrs)  # noqa
+        attrs["is-multiple"] = True
+        return attrs
+
+
+class TomSelectMultipleWidget(MultipleSelectionMixin, TomSelectWidget, forms.SelectMultiple):
+    """A MIZSelect widget that allows multiple selection."""
+
+
+class TomSelectTabularMultipleWidget(MultipleSelectionMixin, TomSelectTabularWidget, forms.SelectMultiple):
+    """A MIZSelectTabular widget that allows multiple selection."""

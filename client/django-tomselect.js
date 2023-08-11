@@ -42,6 +42,53 @@ function getElementByPrefixedName (name, prefixes) {
   }
 }
 
+/* default tomSelectFormatting */
+const defaultConfigInputs = {
+  formInputClasses: '%s1 form-control mb-3 %s2',
+  formLabelClasses: 'form-label',
+  formHelpClasses: 'form-text',
+  labelClass: 'form-label',
+  valueFieldLabel: 'Value',
+  optionCreateStart: '<div class="create bg-secondary text-bg-secondary">Add value <strong>',
+  optionCreateEnd: '</strong>&hellip;</div>'
+};
+
+function formatStrings2(key) {
+  return function(strings, ...values) {
+    const inputString = strings[0];
+    console.log("strings", strings);
+    console.log("values", values);
+    console.log("inputString", inputString);
+    let output = defaultConfigInputs[key];
+    console.log("output", output);
+    console.log("strings.length", strings.length);
+    if (strings.length > 0) {
+      console.log("strings.length is greater than 0");
+      for (const [i, value] of strings.entries()) {
+        let replacer = '%s' + (i+1).toString();
+        console.log("replacer", replacer);
+        output = output.replace(replacer, value);
+      }
+    }
+    console.log("final output", output)
+    return output.replace('%s', values[0]);
+  }
+}
+
+//function getConfig() {
+const getConfig = function () {
+    const config = {};
+    for (const [key, value] of Object.entries(defaultConfigInputs)) {
+        config[key] = value;
+    }
+    return config;
+}
+// console.log("getConfig()", getConfig());
+//
+// let someAdditionalField = formatStrings2('formInputClasses')`Test Hi`
+// console.log("someAdditionalField: ", someAdditionalField);
+
+
 function getSettings (elem) {
   function buildUrl (query, page) {
     // Get the fields to select with queryset.values()

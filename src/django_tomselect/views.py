@@ -25,7 +25,8 @@ class AutocompleteView(views.generic.list.BaseListView):
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
         request_data = getattr(request, request.method)
-        self.model = apps.get_model(request_data["model"])
+        # self.model = apps.get_model(request_data["model"])
+        self.model = apps.get_model(request_data.get("model", None))
         self.create_field = request_data.get("create-field")
         self.search_lookups = []
         if SEARCH_LOOKUP_VAR in request_data:
@@ -65,6 +66,9 @@ class AutocompleteView(views.generic.list.BaseListView):
 
     def order_queryset(self, queryset):
         """Order the result queryset."""
+
+        # ToDo: This is something that should be settable from the form field / widget,
+        #   falling back to model meta or id if not provided
         ordering = self.model._meta.ordering or ["id"]
         return queryset.order_by(*ordering)
 

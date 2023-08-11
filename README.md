@@ -1,3 +1,4 @@
+
 # Tom Select for Django
 
 Django autocomplete widgets and views using [Tom Select](https://tom-select.js.org/).
@@ -133,9 +134,9 @@ The widgets pass attributes necessary to make autocomplete requests to the
 HTML element via the dataset property. The Tom Select element is then initialized
 from the attributes in the dataset property.
 
-### TomSelectWidget
+### TomSelectWidget & TomSelectMultipleWidget
 
-Base autocomplete widget. The arguments of TomSelectWidget are:
+Base autocomplete widgets for `ModelChoiceField` and `ModelMultipleChoiceField`. The arguments of TomSelectWidget & TomSelectMultipleWidget are:
 
 | Argument          | Default value                                                           | Description                                                                        |
 |-------------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------|
@@ -144,23 +145,23 @@ Base autocomplete widget. The arguments of TomSelectWidget are:
 | value_field       | `f"{model._meta.pk.name}"`                                              | model field that provides the value of an option                                   |
 | label_field       | `getattr(model, "name_field", "name")`                                  | model field that provides the label of an option                                   |
 | search_lookups    | `[f"{self.value_field}__icontains", f"{self.label_field}__icontains"]`  | the list of lookups to use when filtering the results                              |
-| create_field      | ""                                                                      | model field to create new objects with ([see below](#ajax-request))                |
-| multiple          | False                                                                   | if True, allow selecting multiple options                                          |
+| create_field      | ""                                                                      | model field to create new objects with ([see below](#ajax-request))                ||
 | listview_url      | ""                                                                      | URL name of the list view for this model ([see below](#list-view-link))            |
 | add_url           | ""                                                                      | URL name of the add view for this model([see below](#option-creation))             |
+| edit_url           | ""                                                                      | URL name of the edit view for each instance of this model([see below](#option-edits))             |
 | filter_by         | ()                                                                      | a 2-tuple defining an additional filter ([see below](#chained-dropdown-filtering)) |
 | bootstrap_version | 5                                                                       | the bootstrap version to use, either `4` or `5`                                    |
 
-### TomSelectTabularWidget
+### TomSelectTabularWidget & TomSelectTabularMultipleWidget
 
-This widget displays the results in tabular form. A table header will be added
+These widgets displays the results in tabular form. A table header will be added
 to the dropdown. By default, the table contains two columns: one column for the choice 
 value (commonly the "ID" of the option) and one column for the choice label (the 
 human-readable part of the choice).
 
 ![Tabular select preview](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/assets/tomselect_tabular.png "Tabular select preview")
 
-TomSelectTabularWidget has the following additional arguments:
+TomSelectTabularWidget & TomSelectTabularMultipleWidget have the following additional arguments:
 
 | Argument          | Default value                   | Description                                  |
 |-------------------|---------------------------------|----------------------------------------------|
@@ -170,7 +171,7 @@ TomSelectTabularWidget has the following additional arguments:
 | label_field_label | `f"{model._meta.verbose_name}"` | table header for the label column            |
 | show_value_field  | `False`                         | show the value field column (typically `id`) |
 
-#### Adding more columns 
+#### Adding more columns to the tabular widgets
 
 To add more columns, pass a dictionary mapping field names to column labels as
 `extra_columns` to the widget's arguments.
@@ -368,13 +369,11 @@ form field as a value in `detail` as follows.
 
 ```javascript
 <script>
-  document.addEventListener("DOMContentLoaded", (event) => {
-    window.dispatchEvent(new CustomEvent('triggerTomSelect', {
-      detail: {
+  window.dispatchEvent(new CustomEvent('triggerTomSelect', {
+    detail: {
         elemID: 'id_tomselect_tabular'
-      }
-    }))
-  });
+    }
+  }));
 </script>
 
 ````

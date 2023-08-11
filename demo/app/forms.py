@@ -1,15 +1,14 @@
 from django import forms
 
-from django_tomselect.widgets import TomSelectTabularWidget, TomSelectWidget
+from django_tomselect.widgets import TomSelectTabularWidget, TomSelectWidget, TomSelectMultipleWidget, TomSelectTabularMultipleWidget
 
 from .models import Edition, Magazine
 
 
 class Form(forms.Form):
     tomselect = forms.ModelChoiceField(
-        Edition.objects.all(),
+        queryset=Edition.objects.none(),
         widget=TomSelectWidget(
-            Edition,
             attrs={"class": "form-control mb-3"},
             listview_url="listview",
             add_url="add",
@@ -18,9 +17,8 @@ class Form(forms.Form):
         required=False,
     )
     tomselect_tabular = forms.ModelChoiceField(
-        Edition.objects.all(),
+        queryset=Edition.objects.none(),
         widget=TomSelectTabularWidget(
-            Edition,
             extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
             label_field_label="Edition",
             attrs={"class": "form-control mb-3"},
@@ -31,24 +29,20 @@ class Form(forms.Form):
     )
 
     # Multiple selection:
-    tomselect_multiple = forms.ModelChoiceField(
-        Edition.objects.all(),
-        widget=TomSelectWidget(
-            Edition,
+    tomselect_multiple = forms.ModelMultipleChoiceField(
+        queryset=Edition.objects.all(),
+        widget=TomSelectMultipleWidget(
             attrs={"class": "form-control mb-3"},
-            multiple=True,
             listview_url="listview",
         ),
         required=False,
     )
-    tomselect_tabular_multiple_with_value_field = forms.ModelChoiceField(
-        Edition.objects.all(),
-        widget=TomSelectTabularWidget(
-            Edition,
+    tomselect_tabular_multiple_with_value_field = forms.ModelMultipleChoiceField(
+        queryset=Edition.objects.all(),
+        widget=TomSelectTabularMultipleWidget(
             extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
             label_field_label="Edition",
-            multiple=True,
-            attrs={"class": "form-control mb-3"},
+            attrs={"class": "form-control mb-3", "placeholder": "Selet multiple values"},
             add_url="add",
             create_field="name",
             show_value_field=True,
@@ -56,6 +50,17 @@ class Form(forms.Form):
         ),
         required=False,
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["tomselect"].queryset = self.fields["tomselect"].widget.get_queryset()
+        self.fields["tomselect_tabular"].queryset = Edition.objects.filter(year__gte=2020)
+        # self.fields["tomselect_multiple"].queryset = Edition.objects.filter(year__gte=2020)
+        # self.fields["tomselect_tabular_multiple_with_value_field"].queryset = Edition.objects.filter(year__gte=2020)
+
+
+    def clean(self):
+        print(f"Form cleaned_data: {self.cleaned_data}")
 
 
 class FilteredForm(forms.Form):
@@ -72,3 +77,7 @@ class FilteredForm(forms.Form):
         ),
         required=False,
     )
+    
+    def clean(self):
+        print(f"FilteredForm cleaned_data: {self.cleaned_data}")
+
