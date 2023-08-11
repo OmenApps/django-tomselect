@@ -3,7 +3,7 @@ import json
 
 from django import forms
 from django.urls import resolve, reverse
-
+from urllib.parse import unquote
 from .request import ProxyRequest
 from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION
 
@@ -207,13 +207,16 @@ class TomSelectTabularWidget(TomSelectWidget):
         """
         super().__init__(*args, **kwargs)
         self.value_field_label = value_field_label or self.value_field.title()
-        self.label_field_label = label_field_label or self.model._meta.verbose_name or "Object"
+        self.label_field_label = label_field_label
         self.show_value_field = show_value_field
         self.extra_columns = extra_columns or {}
 
     def build_attrs(self, base_attrs, extra_attrs=None):
         """Build HTML attributes for the widget."""
         attrs = super().build_attrs(base_attrs, extra_attrs)
+        self.get_queryset()
+        self.label_field_label = self.label_field_label or self.model._meta.verbose_name or "Object"
+
         attrs.update(
             {
                 "is-tabular": True,
