@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "app",
-    "django_tomselect",
+    "django_tomselect.apps.DjangoTomSelectConfig",
 ]
 
 MIDDLEWARE = [

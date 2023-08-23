@@ -1,6 +1,11 @@
 from django import forms
 
-from django_tomselect.widgets import TomSelectTabularWidget, TomSelectWidget, TomSelectMultipleWidget, TomSelectTabularMultipleWidget
+from django_tomselect.widgets import (
+    TomSelectMultipleWidget,
+    TomSelectTabularMultipleWidget,
+    TomSelectTabularWidget,
+    TomSelectWidget,
+)
 
 from .models import Edition, Magazine
 
@@ -42,7 +47,7 @@ class Form(forms.Form):
         widget=TomSelectTabularMultipleWidget(
             extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
             label_field_label="Edition",
-            attrs={"class": "form-control mb-3", "placeholder": "Selet multiple values"},
+            attrs={"class": "form-control mb-3", "placeholder": "Select multiple values"},
             add_url="add",
             create_field="name",
             show_value_field=True,
@@ -58,7 +63,6 @@ class Form(forms.Form):
         # self.fields["tomselect_multiple"].queryset = Edition.objects.filter(year__gte=2020)
         # self.fields["tomselect_tabular_multiple_with_value_field"].queryset = Edition.objects.filter(year__gte=2020)
 
-
     def clean(self):
         print(f"Form cleaned_data: {self.cleaned_data}")
 
@@ -68,7 +72,6 @@ class FilteredForm(forms.Form):
     edition = forms.ModelChoiceField(
         Edition.objects.all(),
         widget=TomSelectWidget(
-            Edition,
             attrs={"class": "form-control mb-3"},
             listview_url="listview",
             add_url="add",
@@ -77,7 +80,6 @@ class FilteredForm(forms.Form):
         ),
         required=False,
     )
-    
+
     def clean(self):
         print(f"FilteredForm cleaned_data: {self.cleaned_data}")
-

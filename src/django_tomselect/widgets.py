@@ -1,11 +1,11 @@
 import copy
 import json
+from urllib.parse import unquote
 
 from django import forms
 from django.urls import resolve, reverse
-from urllib.parse import unquote
-from .request import ProxyRequest
-from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION
+
+from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION, DJANGO_TOMSELECT_PROXY_REQUEST
 
 
 class TomSelectWidget(forms.Select):
@@ -75,7 +75,7 @@ class TomSelectWidget(forms.Select):
         self.bootstrap_version = bootstrap_version if bootstrap_version in (4, 5) else 5
         self.format_overrides = format_overrides
         super().__init__(**kwargs)
-        
+
     def optgroups(self, name, value, attrs=None):
         """Only query for selected model objects."""
         print("self.choices.queryset: ", self.choices.queryset)
@@ -113,6 +113,7 @@ class TomSelectWidget(forms.Select):
         self.model = self.choices.queryset.model
 
         # Create a ProxyRequest that we can pass to the view to obtain its queryset
+        ProxyRequest = DJANGO_TOMSELECT_PROXY_REQUEST
         proxy_request = ProxyRequest(model=self.model)
 
         autocomplete_view = resolve(self.get_autocomplete_url()).func.view_class()
@@ -228,8 +229,6 @@ class TomSelectTabularWidget(TomSelectWidget):
             }
         )
         return attrs
-
-
 
 
 class MultipleSelectionMixin:

@@ -88,7 +88,6 @@ class MyForm(forms.Form):
     person = forms.ModelChoiceField(
         Person.objects.all(),
         widget=TomSelectTabularWidget(
-            Person,
             url="my_autocomplete_view",
             search_lookups=[
                 "full_name__icontains",
@@ -186,7 +185,6 @@ class MyForm(forms.Form):
     person = forms.ModelChoiceField(
         Person.objects.all(),
         widget=TomSelectTabularWidget(
-            Person,
             url="my_autocomplete_view",
             # for extra columns pass a mapping of {"model_field": "Column Header Label"}
             extra_columns={"first_name": "First Name", "last_name": "Last Name"},
@@ -209,13 +207,10 @@ on the view's root queryset as either a model field or as an annotation.
 
 ## Settings
 
-### TOMSELECT_BOOTSTRAP_VERSION
-
-The bootstrap version to use. Either `4` or `5`. Defaults to `5`.
-
-This sets the project-wide default for the `bootstrap_version` argument of the
-widgets. You can overwrite the default for a specific widget by passing the
-`bootstrap_version` argument to the widget.
+| Setting | Default value | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+|---------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| TOMSELECT_BOOTSTRAP_VERSION | `5` | The bootstrap version to use. Either `4` or `5`. Defaults to `5`. This sets the project-wide default for the `bootstrap_version` argument of the widgets. <p>You can overwrite the default for a specific widget by passing the `bootstrap_version` argument to the widget. This sets the project-wide default for the `bootstrap_version` argument of the widgets. You can overwrite the default for a specific widget by passing the `bootstrap_version` argument to the widget.</p>                                                                                                                                                                          |
+| TOMSELECT_PROXY_REQUEST | `"django_tomselect.utils.ProxyRequest"` | The path to the ProxyRequest class to use. This class is used to obtain the model details for the autocomplete. <p>In order to simplify the process of creating a custom autocomplete view, django-tomselect provides a `ProxyRequest` class that can be used to obtain the model details from the queryset and the request. This class is used by the widget to obtain the model details for the autocomplete. In most cases, you will not need to use this class directly, but you can provide your own override of the `ProxyRequest` class to the widget by setting `TOMSELECT_PROXY_REQUEST` to the path of the custom class in your settings.py file.</p> |
 
 ----
 
@@ -358,9 +353,9 @@ other field provides a value, since its choices are dependent on the other
 field. If the other field does not have a value, the search will not return any 
 results.
 
-----
+## Advanced Topics
 
-## Manually Initializing Tom Select Fields
+### Manually Initializing Tom Select Fields
 
 If a form is added dynamically after the page loads (e.g.: with htmx), the new form 
 fields will not be initialized as django-tomselect fields. In order to manually 
@@ -375,10 +370,9 @@ form field as a value in `detail` as follows.
     }
   }));
 </script>
-
 ````
 
-----
+---
 
 ## Development & Demo
 

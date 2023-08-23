@@ -32,4 +32,3 @@ urlpatterns = [
     path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base5.html"), name="filtered"),
     path("filtered-bs4/", FormView.as_view(form_class=FilteredForm, template_name="base4.html"), name="filtered-bs4"),
 ]
-
