@@ -1,4 +1,4 @@
-class ProxyRequest:
+class DefaultProxyRequest:
     """Used as a stand-in for a real request when obtaining the initial QuerySet for the widget"""
 
     def __init__(self, *args, model=None, **kwargs):

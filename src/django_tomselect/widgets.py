@@ -5,7 +5,7 @@ from urllib.parse import unquote
 from django import forms
 from django.urls import resolve, reverse
 
-from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION, DJANGO_TOMSELECT_PROXY_REQUEST
+from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION, ProxyRequest
 
 
 class TomSelectWidget(forms.Select):
@@ -28,7 +28,7 @@ class TomSelectWidget(forms.Select):
         edit_url="",
         filter_by=(),
         bootstrap_version=DJANGO_TOMSELECT_BOOTSTRAP_VERSION,
-        format_overrides=dict(),
+        format_overrides=None,
         **kwargs,
     ):
         """
@@ -73,7 +73,7 @@ class TomSelectWidget(forms.Select):
         self.edit_url = edit_url
         self.filter_by = filter_by
         self.bootstrap_version = bootstrap_version if bootstrap_version in (4, 5) else 5
-        self.format_overrides = format_overrides
+        self.format_overrides = format_overrides or {}
         super().__init__(**kwargs)
 
     def optgroups(self, name, value, attrs=None):
@@ -113,7 +113,6 @@ class TomSelectWidget(forms.Select):
         self.model = self.choices.queryset.model
 
         # Create a ProxyRequest that we can pass to the view to obtain its queryset
-        ProxyRequest = DJANGO_TOMSELECT_PROXY_REQUEST
         proxy_request = ProxyRequest(model=self.model)
 
         autocomplete_view = resolve(self.get_autocomplete_url()).func.view_class()
@@ -206,7 +205,7 @@ class TomSelectTabularWidget(TomSelectWidget):
             args: additional positional arguments passed to TomSelectWidget
             kwargs: additional keyword arguments passed to TomSelectWidget
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.value_field_label = value_field_label or self.value_field.title()
         self.label_field_label = label_field_label
         self.show_value_field = show_value_field

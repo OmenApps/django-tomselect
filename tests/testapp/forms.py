@@ -13,7 +13,7 @@ class SimpleForm(forms.Form):
 
 class MultipleForm(forms.Form):
     field = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(**kwargs, multiple=True), required=False
+        Edition.objects.all(), widget=TomSelectWidget(multiple=True, **kwargs), required=False
     )
 
 
@@ -44,7 +44,7 @@ class TabularWithValueFieldForm(forms.Form):
 
 class CreateForm(forms.Form):
     field = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(**kwargs, create_field="name"), required=False
+        Edition.objects.all(), widget=TomSelectWidget(create_field="name", **kwargs), required=False
     )
 
 
@@ -52,7 +52,7 @@ class AddForm(forms.Form):
     """Test form with a widget with a 'add' URL."""
 
     field = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(**kwargs, add_url="add_page", create_field="name")
+        Edition.objects.all(), widget=TomSelectWidget(create_field="name", add_url="add_page", **kwargs)
     )
 
 

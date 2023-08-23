@@ -13,12 +13,8 @@ from .models import Edition, Magazine
 class Form(forms.Form):
     tomselect = forms.ModelChoiceField(
         queryset=Edition.objects.none(),
-        widget=TomSelectWidget(
-            attrs={"class": "form-control mb-3"},
-            listview_url="listview",
-            add_url="add",
-            create_field="name",
-        ),
+        widget=TomSelectWidget(create_field="name", listview_url="listview", add_url="add",
+                               attrs={"class": "form-control mb-3"}),
         required=False,
     )
     tomselect_tabular = forms.ModelChoiceField(
@@ -71,13 +67,8 @@ class FilteredForm(forms.Form):
     magazine = forms.ModelChoiceField(queryset=Magazine.objects.all(), widget=TomSelectWidget(Magazine))
     edition = forms.ModelChoiceField(
         Edition.objects.all(),
-        widget=TomSelectWidget(
-            attrs={"class": "form-control mb-3"},
-            listview_url="listview",
-            add_url="add",
-            create_field="name",
-            filter_by=("magazine", "magazine_id"),
-        ),
+        widget=TomSelectWidget(create_field="name", listview_url="listview", add_url="add",
+                               filter_by=("magazine", "magazine_id"), attrs={"class": "form-control mb-3"}),
         required=False,
     )
 
