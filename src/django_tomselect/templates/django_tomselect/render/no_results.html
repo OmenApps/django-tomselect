@@ -1,0 +1,5 @@
+{% load i18n %}
+
+no_results: function(data, escape){
+    return '<div class="no-results">{% translate "No results found for" %} "'+escape(data.input)+'"</div>';
+},

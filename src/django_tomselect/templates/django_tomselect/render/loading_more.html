@@ -1,0 +1,5 @@
+{% load i18n %}
+
+loading_more: function(data, escape) {
+    return `<div class="loading-more-results py-2 d-flex align-items-center"><div class="spinner"></div> {% translate "Loading more results ..." %} </div>`;
+},

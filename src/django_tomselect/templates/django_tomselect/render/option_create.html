@@ -1,0 +1,5 @@
+{% load i18n %}
+
+option_create: function(data, escape) {
+    return '<div class="create">{% translate "Add" %} <strong>' + escape(data.input) + '</strong>&hellip;</div>';
+},

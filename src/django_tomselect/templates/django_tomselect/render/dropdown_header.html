@@ -1,0 +1,19 @@
+html: function (data) {
+    let header = ''
+
+    console.log('data', data);
+
+    if (data.showValueField === true) {
+        header = `
+            <div class="col"><span class="${data.labelClass}">${data.valueFieldLabel}</span></div>
+            <div class="col"><span class="${data.labelClass}">${data.labelFieldLabel}</span></div>
+        `
+    } else {
+        header = `<div class="col"><span class="${data.labelClass}">${data.labelFieldLabel}</span></div>`
+    }
+
+    for (const h of data.extraHeaders) {
+        header += `<div class="col"><span class="${data.labelClass}">${h}</span></div>`
+    }
+    return `<div class="${data.headerClass}"><div class="${data.titleRowClass}">${header}</div></div>`
+},

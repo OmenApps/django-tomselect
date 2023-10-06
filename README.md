@@ -80,7 +80,7 @@ from .models import City, Person
 class MyForm(forms.Form):
     city = forms.ModelChoiceField(
         City.objects.all(),
-        widget=TomSelectWidget(City, url="my_autocomplete_view"),
+        widget=TomSelectWidget(url="my_autocomplete_view"),
     )
 
     # Display results in a table, with additional columns for fields
@@ -269,7 +269,7 @@ urlpatterns = [
 ]
 
 # forms.py
-widget = TomSelectWidget(City, url="my_autocomplete_view", add_url="city_add")
+widget = TomSelectWidget(url="my_autocomplete_view", add_url="city_add")
 ```
 
 Clicking on that button sends the user to the add page of the model.
@@ -311,7 +311,7 @@ urlpatterns = [
 ]
 
 # forms.py
-widget = TomSelectWidget(City, url="my_autocomplete_view", listview_url="city_listview")
+widget = TomSelectWidget(url="my_autocomplete_view", listview_url="city_listview")
 ```
 
 ### Chained Dropdown Filtering
@@ -342,7 +342,7 @@ class PersonsFromCapitolsForm(forms.Form):
     capitol = forms.ModelChoiceField(queryset=City.objects.filter(is_capitol=True))
     person = forms.ModelChoiceField(
         queryset=Person.objects.all(),
-        widget=TomSelectWidget(Person, filter_by=("capitol", "city_id")),
+        widget=TomSelectWidget(filter_by=("capitol", "city_id")),
     )
 ```
 
