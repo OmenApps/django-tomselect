@@ -34,7 +34,7 @@ urlpatterns = [
     path("model/", model_form_test_view, name="demo_with_model"),
     path("bs4/", FormView.as_view(form_class=Form, template_name="base4.html"), name="demo-bs4"),
     path("autocomplete-edition/", DemoEditionAutocompleteView.as_view(), name="autocomplete-edition"),
-    path("autocomplete-magazine/", DemoEditionAutocompleteView.as_view(), name="autocomplete-magazine"),
+    path("autocomplete-magazine/", DemoMagazineAutocompleteView.as_view(), name="autocomplete-magazine"),
     path("listview/", listview_view, name="listview"),
     path("add/", add_view, name="add"),
     path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base5.html"), name="filtered"),

@@ -5,8 +5,8 @@ from urllib.parse import unquote
 from django import forms
 from django.urls import resolve, reverse, reverse_lazy
 
-from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION, ProxyRequest
 from .models import EmptyModel
+from .settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION, ProxyRequest
 
 
 class TomSelectWidget(forms.Select):
@@ -88,7 +88,7 @@ class TomSelectWidget(forms.Select):
         context["widget"]["open_on_focus"] = True
         context["widget"]["max_options"] = 50
         context["widget"]["max_items"] = 50
-        context["widget"]["preload"] = 'focus'  # Either 'focus' or True/False
+        context["widget"]["preload"] = "focus"  # Either 'focus' or True/False
 
         context["widget"]["show_value_field"] = self.show_value_field
         context["widget"]["is_tabular"] = False
@@ -444,5 +444,3 @@ class TomSelectTabularMultipleField(forms.ModelMultipleChoiceField):
     def clean(self, value):
         self.queryset = self.widget.get_queryset()
         return super().clean(value)
-
-

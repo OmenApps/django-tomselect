@@ -9,4 +9,5 @@ class EmptyModel(models.Model):
     specifying the model in the widget, we need to pass a model to the widget that is not None. This model is
     used only to satisfy the widget's need for a queryset, and is not used for anything else.
     """
+
     pass
