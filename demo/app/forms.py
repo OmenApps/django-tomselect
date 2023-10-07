@@ -5,7 +5,6 @@ from django_tomselect.widgets import (
     TomSelectMultipleField,
     TomSelectTabularField,
     TomSelectTabularMultipleField,
-    TomSelectWidget,
 )
 
 from .models import Edition, Magazine, ModelFormTestModel
