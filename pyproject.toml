@@ -18,6 +18,8 @@ dependencies = [
 classifiers = [
     "Framework :: Django",
     "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: Software Development :: Widget Sets",
 ]
 
 [project.urls]
@@ -30,7 +32,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.js", "*.css", "*.css.map"]
+"*" = ["*.js", "*.css", "*.css.map", "*.html"]
 
 [tool.coverage.run]
 branch = true
