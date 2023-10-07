@@ -1,0 +1,132 @@
+<select name="{{ widget.name }}" id="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>{% for group_name, group_choices, group_index in widget.optgroups %}{% if group_name %}
+    <optgroup label="{{ group_name }}">{% endif %}{% for option in group_choices %}
+        {% include option.template_name with widget=option %}{% endfor %}{% if group_name %}
+    </optgroup>{% endif %}{% endfor %}
+</select>
+
+<script>
+    new TomSelect('#{{ widget.name }}',{
+
+        highlight: {% if widget.highlight %}true{% else %}false{% endif %},
+        openOnFocus: {% if widget.open_on_focus %}true{% else %}false{% endif %},
+        maxOptions: {% if widget.max_options %}{{ widget.max_options }}{% else %}50{% endif %},
+        preload: {% if widget.preload == "focus" %}'focus'{% elif widget.preload %}true{% else %}false{% endif %},
+        {#createFilter: {% if widget.createFilter %}{{ createFilter }}{% else %}null{% endif %},#}
+        {#maxItems: {% if widget.maxItems %}{{ widget.maxItems }}{% else %}null{% endif %},#}
+
+        is_tabular: {% if widget.is_tabular %}true{% else %}false{% endif %},
+
+        extraColumns: [
+            {% for column in widget.extra_columns %}
+                '{{ column }}',
+            {% endfor %}
+        ],
+
+        valueField: '{{ widget.value_field }}',
+        labelField: '{{ widget.label_field }}',
+        {#searchField: ['title'],#}
+        searchField: [],  // This is how it is in original package
+
+        showValueField: {% if widget.show_value_field %}true{% else %}false{% endif %},
+
+
+        plugins: {
+            {% if widget.plugins.checkbox_options %}
+                checkbox_options: true,
+            {% endif %}
+
+
+            {% if widget.plugins.clear_button %}
+                clear_button:{
+                    title: '{% if widget.plugins.clear_button.title %}{{ widget.plugins.clear_button.title }}{% else %}Clear All{% endif %}',
+                    className: '{{ widget.plugins.clear_button.class_name }}',
+                    {% include "django_tomselect/render/clear_button.html" with widget=widget %}
+                },
+            {% endif %}
+
+
+            {% if widget.plugins.dropdown_header %}
+                dropdown_header:{
+                    extraHeaders: [
+                        {% for header in widget.plugins.dropdown_header.extraHeaders %}
+                            '{{ header }}',
+                        {% endfor %}
+                    ],
+                    title: '{{ widget.plugins.dropdown_header.title }}',
+                    headerClass: '{{ widget.plugins.dropdown_header.headerClass }}',
+                    titleRowClass: '{{ widget.plugins.dropdown_header.titleRowClass }}',
+                    labelClass: '{{ widget.plugins.dropdown_header.labelClass }}',
+                    valueFieldLabel: '{{ widget.plugins.dropdown_header.valueFieldLabel }}',
+                    labelFieldLabel: '{{ widget.plugins.dropdown_header.labelFieldLabel }}',
+                    labelColClass: '{{ widget.plugins.dropdown_header.labelColClass }}',
+                    showValueField: {% if widget.show_value_field %}true{% else %}false{% endif %},
+                    {% include "django_tomselect/render/dropdown_header.html" with widget=widget %}
+                    // ToDo: Needs more work to adapt to/from the original django-tomselect.js file
+                },
+            {% endif %}
+
+
+            {% if widget.plugins.dropdown_input %}
+                dropdown_input: true,
+            {% endif %}
+
+
+            {% if widget.plugins.remove_button %}
+                remove_button:{
+                    label: '{% if widget.plugins.remove_button.label %}{{ widget.plugins.remove_button.label|safe }}{% else %}&times;{% endif %}',
+                    title: '{% if widget.plugins.remove_button.title %}{{ widget.plugins.remove_button.title }}{% else %}Remove this item{% endif %}',
+                    className: '{{ widget.plugins.remove_button.class_name }}',
+                },
+            {% endif %}
+
+
+            {% if widget.plugins.virtual_scroll %}virtual_scroll: true{% endif %}
+        },
+
+        {% if widget.plugins.virtual_scroll %}
+            // fetch remote data
+            firstUrl: function(query){
+                return '{{ widget.autocomplete_url }}?p=1';
+            },
+        {% endif %}
+
+        load: function(query, callback) {
+            console.log('load() called with query: ' + query);
+
+            // retrieve the appropriate url
+            const url = '{{ widget.autocomplete_url }}?q=' + encodeURIComponent(query);
+
+            fetch(url)
+                .then(response => response.json())
+                .then(json => {
+                    if (json.has_more) {
+                        //this.setNextUrl(query, buildUrl(query, json.page + 1)) // ToDo: Implement buildUrl and use this
+                        this.setNextUrl(query, '{{ widget.autocomplete_url }}?q=' + encodeURIComponent(query)+'&page='+json.page + 1)
+                    }
+                    // Workaround for an issue of the virtual scroll plugin
+                    // where it    scrolls to the top of the results whenever
+                    // a new page of results is added.
+                    // https://github.com/orchidjs/tom-select/issues/556
+                    const _scrollToOption = this.scrollToOption
+                    this.scrollToOption = () => {}
+                    callback(json.results)
+                    this.scrollToOption = _scrollToOption
+                }).catch(() => {
+                    callback()
+                })
+        },
+
+        render:{
+            {% include "django_tomselect/render/item.html" with widget=widget %}
+            {% include "django_tomselect/render/loading.html" with widget=widget %}
+            {% include "django_tomselect/render/loading_more.html" with widget=widget %}
+            {% include "django_tomselect/render/no_more_results.html" with widget=widget %}
+            {% include "django_tomselect/render/no_results.html" with widget=widget %}
+            {% include "django_tomselect/render/not_loading.html" with widget=widget %}
+            {% include "django_tomselect/render/optgroup.html" with widget=widget %}  // ToDo: Are we using the optgroup plugin?
+            {% include "django_tomselect/render/optgroup_header.html" with widget=widget %}  // ToDo: Are we using the optgroup plugin?
+            {% include "django_tomselect/render/option.html" with widget=widget %}
+            {% include "django_tomselect/render/option_create.html" with widget=widget %}
+        }
+    });
+</script>

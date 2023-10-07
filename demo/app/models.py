@@ -35,3 +35,39 @@ class Magazine(models.Model):
     class Meta:
         verbose_name = "Magazine"
         verbose_name_plural = "Magazines"
+
+
+class ModelFormTestModel(models.Model):
+    name = models.CharField("Name", max_length=50)
+
+    tomselect = models.ForeignKey(
+        Edition,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="tomselect_test_model_instances",
+    )
+    tomselect_tabular = models.ForeignKey(
+        Edition,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="tomselect_tabular_test_model_instances",
+    )
+    tomselect_multiple = models.ManyToManyField(
+        Edition,
+        blank=True,
+        related_name="tomselect_multiple_test_model_instances",
+    )
+    tomselect_tabular_multiple_with_value_field = models.ManyToManyField(
+        Edition,
+        blank=True,
+        related_name="tomselect_tabular_multiple_with_value_field_test_model_instances",
+    )
+
+    class Meta:
+        verbose_name = "Model Form Test Model"
+        verbose_name_plural = "Model Form Test Models"
+
+    def __str__(self):
+        return self.name

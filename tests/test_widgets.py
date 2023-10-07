@@ -2,7 +2,12 @@ import pytest
 from django.db import models
 from testapp.models import Edition
 
-from django_tomselect.widgets import TomSelectTabularWidget, TomSelectWidget
+from django_tomselect.widgets import (
+    TomSelectMultipleWidget,
+    TomSelectTabularMultipleWidget,
+    TomSelectTabularWidget,
+    TomSelectWidget,
+)
 
 
 class WidgetTestCase:
@@ -82,7 +87,7 @@ class TestTomSelectWidget(WidgetTestCase):
     def test_build_attrs(self):
         """Assert that the required HTML attributes are added."""
         widget = self.make_widget(
-            model=Edition,
+            # model=Edition,
             url="dummy_url",
             value_field="pk",
             label_field="pages",
@@ -133,7 +138,7 @@ class TestTabularTomSelectWidget(WidgetTestCase):
     def test_build_attrs(self):
         """Assert that the required HTML attributes are added."""
         widget = self.make_widget(
-            model=Edition,
+            # model=Edition,
             extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
             value_field_label="Primary Key",
             label_field_label="Edition",

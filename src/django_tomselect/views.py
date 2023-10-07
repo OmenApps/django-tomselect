@@ -2,7 +2,6 @@ import json
 from urllib.parse import unquote
 
 from django import http, views
-from django.apps import apps
 from django.contrib.auth import get_permission_codename
 from django.db import transaction
 from django.db.models import Q
@@ -17,20 +16,18 @@ PAGE_SIZE = 20
 
 
 class AutocompleteView(views.generic.list.BaseListView):
-    """Base list view for queries from Tom Select select elements."""
+    """Base list view for queries from TomSelect select elements."""
 
+    model = None  # Must be set by subclass
+    search_lookups = []  # Must be set by subclass
     paginate_by = PAGE_SIZE
     page_kwarg = PAGE_VAR
 
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
         request_data = getattr(request, request.method)
-        self.model = apps.get_model(request_data["model"])
+
         self.create_field = request_data.get("create-field")
-        self.search_lookups = []
-        if SEARCH_LOOKUP_VAR in request_data:
-            values = unquote(request_data[SEARCH_LOOKUP_VAR])
-            self.search_lookups = json.loads(values)
 
         self.values_select = []
         if VALUES_VAR in request_data:
@@ -48,6 +45,8 @@ class AutocompleteView(views.generic.list.BaseListView):
         If `FILTERBY_VAR` is present but no value is set, return an empty
         queryset.
         """
+        # print(f"apply_filter_by queryset: {queryset}")
+        # print(f"apply_filter_by self.request.GET: {self.request.GET}")
         if FILTERBY_VAR not in self.request.GET:
             return queryset
         else:
@@ -61,20 +60,33 @@ class AutocompleteView(views.generic.list.BaseListView):
     def search(self, queryset, q):
         """Filter the result queryset against the search term."""
         kwargs = {item: q for item in self.search_lookups}
-        return queryset.filter(Q(**kwargs, _connector=Q.OR))
+        # print(f"search queryset: {queryset}")
+        # print(f"search kwargs: {kwargs}")
+        # return queryset.filter(Q(**kwargs, _connector=Q.OR))
+        search_queryset = queryset.filter(Q(**kwargs, _connector=Q.OR))
+        # print(f"search search_queryset: {search_queryset}")
+        return search_queryset
 
     def order_queryset(self, queryset):
         """Order the result queryset."""
+
+        # ToDo: This is something that should be settable from the form field / widget,
+        #   falling back to model meta or id if not provided
         ordering = self.model._meta.ordering or ["id"]
         return queryset.order_by(*ordering)
 
     def get_queryset(self):
         """Return a queryset of objects that match the search parameters and filters."""
         queryset = super().get_queryset()
+        # print(f"get_queryset queryset (initial): {queryset}")
         if self.q or FILTERBY_VAR in self.request.GET:
             queryset = self.apply_filter_by(queryset)
             queryset = self.search(queryset, self.q)
-        return self.order_queryset(queryset)
+        # print(f"get_queryset queryset (after filtering): {queryset}")
+        # return self.order_queryset(queryset)
+        ordered_queryset = self.order_queryset(queryset)
+        # print(f"get_queryset ordered_queryset: {ordered_queryset}")
+        return ordered_queryset
 
     def get_page_results(self, page):
         """Hook for modifying the result queryset for the given page."""
@@ -116,4 +128,9 @@ class AutocompleteView(views.generic.list.BaseListView):
             return http.HttpResponseBadRequest()
         with transaction.atomic():
             obj = self.create_object(request.POST)
-        return http.JsonResponse({"pk": obj.pk, "text": str(obj)})
+        return http.JsonResponse(
+            {
+                "pk": obj.pk,
+                "text": str(obj),
+            }
+        )

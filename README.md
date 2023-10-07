@@ -1,3 +1,4 @@
+
 # Tom Select for Django
 
 Django autocomplete widgets and views using [Tom Select](https://tom-select.js.org/).
@@ -79,7 +80,7 @@ from .models import City, Person
 class MyForm(forms.Form):
     city = forms.ModelChoiceField(
         City.objects.all(),
-        widget=TomSelectWidget(City, url="my_autocomplete_view"),
+        widget=TomSelectWidget(url="my_autocomplete_view"),
     )
 
     # Display results in a table, with additional columns for fields
@@ -87,7 +88,6 @@ class MyForm(forms.Form):
     person = forms.ModelChoiceField(
         Person.objects.all(),
         widget=TomSelectTabularWidget(
-            Person,
             url="my_autocomplete_view",
             search_lookups=[
                 "full_name__icontains",
@@ -133,9 +133,9 @@ The widgets pass attributes necessary to make autocomplete requests to the
 HTML element via the dataset property. The Tom Select element is then initialized
 from the attributes in the dataset property.
 
-### TomSelectWidget
+### TomSelectWidget & TomSelectMultipleWidget
 
-Base autocomplete widget. The arguments of TomSelectWidget are:
+Base autocomplete widgets for `ModelChoiceField` and `ModelMultipleChoiceField`. The arguments of TomSelectWidget & TomSelectMultipleWidget are:
 
 | Argument          | Default value                                                           | Description                                                                        |
 |-------------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------|
@@ -144,23 +144,23 @@ Base autocomplete widget. The arguments of TomSelectWidget are:
 | value_field       | `f"{model._meta.pk.name}"`                                              | model field that provides the value of an option                                   |
 | label_field       | `getattr(model, "name_field", "name")`                                  | model field that provides the label of an option                                   |
 | search_lookups    | `[f"{self.value_field}__icontains", f"{self.label_field}__icontains"]`  | the list of lookups to use when filtering the results                              |
-| create_field      | ""                                                                      | model field to create new objects with ([see below](#ajax-request))                |
-| multiple          | False                                                                   | if True, allow selecting multiple options                                          |
+| create_field      | ""                                                                      | model field to create new objects with ([see below](#ajax-request))                ||
 | listview_url      | ""                                                                      | URL name of the list view for this model ([see below](#list-view-link))            |
 | add_url           | ""                                                                      | URL name of the add view for this model([see below](#option-creation))             |
+| edit_url           | ""                                                                      | URL name of the edit view for each instance of this model([see below](#option-edits))             |
 | filter_by         | ()                                                                      | a 2-tuple defining an additional filter ([see below](#chained-dropdown-filtering)) |
 | bootstrap_version | 5                                                                       | the bootstrap version to use, either `4` or `5`                                    |
 
-### TomSelectTabularWidget
+### TomSelectTabularWidget & TomSelectTabularMultipleWidget
 
-This widget displays the results in tabular form. A table header will be added
+These widgets displays the results in tabular form. A table header will be added
 to the dropdown. By default, the table contains two columns: one column for the choice 
 value (commonly the "ID" of the option) and one column for the choice label (the 
 human-readable part of the choice).
 
 ![Tabular select preview](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/assets/tomselect_tabular.png "Tabular select preview")
 
-TomSelectTabularWidget has the following additional arguments:
+TomSelectTabularWidget & TomSelectTabularMultipleWidget have the following additional arguments:
 
 | Argument          | Default value                   | Description                                  |
 |-------------------|---------------------------------|----------------------------------------------|
@@ -170,7 +170,7 @@ TomSelectTabularWidget has the following additional arguments:
 | label_field_label | `f"{model._meta.verbose_name}"` | table header for the label column            |
 | show_value_field  | `False`                         | show the value field column (typically `id`) |
 
-#### Adding more columns 
+#### Adding more columns to the tabular widgets
 
 To add more columns, pass a dictionary mapping field names to column labels as
 `extra_columns` to the widget's arguments.
@@ -185,7 +185,6 @@ class MyForm(forms.Form):
     person = forms.ModelChoiceField(
         Person.objects.all(),
         widget=TomSelectTabularWidget(
-            Person,
             url="my_autocomplete_view",
             # for extra columns pass a mapping of {"model_field": "Column Header Label"}
             extra_columns={"first_name": "First Name", "last_name": "Last Name"},
@@ -208,13 +207,10 @@ on the view's root queryset as either a model field or as an annotation.
 
 ## Settings
 
-### TOMSELECT_BOOTSTRAP_VERSION
-
-The bootstrap version to use. Either `4` or `5`. Defaults to `5`.
-
-This sets the project-wide default for the `bootstrap_version` argument of the
-widgets. You can overwrite the default for a specific widget by passing the
-`bootstrap_version` argument to the widget.
+| Setting | Default value | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+|---------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| TOMSELECT_BOOTSTRAP_VERSION | `5` | The bootstrap version to use. Either `4` or `5`. Defaults to `5`. This sets the project-wide default for the `bootstrap_version` argument of the widgets. <p>You can overwrite the default for a specific widget by passing the `bootstrap_version` argument to the widget. This sets the project-wide default for the `bootstrap_version` argument of the widgets. You can overwrite the default for a specific widget by passing the `bootstrap_version` argument to the widget.</p>                                                                           |
+| TOMSELECT_PROXY_REQUEST | `"django_tomselect.utils.DefaultProxyRequest"` | Either a direct reference to a DefaultProxyRequest subclass or the path to the DefaultProxyRequest subclass to use. This class is used to obtain the model details for the autocomplete. <p>In order to simplify the process of creating a custom autocomplete view, django-tomselect provides a `DefaultProxyRequest` class that can be used to obtain the model details from the queryset and the request. This class is used by the widget to obtain the model details for the autocomplete. In most cases, you will not need to use this class directly.</p> |
 
 ----
 
@@ -273,7 +269,7 @@ urlpatterns = [
 ]
 
 # forms.py
-widget = TomSelectWidget(City, url="my_autocomplete_view", add_url="city_add")
+widget = TomSelectWidget(url="my_autocomplete_view", add_url="city_add")
 ```
 
 Clicking on that button sends the user to the add page of the model.
@@ -315,7 +311,7 @@ urlpatterns = [
 ]
 
 # forms.py
-widget = TomSelectWidget(City, url="my_autocomplete_view", listview_url="city_listview")
+widget = TomSelectWidget(url="my_autocomplete_view", listview_url="city_listview")
 ```
 
 ### Chained Dropdown Filtering
@@ -346,7 +342,7 @@ class PersonsFromCapitolsForm(forms.Form):
     capitol = forms.ModelChoiceField(queryset=City.objects.filter(is_capitol=True))
     person = forms.ModelChoiceField(
         queryset=Person.objects.all(),
-        widget=TomSelectWidget(Person, filter_by=("capitol", "city_id")),
+        widget=TomSelectWidget(filter_by=("capitol", "city_id")),
     )
 ```
 
@@ -357,9 +353,9 @@ other field provides a value, since its choices are dependent on the other
 field. If the other field does not have a value, the search will not return any 
 results.
 
-----
+## Advanced Topics
 
-## Manually Initializing Tom Select Fields
+### Manually Initializing Tom Select Fields
 
 If a form is added dynamically after the page loads (e.g.: with htmx), the new form 
 fields will not be initialized as django-tomselect fields. In order to manually 
@@ -368,18 +364,15 @@ form field as a value in `detail` as follows.
 
 ```javascript
 <script>
-  document.addEventListener("DOMContentLoaded", (event) => {
-    window.dispatchEvent(new CustomEvent('triggerTomSelect', {
-      detail: {
+  window.dispatchEvent(new CustomEvent('triggerTomSelect', {
+    detail: {
         elemID: 'id_tomselect_tabular'
-      }
-    }))
-  });
+    }
+  }));
 </script>
-
 ````
 
-----
+---
 
 ## Development & Demo
 

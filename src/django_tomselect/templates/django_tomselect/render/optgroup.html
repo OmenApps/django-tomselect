@@ -1,0 +1,6 @@
+optgroup: function(data, escape) {
+    let optgroup = document.createElement('div');
+    optgroup.className = 'optgroup';
+    optgroup.appendChild(data.options);
+    return optgroup;
+},

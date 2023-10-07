@@ -1,4 +1,4 @@
-"""proj URL Configuration.
+"""URL Configuration.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/4.1/topics/http/urls/
@@ -19,13 +19,22 @@ from django.urls import path
 from django.views.generic import FormView
 
 from .forms import FilteredForm, Form
-from .views import DemoAutocompleteView, add_view, listview_view
+from .views import (
+    DemoEditionAutocompleteView,
+    DemoMagazineAutocompleteView,
+    add_view,
+    form_test_view,
+    listview_view,
+    model_form_test_view,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", FormView.as_view(form_class=Form, template_name="base5.html"), name="demo"),
+    path("", form_test_view, name="demo"),
+    path("model/", model_form_test_view, name="demo_with_model"),
     path("bs4/", FormView.as_view(form_class=Form, template_name="base4.html"), name="demo-bs4"),
-    path("autocomplete/", DemoAutocompleteView.as_view(), name="autocomplete"),
+    path("autocomplete-edition/", DemoEditionAutocompleteView.as_view(), name="autocomplete-edition"),
+    path("autocomplete-magazine/", DemoMagazineAutocompleteView.as_view(), name="autocomplete-magazine"),
     path("listview/", listview_view, name="listview"),
     path("add/", add_view, name="add"),
     path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base5.html"), name="filtered"),
