@@ -15,3 +15,5 @@ TomSelect.define('dropdown_header', dropdown_header)
 TomSelect.define('dropdown_input', dropdown_input)
 TomSelect.define('remove_button', remove_button)
 TomSelect.define('virtual_scroll', virtual_scroll)
+
+window.TomSelect = require('tom-select');

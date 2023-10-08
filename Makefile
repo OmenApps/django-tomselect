@@ -22,6 +22,7 @@ lint:
 .PHONY: build
 build:
 	npm run build
+	npm run buildsmall
 	python3 -m build
 
 .PHONY: init
@@ -30,3 +31,4 @@ init:
 	pip install -U -r requirements.txt
 	npm install --include=dev
 	npm run build
+	npm run buildsmall

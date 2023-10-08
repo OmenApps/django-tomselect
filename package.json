@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "esbuild client/django-tomselect.js --bundle --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.js",
+    "buildsmall": "esbuild client/django-tomselect.js --bundle --minify --sourcemap --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.min.js",
     "lint": "npx standard client/"
   }
 }

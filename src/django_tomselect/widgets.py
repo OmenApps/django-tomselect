@@ -239,7 +239,11 @@ class TomSelectWidget(forms.Select):
                         "django_tomselect/css/django-tomselect.css",
                     ],
                 },
-                # js=["django_tomselect/js/django-tomselect.js"],
+                js=[
+                    "django_tomselect/js/django-tomselect.min.js"
+                    if DJANGO_TOMSELECT_MINIFIED
+                    else "django_tomselect/js/django-tomselect.js"
+                ],
             )
         else:
             return forms.Media(
@@ -249,7 +253,11 @@ class TomSelectWidget(forms.Select):
                         "django_tomselect/css/django-tomselect.css",
                     ],
                 },
-                # js=["django_tomselect/js/django-tomselect.js"],
+                js=[
+                    "django_tomselect/js/django-tomselect.min.js"
+                    if DJANGO_TOMSELECT_MINIFIED
+                    else "django_tomselect/js/django-tomselect.js"
+                ],
             )
 
 
