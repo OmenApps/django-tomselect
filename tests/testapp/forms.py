@@ -49,10 +49,10 @@ class CreateForm(forms.Form):
 
 
 class AddForm(forms.Form):
-    """Test form with a widget with a 'add' URL."""
+    """Test form with a widget with a 'create' URL."""
 
     field = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(create_field="name", add_url="add_page", **kwargs)
+        Edition.objects.all(), widget=TomSelectWidget(create_field="name", create_url="create_page", **kwargs)
     )
 
 

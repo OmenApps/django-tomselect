@@ -37,6 +37,9 @@ class TomSelectWidget(forms.Select):
         listview_url: str = "",
         create_url: str = "",
         edit_url: str = "",
+        value_field="",
+        label_field="",
+        create_field="",
         filter_by=(),
         bootstrap_version=DJANGO_TOMSELECT_BOOTSTRAP_VERSION,
         general_config: GeneralConfig = GeneralConfig(),
@@ -57,15 +60,15 @@ class TomSelectWidget(forms.Select):
             listview_url: URL name of the listview view for this model
             create_url: URL name of the add view for this model
             edit_url: URL name of the 'change' view for this model
-            # value_field: the name of the model field that corresponds to the
-            #   choice value of an option (f.ex. 'id'). Defaults to the name of
-            #   the model's primary key field.
-            # label_field: the name of the model field that corresponds to the
-            #   human-readable value of an option (f.ex. 'name'). Defaults to the
-            #   value of the model's `name_field` attribute. If the model has no
-            #   `name_field` attribute, it defaults to 'name'.
-            # create_field: the name of the model field used to create new
-            #   model objects with
+            value_field: the name of the model field that corresponds to the
+              choice value of an option (f.ex. 'id'). Defaults to the name of
+              the model's primary key field.
+            label_field: the name of the model field that corresponds to the
+              human-readable value of an option (f.ex. 'name'). Defaults to the
+              value of the model's `name_field` attribute. If the model has no
+              `name_field` attribute, it defaults to 'name'.
+            create_field: the name of the model field used to create new
+              model objects with
             filter_by: a 2-tuple (form_field_name, field_lookup) to filter the
               results against the value of the form field using the given
               Django field lookup. For example:
@@ -80,6 +83,10 @@ class TomSelectWidget(forms.Select):
         self.create_url = create_url
         self.edit_url = edit_url
 
+        self.value_field = value_field
+        self.label_field = label_field
+
+        self.create_field = create_field
         self.filter_by = filter_by
         self.bootstrap_version = (
             bootstrap_version if bootstrap_version in (4, 5) else 5
@@ -88,7 +95,6 @@ class TomSelectWidget(forms.Select):
         self.template_name = "django_tomselect/select.html"
 
         self.general_config = general_config
-        # print(self.general_config.as_dict())
         self.plugin_checkbox_options = plugin_checkbox_options
         self.plugin_clear_button = plugin_clear_button
         self.plugin_dropdown_header = plugin_dropdown_header
@@ -101,6 +107,9 @@ class TomSelectWidget(forms.Select):
     def get_context(self, name, value, attrs):
         """Get the context for rendering the widget."""
         context = super().get_context(name, value, attrs)
+
+        context["widget"]["value_field"] = self.value_field
+        context["widget"]["label_field"] = self.label_field
 
         context["widget"]["is_tabular"] = False
 
@@ -205,8 +214,8 @@ class TomSelectWidget(forms.Select):
 
         self.get_queryset()
 
-        # self.value_field = self.value_field or self.model._meta.pk.name
-        # self.label_field = self.label_field or getattr(self.model, "name_field", "name")
+        self.value_field = self.value_field or self.model._meta.pk.name
+        self.label_field = self.label_field or getattr(self.model, "name_field", "name")
 
         attrs = super().build_attrs(base_attrs, extra_attrs)
 

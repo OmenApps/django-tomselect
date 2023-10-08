@@ -20,6 +20,6 @@ option: function(data, escape) {
 
         return `<div class="row">${columns}</div>`
     {% else %}
-        return '<div>' + escape(data.{{ widget.general_config.label_field }}) + '</div>';
+        return '<div>' + escape(data.{{ widget.label_field }}) + '</div>';
     {% endif %}
 },

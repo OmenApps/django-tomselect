@@ -94,7 +94,7 @@ class TestTomSelectWidget(WidgetTestCase):
             create_field="the_create_field",
             multiple=True,
             listview_url="listview_page",
-            add_url="add_page",
+            create_url="create_page",
         )
         attrs = widget.build_attrs({})
         assert attrs["is-tomselect"]
@@ -105,7 +105,7 @@ class TestTomSelectWidget(WidgetTestCase):
         assert attrs["data-label-field"] == "pages"
         assert attrs["data-create-field"] == "the_create_field"
         assert attrs["data-listview-url"] == "/testapp/listview/"
-        assert attrs["data-add-url"] == "/testapp/add/"
+        assert attrs["data-create-url"] == "/testapp/create/"
 
     @pytest.mark.parametrize(
         "static_file",

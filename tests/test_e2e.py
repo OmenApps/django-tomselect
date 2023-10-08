@@ -318,21 +318,21 @@ def listview_button(dropdown_footer):
     return dropdown_footer.locator(".cl-btn")
 
 
-@pytest.mark.parametrize("view_name,has_footer", [("add", True), ("listview", True), ("simple", False)])
+@pytest.mark.parametrize("view_name,has_footer", [("create", True), ("listview", True), ("simple", False)])
 def test_has_footer(view_name, has_footer, dropdown_footer, context):
     """
     Assert that a footer div is added to the dropdown content if the select
-    element declares a 'listview' URL or a 'add' URL.
+    element declares a 'listview' URL or a 'create' URL.
     """
     if has_footer:
-        # Note that the footer will be attached for an 'add' URL even if the
+        # Note that the footer will be attached for an 'create' URL even if the
         # user has no 'add' permission.
         expect(dropdown_footer).to_be_attached()
     else:
         expect(dropdown_footer).not_to_be_attached()
 
 
-@pytest.mark.parametrize("view_name", ["add"])
+@pytest.mark.parametrize("view_name", ["create"])
 @pytest.mark.parametrize("username", ["noperms"])
 def test_add_button_invisible_when_no_permission(
     logged_in,
@@ -348,7 +348,7 @@ def test_add_button_invisible_when_no_permission(
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("view_name", ["add"])
+@pytest.mark.parametrize("view_name", ["create"])
 @pytest.mark.parametrize("username", ["admin"])
 class TestFooterAddButton:
     def test_has_visible_add_button(self, logged_in, add_button):
@@ -371,20 +371,20 @@ class TestFooterAddButton:
     def test_add_button_click_no_search_term(self, logged_in, _page, add_button, live_server):
         """
         Assert that clicking the add button with no search term given opens the
-        'add' _page in a new tab.
+        'create' _page in a new tab.
         """
 
-        def requests_add_page(request):
-            """Return whether the request is for the add _page."""
-            return request.url == live_server.url + reverse("add_page")
+        def requests_create_page(request):
+            """Return whether the request is for the create _page."""
+            return request.url == live_server.url + reverse("create_page")
 
-        with _page.expect_popup(requests_add_page):
+        with _page.expect_popup(requests_create_page):
             add_button.click()
 
     def test_add_button_click_with_search_term(self, logged_in, _page, add_button, search_input, live_server):
         """
         Assert that clicking the add button with a search term given starts a
-        POST request to create a new object instead of opening the 'add' _page.
+        POST request to create a new object instead of opening the 'create' _page.
         """
         with _page.expect_request_finished():
             search_input.fill("2022-99")

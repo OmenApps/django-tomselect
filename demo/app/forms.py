@@ -18,7 +18,7 @@ from django_tomselect.forms import (
 
 from .models import Edition, Magazine, ModelFormTestModel
 
-general_config = GeneralConfig(value_field="id", label_field="name")
+general_config = GeneralConfig()
 plugin_checkbox_options = PluginCheckboxOptions()
 plugin_clear_button = PluginClearButton()
 plugin_dropdown_header = PluginDropdownHeader(
@@ -42,6 +42,8 @@ class Form(forms.Form):
         # create_field="name",  # ToDo: Move to config
         listview_url="listview",
         create_url="create",
+        value_field="id",
+        label_field="name",
         attrs={
             "class": "form-control mb-3",
             "placeholder": "Select a value",
@@ -56,6 +58,8 @@ class Form(forms.Form):
         },
         listview_url="listview",
         create_url="create",
+        value_field="id",
+        label_field="name",
         required=False,
         general_config=general_config,
         plugin_dropdown_header=plugin_dropdown_header,
@@ -68,6 +72,8 @@ class Form(forms.Form):
             "class": "form-control mb-3",
         },
         listview_url="listview",
+        value_field="id",
+        label_field="name",
         required=False,
         general_config=general_config,
     )
@@ -78,6 +84,8 @@ class Form(forms.Form):
             "placeholder": "Select multiple values",
         },
         create_url="create",
+        value_field="id",
+        label_field="name",
         # create_field="name",  # ToDo: Move to config
         required=False,
         general_config=general_config,
@@ -93,6 +101,8 @@ class ModelForm(forms.ModelForm):
         # create_field="name",  # ToDo: Move to config
         listview_url="listview",
         create_url="create",
+        value_field="id",
+        label_field="name",
         attrs={
             "class": "form-control mb-3",
             "placeholder": "Select a value",
@@ -104,6 +114,8 @@ class ModelForm(forms.ModelForm):
         attrs={"class": "form-control mb-3"},
         listview_url="listview",
         create_url="create",
+        value_field="id",
+        label_field="name",
         general_config=general_config,
         plugin_dropdown_header=plugin_dropdown_header,
     )
@@ -113,6 +125,8 @@ class ModelForm(forms.ModelForm):
         url="autocomplete-edition",
         attrs={"class": "form-control mb-3"},
         listview_url="listview",
+        value_field="id",
+        label_field="name",
         general_config=general_config,
     )
     tomselect_tabular_multiple_with_value_field = TomSelectTabularMultipleField(
@@ -122,6 +136,8 @@ class ModelForm(forms.ModelForm):
             "placeholder": "Select multiple values",
         },
         create_url="create",
+        value_field="id",
+        label_field="name",
         # create_field="name",  # ToDo: Move to config
         general_config=general_config,
         plugin_dropdown_header=plugin_dropdown_header,
@@ -144,6 +160,8 @@ class FilteredForm(forms.Form):
         # create_field="name",  # ToDo: Move to config
         listview_url="listview",
         create_url="create",
+        value_field="id",
+        label_field="name",
         filter_by=("magazine", "magazine_id"),
         attrs={"class": "form-control mb-3"},
         required=False,
