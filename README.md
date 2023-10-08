@@ -386,3 +386,38 @@ Then see the demo for a preview: `python demo/manage.py runserver`
 
 Run tests with `make test` or `make tox`. To install required browsers for playwright: `playwright install`.
 See the makefile for other commands.
+
+
+### Customizing Templates
+
+All templates are located in [`django_tomselect/templates/django_tomselect/`](https://github.com/jacklinke/django-tomselect/tree/main/src/django_tomselect/templates/django_tomselect).
+
+The base template for the widgets is `select.html`. It contains the HTML structure for the custom widget and form field.
+
+Additionally, each of the [Render Templates](https://tom-select.js.org/docs/#render-templates) has its own template.
+
+The templates are rendered with the following context:
+
+| Variable | Description |
+|----------|-------------|
+| `ToDo`   | ToDo        |
+
+You can override templates by creating a template with the same name in your project's `templates/django_tomselect/` directory.
+
+### Translations
+
+There are a handful of strings in the default templates that are marked for translation.
+
+Before a new language can be added, the LANGUAGES setting must be updated with the new language code.
+
+```python
+LANGUAGES = (
+    ('en', _('English')),
+    ('es', _('Spanish')),
+    ('de', _('Deutsch')),
+)
+````
+
+To update translations, from the django_tomselect directory run `python ../../manage.py maketmessages -a`. 
+This will update the `.po` files in `django_tomselect/locale/` directory. Once translations files  have been 
+updated, compile them with `python ../../manage.py compilemessages`.
