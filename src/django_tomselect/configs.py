@@ -63,7 +63,6 @@ class PluginDropdownHeader(BaseConfig):
     label_field_label: str = "Label"
     label_col_class: str = "col-6"  # Not currently used
     show_value_field: bool = False
-    # extra_columns: Dict = field(default_factory=dict)
     extra_columns: Optional[Dict] = None
 
 

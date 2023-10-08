@@ -4,6 +4,15 @@ from django.conf import settings
 from django.utils.module_loading import import_string
 
 from .request import DefaultProxyRequest
+from .configs import (
+    GeneralConfig,
+    PluginClearButton,
+    PluginRemoveButton,
+    PluginDropdownInput,
+    PluginDropdownHeader,
+    PluginVirtualScroll,
+    PluginCheckboxOptions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,3 +50,11 @@ def currently_in_production_mode():
 
 # Should be either a boolean or a callable that returns a boolean
 DJANGO_TOMSELECT_MINIFIED = getattr(settings, "TOMSELECT_MINIFIED", currently_in_production_mode())
+
+DJANGO_TOMSELECT_GENERAL_CONFIG = getattr(settings, "TOMSELECT_GENERAL_CONFIG", GeneralConfig())
+DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON = getattr(settings, "TOMSELECT_PLUGIN_CLEAR_BUTTON", PluginClearButton())
+DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON = getattr(settings, "TOMSELECT_PLUGIN_REMOVE_BUTTON", PluginRemoveButton())
+DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT = getattr(settings, "TOMSELECT_PLUGIN_DROPDOWN_INPUT", PluginDropdownInput())
+DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER = getattr(settings, "TOMSELECT_PLUGIN_REMOVE_HEADER", PluginDropdownHeader())
+DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL = getattr(settings, "TOMSELECT_PLUGIN_VIRTUAL_SCROLL", PluginVirtualScroll())
+DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS = getattr(settings, "TOMSELECT_PLUGIN_CHECKBOX_OPTIONS", PluginCheckboxOptions())

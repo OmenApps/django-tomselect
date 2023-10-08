@@ -26,9 +26,6 @@ logger = logging.getLogger(__name__)
 class TomSelectWidget(forms.Select):
     """
     A Tom Select widget with model object choices.
-
-    The Tom Select element will be configured using custom data attributes on
-    the select element, which are provided by the widget's `build_attrs` method.
     """
 
     def __init__(
@@ -76,6 +73,13 @@ class TomSelectWidget(forms.Select):
             bootstrap_version: the Bootstrap version to use for the widget. Can
                 be set project-wide via settings.TOMSELECT_BOOTSTRAP_VERSION,
                 or per-widget instance. Defaults to 5.
+            general_config: a GeneralConfig instance
+            plugin_checkbox_options: a PluginCheckboxOptions instance
+            plugin_clear_button: a PluginClearButton instance
+            plugin_dropdown_header: a PluginDropdownHeader instance
+            plugin_dropdown_input: a PluginDropdownInput instance
+            plugin_remove_button: a PluginRemoveButton instance
+            plugin_virtual_scroll: a PluginVirtualScroll instance
             kwargs: additional keyword arguments passed to forms.Select
         """
         self.url = url
@@ -94,13 +98,35 @@ class TomSelectWidget(forms.Select):
 
         self.template_name = "django_tomselect/select.html"
 
-        self.general_config = general_config
-        self.plugin_checkbox_options = plugin_checkbox_options
-        self.plugin_clear_button = plugin_clear_button
-        self.plugin_dropdown_header = plugin_dropdown_header
-        self.plugin_dropdown_input = plugin_dropdown_input
-        self.plugin_remove_button = plugin_remove_button
-        self.plugin_virtual_scroll = plugin_virtual_scroll
+        self.general_config = general_config if isinstance(general_config, GeneralConfig) or None else GeneralConfig()
+        self.plugin_checkbox_options = (
+            plugin_checkbox_options
+            if isinstance(plugin_checkbox_options, PluginCheckboxOptions)
+            else PluginCheckboxOptions()
+        )
+        self.plugin_clear_button = (
+            plugin_clear_button if isinstance(plugin_clear_button, PluginClearButton) or None else PluginClearButton()
+        )
+        self.plugin_dropdown_header = (
+            plugin_dropdown_header
+            if isinstance(plugin_dropdown_header, PluginDropdownHeader) or None
+            else PluginDropdownHeader()
+        )
+        self.plugin_dropdown_input = (
+            plugin_dropdown_input
+            if isinstance(plugin_dropdown_input, PluginDropdownInput) or None
+            else PluginDropdownInput()
+        )
+        self.plugin_remove_button = (
+            plugin_remove_button
+            if isinstance(plugin_remove_button, PluginRemoveButton) or None
+            else PluginRemoveButton()
+        )
+        self.plugin_virtual_scroll = (
+            plugin_virtual_scroll
+            if isinstance(plugin_virtual_scroll, PluginVirtualScroll) or None
+            else PluginVirtualScroll()
+        )
 
         super().__init__(**kwargs)
 
@@ -113,20 +139,18 @@ class TomSelectWidget(forms.Select):
 
         context["widget"]["is_tabular"] = False
 
-        context["widget"]["general_config"] = self.general_config.as_dict()
-
         context["widget"]["search_lookups"] = self.get_search_lookups()
         context["widget"]["autocomplete_url"] = self.get_autocomplete_url()
 
+        context["widget"]["general_config"] = self.general_config.as_dict()
         context["widget"]["plugins"] = {}
         context["widget"]["plugins"]["clear_button"] = self.plugin_clear_button.as_dict()
         context["widget"]["plugins"]["remove_button"] = self.plugin_remove_button.as_dict()
-
         context["widget"]["plugins"]["dropdown_header"] = self.plugin_dropdown_header.as_dict()
 
-        context["widget"]["plugins"]["checkbox_options"] = False
-        context["widget"]["plugins"]["dropdown_input"] = True
-        context["widget"]["plugins"]["virtual_scroll"] = True
+        context["widget"]["plugins"]["checkbox_options"] = True if self.plugin_checkbox_options else False
+        context["widget"]["plugins"]["dropdown_input"] = True if self.plugin_dropdown_input else False
+        context["widget"]["plugins"]["virtual_scroll"] = True if self.plugin_virtual_scroll else False
 
         return context
 
