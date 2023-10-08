@@ -1,5 +1,5 @@
 from django.http import HttpResponse
-from django.shortcuts import HttpResponseRedirect, get_object_or_404, reverse
+from django.shortcuts import HttpResponseRedirect, reverse
 from django.template.response import TemplateResponse
 
 from django_tomselect.views import AutocompleteView
@@ -82,5 +82,5 @@ def listview_view(request):
     return HttpResponse("This is a dummy listview page.")
 
 
-def add_view(request):
-    return HttpResponse("This is a dummy add page.")
+def create_view(request):
+    return HttpResponse("This is a dummy create page.")

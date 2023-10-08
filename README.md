@@ -7,21 +7,20 @@ This package provides a Django autocomplete widget and view that can be used
 together to provide a user interface for selecting a model instance from a
 database table.
 
-The package is adapted from the fantastic work of 
-[Philip Becker](https://pypi.org/user/actionb/) in 
-[mizdb-tomselect](https://www.pypi.org/project/mizdb-tomselect/), with the goal 
-of a more generalized solution for Django autocompletion.
+The package is adapted from the fantastic work of [Philip Becker](https://pypi.org/user/actionb/)
+in [mizdb-tomselect](https://www.pypi.org/project/mizdb-tomselect/), with the goal of a more
+generalized solution for Django autocompletion and a focus on use of django templates, translations,
+and customization.
 
 <!-- TOC -->
 * [Tom Select for Django](#tom-select-for-django)
   * [Installation](#installation)
   * [Usage](#usage)
   * [Widgets](#widgets)
-    * [TomSelectWidget](#tomselectwidget)
-    * [TomSelectTabularWidget](#tomselecttabularwidget)
-      * [Adding more columns](#adding-more-columns-)
+    * [TomSelectWidget & TomSelectMultipleWidget](#tomselectwidget--tomselectmultiplewidget)
+    * [TomSelectTabularWidget & TomSelectTabularMultipleWidget](#tomselecttabularwidget--tomselecttabularmultiplewidget)
+      * [Adding more columns to the tabular widgets](#adding-more-columns-to-the-tabular-widgets)
   * [Settings](#settings)
-    * [TOMSELECT_BOOTSTRAP_VERSION](#tomselectbootstrapversion)
   * [Function & Features](#function--features)
     * [Modifying the initial QuerySet](#modifying-the-initial-queryset)
     * [Searching](#searching)
@@ -29,8 +28,11 @@ of a more generalized solution for Django autocompletion.
       * [AJAX request](#ajax-request)
     * [List View link](#list-view-link)
     * [Chained Dropdown Filtering](#chained-dropdown-filtering)
-  * [Manually Initializing Tom Select Fields](#manually-initializing-tom-select-fields)
+  * [Advanced Topics](#advanced-topics)
+    * [Manually Initializing Tom Select Fields](#manually-initializing-tom-select-fields)
   * [Development & Demo](#development--demo)
+    * [Customizing Templates](#customizing-templates)
+    * [Translations](#translations)
 <!-- TOC -->
 
 ----
@@ -54,17 +56,36 @@ INSTALLED_APPS = [
 ]
 ```
 
-Configure an endpoint for autocomplete requests:
+Add an autocomplete view for each model that you want to use with django-tomselect:
+
+```python
+# views.py
+from django_tomselect.views import AutocompleteView
+from .models import City, Person
+
+
+class CityAutocompleteView(AutocompleteView):
+    model = City
+
+class PersonAutocompleteView(AutocompleteView):
+    model = Person
+    search_lookups = [
+        "full_name__icontains",
+    ]
+```
+
+Configure endpoints for autocomplete requests:
 
 ```python
 # urls.py
 from django.urls import path
 
-from django_tomselect.views import AutocompleteView
+from .views import CityAutocompleteView, PersonAutocompleteView
 
 urlpatterns = [
     # ...
-    path("autocomplete/", AutocompleteView.as_view(), name="my_autocomplete_view")
+    path("autocomplete-person/", PersonAutocompleteView.as_view(), name="person_autocomplete"),
+    path("autocomplete-city/", CityAutocompleteView.as_view(), name="city_autocomplete"),
 ]
 ```
 
@@ -73,35 +94,31 @@ Use the widgets in a form.
 ```python
 from django import forms
 
-from django_tomselect.widgets import TomSelectWidget, TomSelectTabularWidget
+from django_tomselect.forms import TomSelectField, TomSelectTabularField
 from .models import City, Person
 
 
 class MyForm(forms.Form):
-    city = forms.ModelChoiceField(
-        City.objects.all(),
-        widget=TomSelectWidget(url="my_autocomplete_view"),
+    city = TomSelectField(
+      url="my_autocomplete_view",
     )
 
     # Display results in a table, with additional columns for fields
     # "first_name" and "last_name":
-    person = forms.ModelChoiceField(
-        Person.objects.all(),
-        widget=TomSelectTabularWidget(
-            url="my_autocomplete_view",
-            search_lookups=[
-                "full_name__icontains",
-            ],
-            # for extra columns pass a mapping of {"model_field": "Column Header Label"}
-            extra_columns={"first_name": "First Name", "last_name": "Last Name"},
-            # The column header label for the labelField column
-            label_field_label="Full Name",
-        ),
+    person = TomSelectTabularField(
+        url="my_autocomplete_view",
+        # for extra columns pass a mapping of {"model_field": "Column Header Label"}
+        extra_columns={
+            "first_name": "First Name",
+            "last_name": "Last Name",
+        },
+        # The column header label for the labelField column
+        label_field_label="Full Name",
     )
-
 ``` 
 
-NOTE: Make sure to include [bootstrap](https://getbootstrap.com/docs/5.2/getting-started/download/) somewhere. For example in the template:
+NOTE: Make sure to include [bootstrap](https://getbootstrap.com/docs/5.2/getting-started/download/) 
+4 or 5, and the form media (or manually add the tomselect css and js files) in your template:
 
 ```html
 <!DOCTYPE html>
@@ -127,9 +144,9 @@ NOTE: Make sure to include [bootstrap](https://getbootstrap.com/docs/5.2/getting
 
 ----
 
-## Widgets
+## Form Fields
 
-The widgets pass attributes necessary to make autocomplete requests to the
+The form fields pass attributes necessary to make autocomplete requests to the
 HTML element via the dataset property. The Tom Select element is then initialized
 from the attributes in the dataset property.
 
@@ -143,7 +160,6 @@ Base autocomplete widgets for `ModelChoiceField` and `ModelMultipleChoiceField`.
 | url               | `"autocomplete"`                                                        | URL pattern name of the autocomplete view                                          |
 | value_field       | `f"{model._meta.pk.name}"`                                              | model field that provides the value of an option                                   |
 | label_field       | `getattr(model, "name_field", "name")`                                  | model field that provides the label of an option                                   |
-| search_lookups    | `[f"{self.value_field}__icontains", f"{self.label_field}__icontains"]`  | the list of lookups to use when filtering the results                              |
 | create_field      | ""                                                                      | model field to create new objects with ([see below](#ajax-request))                ||
 | listview_url      | ""                                                                      | URL name of the list view for this model ([see below](#list-view-link))            |
 | add_url           | ""                                                                      | URL name of the add view for this model([see below](#option-creation))             |
@@ -177,20 +193,16 @@ To add more columns, pass a dictionary mapping field names to column labels as
 
 ```python
 from django import forms
-from django_tomselect.widgets import TomSelectTabularWidget
+from django_tomselect.forms import TomSelectTabularField
 from .models import Person
 
 
 class MyForm(forms.Form):
-    person = forms.ModelChoiceField(
-        Person.objects.all(),
-        widget=TomSelectTabularWidget(
-            url="my_autocomplete_view",
-            # for extra columns pass a mapping of {"model_field": "Column Header Label"}
-            extra_columns={"first_name": "First Name", "last_name": "Last Name"},
-        ),
+    person = TomSelectTabularField(
+        url="my_autocomplete_view",
+        # for extra columns pass a mapping of {"model_field": "Column Header Label"}
+        extra_columns={"first_name": "First Name", "last_name": "Last Name"},
     )
-
 ```
 
 The column label is the header label for a given column in the table.  

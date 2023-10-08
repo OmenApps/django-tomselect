@@ -1,20 +1,25 @@
 option: function(data, escape) {
-
     {% if widget.is_tabular %}
         let columns = ''
+        let test = null
 
-        if (this.settings.showValueField === true) {
+        {% if widget.plugins.dropdown_header.show_value_field %}
             columns = `<div class="col">${data[this.settings.valueField]}</div>
-                       <div class="col">${data[this.settings.labelField]}</div>`
-        } else {
+            <div class="col">${data[this.settings.labelField]}</div>`
+        {% else %}
             columns = `<div class="col">${data[this.settings.labelField]}</div>`
-        }
+        {% endif %}
 
-        for (const c of this.settings.extraColumns) {
-            columns += `<div class="col">${escape(data[c] || '')}</div>`
-        }
+{#        for (const c of this.settings.extraColumns) {#}
+{#            columns += `<div class="col">${escape(data[c] || '')}</div>`#}
+{#        }#}
+
+        {% for item in widget.plugins.dropdown_header.extra_values %}
+            columns += `<div class="col">${escape(data['{{ item }}'] || '')}</div>`
+        {% endfor %}
+
         return `<div class="row">${columns}</div>`
     {% else %}
-        return '<div>' + escape(data.{{ widget.label_field }}) + '</div>';
+        return '<div>' + escape(data.{{ widget.general_config.label_field }}) + '</div>';
     {% endif %}
 },

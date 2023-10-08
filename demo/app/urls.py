@@ -22,7 +22,7 @@ from .forms import FilteredForm, Form
 from .views import (
     DemoEditionAutocompleteView,
     DemoMagazineAutocompleteView,
-    add_view,
+    create_view,
     form_test_view,
     listview_view,
     model_form_test_view,
@@ -36,7 +36,7 @@ urlpatterns = [
     path("autocomplete-edition/", DemoEditionAutocompleteView.as_view(), name="autocomplete-edition"),
     path("autocomplete-magazine/", DemoMagazineAutocompleteView.as_view(), name="autocomplete-magazine"),
     path("listview/", listview_view, name="listview"),
-    path("add/", add_view, name="add"),
+    path("create/", create_view, name="create"),
     path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base5.html"), name="filtered"),
     path("filtered-bs4/", FormView.as_view(form_class=FilteredForm, template_name="base4.html"), name="filtered-bs4"),
 ]
