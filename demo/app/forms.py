@@ -118,6 +118,7 @@ class ModelForm(forms.ModelForm):
         label_field="name",
         general_config=general_config,
         plugin_dropdown_header=plugin_dropdown_header,
+        plugin_checkbox_options=None,
     )
 
     # Multiple selection:
@@ -141,6 +142,7 @@ class ModelForm(forms.ModelForm):
         # create_field="name",  # ToDo: Move to config
         general_config=general_config,
         plugin_dropdown_header=plugin_dropdown_header,
+        plugin_checkbox_options=None,
     )
 
     class Meta:

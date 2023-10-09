@@ -1,5 +1,6 @@
 import copy
 import logging
+from typing import Optional
 from urllib.parse import unquote
 
 from django import forms
@@ -39,13 +40,13 @@ class TomSelectWidget(forms.Select):
         create_field="",
         filter_by=(),
         bootstrap_version=DJANGO_TOMSELECT_BOOTSTRAP_VERSION,
-        general_config: GeneralConfig = GeneralConfig(),
-        plugin_checkbox_options: PluginCheckboxOptions = PluginCheckboxOptions(),
-        plugin_clear_button: PluginClearButton = PluginClearButton(),
-        plugin_dropdown_header: PluginDropdownHeader = PluginDropdownHeader(),
-        plugin_dropdown_input: PluginDropdownInput = PluginDropdownInput(),
-        plugin_remove_button: PluginRemoveButton = PluginRemoveButton(),
-        plugin_virtual_scroll: PluginVirtualScroll = PluginVirtualScroll(),
+        general_config: Optional[GeneralConfig] = GeneralConfig(),
+        plugin_checkbox_options: Optional[PluginCheckboxOptions] = PluginCheckboxOptions(),
+        plugin_clear_button: Optional[PluginClearButton] = PluginClearButton(),
+        plugin_dropdown_header: Optional[PluginDropdownHeader] = PluginDropdownHeader(),
+        plugin_dropdown_input: Optional[PluginDropdownInput] = PluginDropdownInput(),
+        plugin_remove_button: Optional[PluginRemoveButton] = PluginRemoveButton(),
+        plugin_virtual_scroll: Optional[PluginVirtualScroll] = PluginVirtualScroll(),
         **kwargs,
     ):
         """
@@ -99,32 +100,65 @@ class TomSelectWidget(forms.Select):
         self.template_name = "django_tomselect/select.html"
 
         self.general_config = general_config if isinstance(general_config, GeneralConfig) or None else GeneralConfig()
+
         self.plugin_checkbox_options = (
             plugin_checkbox_options
-            if isinstance(plugin_checkbox_options, PluginCheckboxOptions)
+            if any(
+                [
+                    isinstance(plugin_checkbox_options, PluginCheckboxOptions),
+                    plugin_checkbox_options is None,
+                ]
+            )
             else PluginCheckboxOptions()
         )
         self.plugin_clear_button = (
-            plugin_clear_button if isinstance(plugin_clear_button, PluginClearButton) or None else PluginClearButton()
+            plugin_clear_button
+            if any(
+                [
+                    isinstance(plugin_clear_button, PluginClearButton),
+                    plugin_clear_button is None,
+                ]
+            )
+            else PluginClearButton()
         )
         self.plugin_dropdown_header = (
             plugin_dropdown_header
-            if isinstance(plugin_dropdown_header, PluginDropdownHeader) or None
+            if any(
+                [
+                    isinstance(plugin_dropdown_header, PluginDropdownHeader),
+                    plugin_dropdown_header is None,
+                ]
+            )
             else PluginDropdownHeader()
         )
         self.plugin_dropdown_input = (
             plugin_dropdown_input
-            if isinstance(plugin_dropdown_input, PluginDropdownInput) or None
+            if any(
+                [
+                    isinstance(plugin_dropdown_input, PluginDropdownInput),
+                    plugin_dropdown_input is None,
+                ]
+            )
             else PluginDropdownInput()
         )
         self.plugin_remove_button = (
             plugin_remove_button
-            if isinstance(plugin_remove_button, PluginRemoveButton) or None
+            if any(
+                [
+                    isinstance(plugin_remove_button, PluginRemoveButton),
+                    plugin_remove_button is None,
+                ]
+            )
             else PluginRemoveButton()
         )
         self.plugin_virtual_scroll = (
             plugin_virtual_scroll
-            if isinstance(plugin_virtual_scroll, PluginVirtualScroll) or None
+            if any(
+                [
+                    isinstance(plugin_virtual_scroll, PluginVirtualScroll),
+                    plugin_virtual_scroll is None,
+                ]
+            )
             else PluginVirtualScroll()
         )
 
@@ -144,9 +178,15 @@ class TomSelectWidget(forms.Select):
 
         context["widget"]["general_config"] = self.general_config.as_dict()
         context["widget"]["plugins"] = {}
-        context["widget"]["plugins"]["clear_button"] = self.plugin_clear_button.as_dict()
-        context["widget"]["plugins"]["remove_button"] = self.plugin_remove_button.as_dict()
-        context["widget"]["plugins"]["dropdown_header"] = self.plugin_dropdown_header.as_dict()
+        context["widget"]["plugins"]["clear_button"] = (
+            self.plugin_clear_button.as_dict() if self.plugin_clear_button else None
+        )
+        context["widget"]["plugins"]["remove_button"] = (
+            self.plugin_remove_button.as_dict() if self.plugin_remove_button else None
+        )
+        context["widget"]["plugins"]["dropdown_header"] = (
+            self.plugin_dropdown_header.as_dict() if self.plugin_dropdown_header else None
+        )
 
         context["widget"]["plugins"]["checkbox_options"] = True if self.plugin_checkbox_options else False
         context["widget"]["plugins"]["dropdown_input"] = True if self.plugin_dropdown_input else False

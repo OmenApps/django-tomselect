@@ -2,7 +2,7 @@ html: function (data) {
     let header = ''
 
     {% if widget.plugins.dropdown_header.show_value_field %}
-        header = `
+        header += `
         <div class="col">
             <span class="{{ widget.plugins.dropdown_header.label_class }}">{{ widget.plugins.dropdown_header.value_field_label }}</span>
         </div>
@@ -11,7 +11,7 @@ html: function (data) {
         </div>
         `
     {% else %}
-        header = `
+        header += `
         <div class="col">
             <span class="{{ widget.plugins.dropdown_header.label_class }}">{{ widget.plugins.dropdown_header.label_field_label }}</span>
         </div>

@@ -1,13 +1,12 @@
 option: function(data, escape) {
     {% if widget.is_tabular %}
         let columns = ''
-        let test = null
 
         {% if widget.plugins.dropdown_header.show_value_field %}
-            columns = `<div class="col">${data[this.settings.valueField]}</div>
+            columns += `<div class="col">${data[this.settings.valueField]}</div>
             <div class="col">${data[this.settings.labelField]}</div>`
         {% else %}
-            columns = `<div class="col">${data[this.settings.labelField]}</div>`
+            columns += `<div class="col">${data[this.settings.labelField]}</div>`
         {% endif %}
 
 {#        for (const c of this.settings.extraColumns) {#}

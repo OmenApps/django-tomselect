@@ -2,22 +2,22 @@ import logging
 
 from django import forms
 
-from .app_settings import DJANGO_TOMSELECT_BOOTSTRAP_VERSION
+from .app_settings import (
+    DJANGO_TOMSELECT_BOOTSTRAP_VERSION,
+    DJANGO_TOMSELECT_GENERAL_CONFIG,
+    DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS,
+    DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON,
+    DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER,
+    DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT,
+    DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON,
+    DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL,
+)
 from .models import EmptyModel
 from .widgets import (
     TomSelectMultipleWidget,
     TomSelectTabularMultipleWidget,
     TomSelectTabularWidget,
     TomSelectWidget,
-)
-from .app_settings import (
-    DJANGO_TOMSELECT_GENERAL_CONFIG,
-    DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS,
-    DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER,
-    DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON,
-    DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL,
-    DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT,
-    DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class TomSelectField(forms.ModelChoiceField):
             general_config=kwargs.pop("general_config", DJANGO_TOMSELECT_GENERAL_CONFIG),
             plugin_checkbox_options=kwargs.pop("plugin_checkbox_options", DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS),
             plugin_clear_button=kwargs.pop("plugin_clear_button", DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON),
-            plugin_dropdown_header=kwargs.pop("plugin_dropdown_header", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER),
+            plugin_dropdown_header=None,
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
             plugin_virtual_scroll=kwargs.pop("plugin_virtual_scroll", DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL),
@@ -101,7 +101,7 @@ class TomSelectMultipleField(forms.ModelMultipleChoiceField):
             general_config=kwargs.pop("general_config", DJANGO_TOMSELECT_GENERAL_CONFIG),
             plugin_checkbox_options=kwargs.pop("plugin_checkbox_options", DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS),
             plugin_clear_button=kwargs.pop("plugin_clear_button", DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON),
-            plugin_dropdown_header=kwargs.pop("plugin_dropdown_header", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER),
+            plugin_dropdown_header=None,
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
             plugin_virtual_scroll=kwargs.pop("plugin_virtual_scroll", DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL),

@@ -16,6 +16,7 @@ class GeneralConfig(BaseConfig):
     """
     General configuration for the TomSelect widget.
     """
+
     close_after_select: Optional[bool] = None
     hide_placeholder: Optional[bool] = None
     highlight: bool = True

@@ -3,16 +3,16 @@ import logging
 from django.conf import settings
 from django.utils.module_loading import import_string
 
-from .request import DefaultProxyRequest
 from .configs import (
     GeneralConfig,
-    PluginClearButton,
-    PluginRemoveButton,
-    PluginDropdownInput,
-    PluginDropdownHeader,
-    PluginVirtualScroll,
     PluginCheckboxOptions,
+    PluginClearButton,
+    PluginDropdownHeader,
+    PluginDropdownInput,
+    PluginRemoveButton,
+    PluginVirtualScroll,
 )
+from .request import DefaultProxyRequest
 
 logger = logging.getLogger(__name__)
 
@@ -57,4 +57,6 @@ DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON = getattr(settings, "TOMSELECT_PLUGIN_REMO
 DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT = getattr(settings, "TOMSELECT_PLUGIN_DROPDOWN_INPUT", PluginDropdownInput())
 DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER = getattr(settings, "TOMSELECT_PLUGIN_REMOVE_HEADER", PluginDropdownHeader())
 DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL = getattr(settings, "TOMSELECT_PLUGIN_VIRTUAL_SCROLL", PluginVirtualScroll())
-DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS = getattr(settings, "TOMSELECT_PLUGIN_CHECKBOX_OPTIONS", PluginCheckboxOptions())
+DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS = getattr(
+    settings, "TOMSELECT_PLUGIN_CHECKBOX_OPTIONS", PluginCheckboxOptions()
+)
