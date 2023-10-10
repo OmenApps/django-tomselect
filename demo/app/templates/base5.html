@@ -1,5 +1,4 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,9 +9,16 @@
     <script src="{% static 'bootstrap/dist/js/bootstrap.bundle.js' %}"></script>
     {{ form.media }}
 
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+    </style>
+
 </head>
 <body>
-<div class="container">
+<div class="container mt-5">
     <form method="post" action="{{ request.path }}">
         {% csrf_token %}
         {{ form.as_div }}

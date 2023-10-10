@@ -1,4 +1,5 @@
-{% load static %}<!DOCTYPE html>
+{% load static %}
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,6 +9,14 @@
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
     <script src="{% static 'bootstrap-legacy/dist/js/bootstrap.bundle.js' %}"></script>
     {{ form.media }}
+
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+    </style>
+
 </head>
 <body>
 <div class="container">
