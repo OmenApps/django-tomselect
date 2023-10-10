@@ -56,6 +56,19 @@ class PluginClearButton(BaseConfig):
 
 @dataclass(kw_only=True)
 class PluginDropdownHeader(BaseConfig):
+    """
+    Args:
+        extra_columns: a mapping of <model field names> to <column labels>
+          for additional columns. The field name tells Tom Select what
+          values to look up on a model object result for a given column.
+          The label is the table header label for a given column.
+        value_field_label: table header label for the value field column.
+          Defaults to value_field.title().
+        label_field_label: table header label for the label field column.
+          Defaults to the verbose_name of the model.
+        show_value_field: if True, show the value field column in the table.
+    """
+
     title: str = "Autocomplete"
     header_class: str = "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header"
     title_row_class: str = "row"
@@ -65,6 +78,17 @@ class PluginDropdownHeader(BaseConfig):
     label_col_class: str = "col-6"  # Not currently used
     show_value_field: bool = False
     extra_columns: Optional[Dict] = None
+
+
+@dataclass(kw_only=True)
+class PluginDropdownFooter(BaseConfig):
+    """
+    Args:
+        footer_class: CSS class for the footer container.
+    """
+
+    title: str = "Autocomplete Footer"
+    footer_class: str = "container-fluid mt-1 px-2 border-top dropdown-footer"
 
 
 @dataclass(kw_only=True)

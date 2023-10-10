@@ -44,6 +44,15 @@
             {% endif %}
 
 
+            {% if widget.plugins.dropdown_footer %}
+                dropdown_footer:{
+                    title: '{% if widget.plugins.dropdown_footer.title %}{{ widget.plugins.dropdown_footer.title }}{% else %}Select an option{% endif %}',
+                    footerClass: '{{ widget.plugins.dropdown_footer.footer_class }}',
+                    {% include "django_tomselect/render/dropdown_footer.html" with widget=widget %}
+                },
+            {% endif %}
+
+
             {% if widget.plugins.dropdown_input %}
                 dropdown_input: true,
             {% endif %}

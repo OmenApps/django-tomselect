@@ -44,6 +44,7 @@ class TomSelectWidget(forms.Select):
         plugin_checkbox_options: Optional[PluginCheckboxOptions] = PluginCheckboxOptions(),
         plugin_clear_button: Optional[PluginClearButton] = PluginClearButton(),
         plugin_dropdown_header: Optional[PluginDropdownHeader] = PluginDropdownHeader(),
+        plugin_dropdown_footer: Optional[PluginDropdownFooter] = PluginDropdownFooter(),
         plugin_dropdown_input: Optional[PluginDropdownInput] = PluginDropdownInput(),
         plugin_remove_button: Optional[PluginRemoveButton] = PluginRemoveButton(),
         plugin_virtual_scroll: Optional[PluginVirtualScroll] = PluginVirtualScroll(),
@@ -131,6 +132,16 @@ class TomSelectWidget(forms.Select):
             )
             else PluginDropdownHeader()
         )
+        self.plugin_dropdown_footer = (
+            plugin_dropdown_footer
+            if any(
+                [
+                    isinstance(plugin_dropdown_footer, PluginDropdownFooter),
+                    plugin_dropdown_footer is None,
+                ]
+            )
+            else PluginDropdownFooter()
+        )
         self.plugin_dropdown_input = (
             plugin_dropdown_input
             if any(
@@ -184,10 +195,25 @@ class TomSelectWidget(forms.Select):
         context["widget"]["plugins"]["remove_button"] = (
             self.plugin_remove_button.as_dict() if self.plugin_remove_button else None
         )
-        context["widget"]["plugins"]["dropdown_header"] = (
-            self.plugin_dropdown_header.as_dict() if self.plugin_dropdown_header else None
-        )
 
+        if self.plugin_dropdown_header:
+            context["widget"]["is_tabular"] = True
+            context["widget"]["plugins"]["dropdown_header"] = self.plugin_dropdown_header.as_dict()
+
+            # Update context with the headers and values for the extra columns
+            if isinstance(self.plugin_dropdown_header.extra_columns, dict):
+                context["widget"]["plugins"]["dropdown_header"]["extra_headers"] = [
+                    *self.plugin_dropdown_header.extra_columns.values()
+                ]
+                context["widget"]["plugins"]["dropdown_header"]["extra_values"] = [
+                    *self.plugin_dropdown_header.extra_columns.keys()
+                ]
+
+        if self.plugin_dropdown_footer:
+            context["widget"]["plugins"]["dropdown_footer"] = self.plugin_dropdown_footer.as_dict()
+
+        # These context objects have no attributes, so we set them to True or False
+        #   depending on whether they are provided or not
         context["widget"]["plugins"]["checkbox_options"] = True if self.plugin_checkbox_options else False
         context["widget"]["plugins"]["dropdown_input"] = True if self.plugin_dropdown_input else False
         context["widget"]["plugins"]["virtual_scroll"] = True if self.plugin_virtual_scroll else False

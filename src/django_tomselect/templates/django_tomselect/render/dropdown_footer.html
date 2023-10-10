@@ -1,0 +1,13 @@
+html: function (data) {
+    let footer = ''
+
+    footer += `
+    <div title="{{ widget.plugins.dropdown_footer.title }}" class="{{ widget.plugins.dropdown_footer.footer_class }}">
+        {% if not widget.listview_url == "" %}
+            <a href="{{ widget.listview_url }}" title="Go to List View for these items" class="btn btn-primary btn-sm m-2 p-1 float-end float-right" target="_blank" rel="noopener noreferrer">List View</a>
+        {% endif %}
+    </div>
+    `
+
+    return footer
+},

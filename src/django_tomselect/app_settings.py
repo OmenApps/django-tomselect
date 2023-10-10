@@ -7,11 +7,11 @@ from .configs import (
     GeneralConfig,
     PluginCheckboxOptions,
     PluginClearButton,
+    PluginDropdownFooter,
     PluginDropdownHeader,
     PluginDropdownInput,
     PluginRemoveButton,
     PluginVirtualScroll,
-    PluginDropdownFooter,
 )
 from .request import DefaultProxyRequest
 
