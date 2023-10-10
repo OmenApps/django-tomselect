@@ -1,3 +1,19 @@
 item: function(data, escape) {
-    return '<div>' + escape(data.{{ widget.label_field }}) + '</div>';
+    let item = ''
+    item += '<div>' + escape(data.{{ widget.label_field }});
+
+    {% if not widget.update_url == "" and widget.update_url is not None %}
+        // Replace the placeholder with the actual pk value
+        let update_url = "{{ widget.update_url }}";
+        update_url = update_url.replace("_pk_", escape(data.id));
+        item += `
+        <a href="${update_url}" class="update ml-1 ms-1" title="Update" target="_blank" tabindex="-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-edit-3 text-success"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+        </a>`;
+    {% endif %}
+
+    item += '</div>';
+
+    return item;
 },
+

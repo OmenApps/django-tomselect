@@ -182,6 +182,9 @@ class TomSelectWidget(forms.Select):
 
         context = super().get_context(name, value, attrs)
 
+        self.value_field = self.value_field or self.model._meta.pk.name
+        self.label_field = self.label_field or getattr(self.model, "name_field", "name")
+
         context["widget"]["value_field"] = self.value_field
         context["widget"]["label_field"] = self.label_field
 
@@ -330,60 +333,11 @@ class TomSelectWidget(forms.Select):
             )
 
 
-class TomSelectTabularWidget(TomSelectWidget):
-    """TomSelectWidget widget that displays results in a table with header."""
-
-    def __init__(
-        self,
-        **kwargs,
-    ):
-        """
-        Instantiate a TomSelectTabularWidget widget.
-
-        Args:
-            extra_columns: a mapping of <model field names> to <column labels>
-              for additional columns. The field name tells Tom Select what
-              values to look up on a model object result for a given column.
-              The label is the table header label for a given column.
-            value_field_label: table header label for the value field column.
-              Defaults to value_field.title().
-            label_field_label: table header label for the label field column.
-              Defaults to the verbose_name of the model.
-            show_value_field: if True, show the value field column in the table.
-            args: additional positional arguments passed to TomSelectWidget
-            kwargs: additional keyword arguments passed to TomSelectWidget
-        """
-        super().__init__(**kwargs)
-        # self.value_field_label = value_field_label or self.value_field.title()
-        # self.label_field_label = label_field_label or self.model._meta.verbose_name or "Object"
-
-    def get_context(self, name, value, attrs):
-        """Get the context for rendering the widget."""
-        context = super().get_context(name, value, attrs)
-
-        context["widget"]["is_tabular"] = True
-
-        keys = [*self.plugin_dropdown_header.extra_columns.keys()]
-        vals = [*self.plugin_dropdown_header.extra_columns.values()]
-        context["widget"]["plugins"]["dropdown_header"]["extra_headers"] = vals
-        context["widget"]["plugins"]["dropdown_header"]["extra_values"] = keys
-
-        return context
-
-
-class MultipleSelectionMixin:
-    """Enable multiple selection with TomSelect."""
+class TomSelectMultipleWidget(TomSelectWidget, forms.SelectMultiple):
+    """A TomSelect widget that allows multiple selection."""
 
     def build_attrs(self, base_attrs, extra_attrs=None):
         """Build HTML attributes for the widget."""
         attrs = super().build_attrs(base_attrs, extra_attrs)  # noqa
         attrs["is-multiple"] = True
         return attrs
-
-
-class TomSelectMultipleWidget(MultipleSelectionMixin, TomSelectWidget, forms.SelectMultiple):
-    """A TomSelect widget that allows multiple selection."""
-
-
-class TomSelectTabularMultipleWidget(MultipleSelectionMixin, TomSelectTabularWidget, forms.SelectMultiple):
-    """A TomSelectTabular widget that allows multiple selection."""

@@ -1,7 +1,7 @@
 <select name="{{ widget.name }}" id="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>{% for group_name, group_choices, group_index in widget.optgroups %}{% if group_name %}
     <optgroup label="{{ group_name }}">{% endif %}{% for option in group_choices %}
         {% include option.template_name with widget=option %}{% endfor %}{% if group_name %}
-            </optgroup>{% endif %}{% endfor %}
+    </optgroup>{% endif %}{% endfor %}
 </select>
 
 <script>
@@ -12,7 +12,7 @@
         maxOptions: {% if widget.general_config.max_options %}{{ widget.general_config.max_options }}{% else %}50{% endif %},
         preload: {% if widget.general_config.preload == "focus" %}'focus'{% elif widget.general_config.preload %}true{% else %}false{% endif %},
         {#createFilter: {% if widget.general_config.create_filter %}{{ widget.general_config.create_filter }}{% else %}null{% endif %},#}
-        {#maxItems: {% if widget.general_config.max_items %}{{ widget.general_config.max_items }}{% else %}null{% endif %},#}
+        maxItems: {% if widget.general_config.max_items %}{{ widget.general_config.max_items }}{% else %}null{% endif %},
         create: {% if widget.general_config.create %}true{% else %}false{% endif %},
 
         valueField: '{{ widget.value_field }}',
@@ -39,6 +39,8 @@
 
             {% if widget.plugins.dropdown_header %}
                 dropdown_header:{
+                    title: '{% if widget.plugins.dropdown_header.title %}{{ widget.plugins.dropdown_header.title }}{% else %}Select an option{% endif %}',
+                    headerClass: '{{ widget.plugins.dropdown_header.header_class }}',
                     {% include "django_tomselect/render/dropdown_header.html" with widget=widget %}
                 },
             {% endif %}
@@ -113,4 +115,5 @@
             {% include "django_tomselect/render/option_create.html" with widget=widget %}
         }
     });
+
 </script>

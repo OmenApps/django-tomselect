@@ -13,12 +13,7 @@ from .app_settings import (
     DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL,
 )
 from .models import EmptyModel
-from .widgets import (
-    TomSelectMultipleWidget,
-    TomSelectTabularMultipleWidget,
-    TomSelectTabularWidget,
-    TomSelectWidget,
-)
+from .widgets import TomSelectMultipleWidget, TomSelectWidget
 
 logger = logging.getLogger(__name__)
 

@@ -27,5 +27,7 @@ html: function (data) {
         `
     {% endfor %}
 
-    return `<div class="{{ widget.plugins.dropdown_header.header_class }}"><div class="{{ widget.plugins.dropdown_header.title_row_class }}">${header}</div></div>`
+    return `<div class="{{ widget.plugins.dropdown_header.header_class }}" title="{{ widget.plugins.dropdown_header.title }}">
+                <div class="{{ widget.plugins.dropdown_header.title_row_class }}">${header}</div>
+            </div>`
 },
