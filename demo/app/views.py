@@ -84,3 +84,7 @@ def listview_view(request):
 
 def create_view(request):
     return HttpResponse("This is a dummy create page.")
+
+
+def update_view(request):
+    return HttpResponse("This is a dummy update page.")

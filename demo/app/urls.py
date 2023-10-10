@@ -26,6 +26,7 @@ from .views import (
     form_test_view,
     listview_view,
     model_form_test_view,
+    update_view,
 )
 
 urlpatterns = [
@@ -37,6 +38,7 @@ urlpatterns = [
     path("autocomplete-magazine/", DemoMagazineAutocompleteView.as_view(), name="autocomplete-magazine"),
     path("listview/", listview_view, name="listview"),
     path("create/", create_view, name="create"),
+    path("update/<path:pk>/", update_view, name="update"),
     path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base5.html"), name="filtered"),
     path("filtered-bs4/", FormView.as_view(form_class=FilteredForm, template_name="base4.html"), name="filtered-bs4"),
 ]
