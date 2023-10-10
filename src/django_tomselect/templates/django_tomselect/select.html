@@ -5,115 +5,108 @@
 </select>
 
 <script>
-    new TomSelect('#{{ widget.name }}',{
+    document.addEventListener("DOMContentLoaded", function(e) {
+        new TomSelect('#{{ widget.name }}',{
+            valueField: '{{ widget.value_field }}',
+            labelField: '{{ widget.label_field }}',
+            searchField: [],  // Not using built-in search
 
-        highlight: {% if widget.general_config.highlight %}true{% else %}false{% endif %},
-        openOnFocus: {% if widget.general_config.open_on_focus %}true{% else %}false{% endif %},
-        maxOptions: {% if widget.general_config.max_options %}{{ widget.general_config.max_options }}{% else %}50{% endif %},
-        preload: {% if widget.general_config.preload == "focus" %}'focus'{% elif widget.general_config.preload %}true{% else %}false{% endif %},
-        {#createFilter: {% if widget.general_config.create_filter %}{{ widget.general_config.create_filter }}{% else %}null{% endif %},#}
-        maxItems: {% if widget.general_config.max_items %}{{ widget.general_config.max_items }}{% else %}null{% endif %},
-        create: {% if widget.general_config.create %}true{% else %}false{% endif %},
+            highlight: {% if widget.general_config.highlight %}true{% else %}false{% endif %},
+            openOnFocus: {% if widget.general_config.open_on_focus %}true{% else %}false{% endif %},
+            maxOptions: {% if widget.general_config.max_options %}{{ widget.general_config.max_options }}{% else %}50{% endif %},
+            preload: {% if widget.general_config.preload == "focus" %}'focus'{% elif widget.general_config.preload %}true{% else %}false{% endif %},
+            {#createFilter: {% if widget.general_config.create_filter %}{{ widget.general_config.create_filter }}{% else %}null{% endif %},#}
+            maxItems: {% if widget.general_config.max_items %}{{ widget.general_config.max_items }}{% else %}null{% endif %},
+            create: {% if widget.general_config.create %}true{% else %}false{% endif %},
+            showValueField: {% if widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
 
-        valueField: '{{ widget.value_field }}',
-        labelField: '{{ widget.label_field }}',
-        searchField: [],
+            plugins: {
+                {% if widget.plugins.checkbox_options %}
+                    checkbox_options: true,
+                {% endif %}
 
-        showValueField: {% if widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
+                {% if widget.plugins.clear_button %}
+                    clear_button:{
+                        title: '{% if widget.plugins.clear_button.title %}{{ widget.plugins.clear_button.title }}{% else %}Clear All{% endif %}',
+                        className: '{{ widget.plugins.clear_button.class_name }}',
+                        {% include "django_tomselect/render/clear_button.html" with widget=widget %}
+                    },
+                {% endif %}
 
+                {% if widget.plugins.dropdown_header %}
+                    dropdown_header:{
+                        title: '{% if widget.plugins.dropdown_header.title %}{{ widget.plugins.dropdown_header.title }}{% else %}Select an option{% endif %}',
+                        headerClass: '{{ widget.plugins.dropdown_header.header_class }}',
+                        {% include "django_tomselect/render/dropdown_header.html" with widget=widget %}
+                    },
+                {% endif %}
 
-        plugins: {
-            {% if widget.plugins.checkbox_options %}
-                checkbox_options: true,
-            {% endif %}
+                {% if widget.plugins.dropdown_footer %}
+                    dropdown_footer:{
+                        title: '{% if widget.plugins.dropdown_footer.title %}{{ widget.plugins.dropdown_footer.title }}{% else %}Select an option{% endif %}',
+                        footerClass: '{{ widget.plugins.dropdown_footer.footer_class }}',
+                        {% include "django_tomselect/render/dropdown_footer.html" with widget=widget %}
+                    },
+                {% endif %}
 
+                {% if widget.plugins.dropdown_input %}
+                    dropdown_input: true,
+                {% endif %}
 
-            {% if widget.plugins.clear_button %}
-                clear_button:{
-                    title: '{% if widget.plugins.clear_button.title %}{{ widget.plugins.clear_button.title }}{% else %}Clear All{% endif %}',
-                    className: '{{ widget.plugins.clear_button.class_name }}',
-                    {% include "django_tomselect/render/clear_button.html" with widget=widget %}
-                },
-            {% endif %}
+                {% if widget.plugins.remove_button %}
+                    remove_button:{
+                        label: '{% if widget.plugins.remove_button.label %}{{ widget.plugins.remove_button.label|safe }}{% else %}&times;{% endif %}',
+                        title: '{% if widget.plugins.remove_button.title %}{{ widget.plugins.remove_button.title }}{% else %}Remove this item{% endif %}',
+                        className: '{{ widget.plugins.remove_button.class_name }}',
+                    },
+                {% endif %}
 
-
-            {% if widget.plugins.dropdown_header %}
-                dropdown_header:{
-                    title: '{% if widget.plugins.dropdown_header.title %}{{ widget.plugins.dropdown_header.title }}{% else %}Select an option{% endif %}',
-                    headerClass: '{{ widget.plugins.dropdown_header.header_class }}',
-                    {% include "django_tomselect/render/dropdown_header.html" with widget=widget %}
-                },
-            {% endif %}
-
-
-            {% if widget.plugins.dropdown_footer %}
-                dropdown_footer:{
-                    title: '{% if widget.plugins.dropdown_footer.title %}{{ widget.plugins.dropdown_footer.title }}{% else %}Select an option{% endif %}',
-                    footerClass: '{{ widget.plugins.dropdown_footer.footer_class }}',
-                    {% include "django_tomselect/render/dropdown_footer.html" with widget=widget %}
-                },
-            {% endif %}
-
-
-            {% if widget.plugins.dropdown_input %}
-                dropdown_input: true,
-            {% endif %}
-
-
-            {% if widget.plugins.remove_button %}
-                remove_button:{
-                    label: '{% if widget.plugins.remove_button.label %}{{ widget.plugins.remove_button.label|safe }}{% else %}&times;{% endif %}',
-                    title: '{% if widget.plugins.remove_button.title %}{{ widget.plugins.remove_button.title }}{% else %}Remove this item{% endif %}',
-                    className: '{{ widget.plugins.remove_button.class_name }}',
-                },
-            {% endif %}
-
-
-            {% if widget.plugins.virtual_scroll %}virtual_scroll: true{% endif %}
-        },
-
-        {% if widget.plugins.virtual_scroll %}
-            // fetch remote data
-            firstUrl: function(query){
-                return '{{ widget.autocomplete_url }}?p=1';
+                {% if widget.plugins.virtual_scroll %}virtual_scroll: true{% endif %}
             },
-        {% endif %}
 
-        load: function(query, callback) {
-            // retrieve the appropriate url
-            const url = '{{ widget.autocomplete_url }}?q=' + encodeURIComponent(query);
+            {% if widget.plugins.virtual_scroll %}
+                // fetch remote data
+                firstUrl: function(query){
+                    return '{{ widget.autocomplete_url }}?p=1';
+                },
+            {% endif %}
 
-            fetch(url)
-                .then(response => response.json())
-                .then(json => {
-                    if (json.has_more) {
-                        this.setNextUrl(query, '{{ widget.autocomplete_url }}?q=' + encodeURIComponent(query)+'&page='+json.page + 1)
-                    }
-                    // Workaround for an issue of the virtual scroll plugin
-                    // where it    scrolls to the top of the results whenever
-                    // a new page of results is added.
-                    // https://github.com/orchidjs/tom-select/issues/556
-                    const _scrollToOption = this.scrollToOption
-                    this.scrollToOption = () => {}
-                    callback(json.results)
-                    this.scrollToOption = _scrollToOption
-                }).catch(() => {
-                    callback()
-                })
-        },
+            load: function(query, callback) {
+                // retrieve the appropriate url
+                const url = '{{ widget.autocomplete_url }}?q=' + encodeURIComponent(query);
 
-        render:{
-            {% include "django_tomselect/render/item.html" with widget=widget %}
-            {% include "django_tomselect/render/loading.html" with widget=widget %}
-            {% include "django_tomselect/render/loading_more.html" with widget=widget %}
-            {% include "django_tomselect/render/no_more_results.html" with widget=widget %}
-            {% include "django_tomselect/render/no_results.html" with widget=widget %}
-            {% include "django_tomselect/render/not_loading.html" with widget=widget %}
-            {% include "django_tomselect/render/optgroup.html" with widget=widget %}  // ToDo: Are we using the optgroup plugin?
-            {% include "django_tomselect/render/optgroup_header.html" with widget=widget %}  // ToDo: Are we using the optgroup plugin?
-            {% include "django_tomselect/render/option.html" with widget=widget %}
-            {% include "django_tomselect/render/option_create.html" with widget=widget %}
-        }
+                fetch(url)
+                    .then(response => response.json())
+                    .then(json => {
+                        if (json.has_more) {
+                            this.setNextUrl(query, '{{ widget.autocomplete_url }}?q=' + encodeURIComponent(query)+'&page='+json.page + 1)
+                        }
+                        // Workaround for an issue of the virtual scroll plugin
+                        // where it    scrolls to the top of the results whenever
+                        // a new page of results is added.
+                        // https://github.com/orchidjs/tom-select/issues/556
+                        const _scrollToOption = this.scrollToOption
+                        this.scrollToOption = () => {}
+                        callback(json.results)
+                        this.scrollToOption = _scrollToOption
+                    }).catch(() => {
+                        callback()
+                    })
+            },
+
+            render:{
+                {% include "django_tomselect/render/item.html" with widget=widget %}
+                {% include "django_tomselect/render/loading.html" with widget=widget %}
+                {% include "django_tomselect/render/loading_more.html" with widget=widget %}
+                {% include "django_tomselect/render/no_more_results.html" with widget=widget %}
+                {% include "django_tomselect/render/no_results.html" with widget=widget %}
+                {% include "django_tomselect/render/not_loading.html" with widget=widget %}
+                {% include "django_tomselect/render/optgroup.html" with widget=widget %}  // ToDo: Are we using the optgroup plugin?
+                {% include "django_tomselect/render/optgroup_header.html" with widget=widget %}  // ToDo: Are we using the optgroup plugin?
+                {% include "django_tomselect/render/option.html" with widget=widget %}
+                {% include "django_tomselect/render/option_create.html" with widget=widget %}
+            }
+        });
     });
 
 </script>
