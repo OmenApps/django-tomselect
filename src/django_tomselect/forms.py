@@ -32,37 +32,7 @@ class TomSelectField(forms.ModelChoiceField):
             url=kwargs.pop("url", "autocomplete"),
             listview_url=kwargs.pop("listview_url", ""),
             create_url=kwargs.pop("create_url", ""),
-            edit_url=kwargs.pop("edit_url", ""),
-            value_field=kwargs.pop("value_field", ""),
-            label_field=kwargs.pop("label_field", ""),
-            filter_by=kwargs.pop("filter_by", ()),
-            attrs=kwargs.pop("attrs", {}),
-            bootstrap_version=kwargs.pop("bootstrap_version", DJANGO_TOMSELECT_BOOTSTRAP_VERSION),
-            general_config=kwargs.pop("general_config", DJANGO_TOMSELECT_GENERAL_CONFIG),
-            plugin_checkbox_options=kwargs.pop("plugin_checkbox_options", DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS),
-            plugin_clear_button=kwargs.pop("plugin_clear_button", DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON),
-            plugin_dropdown_header=None,
-            plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
-            plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
-            plugin_virtual_scroll=kwargs.pop("plugin_virtual_scroll", DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL),
-        )
-        super().__init__(queryset=EmptyModel.objects.none(), *args, **kwargs)
-
-    def clean(self, value):
-        self.queryset = self.widget.get_queryset()
-        return super().clean(value)
-
-
-class TomSelectTabularField(forms.ModelChoiceField):
-    """Wraps the TomSelectTabularWidget as a form field."""
-
-    def __init__(self, *args, **kwargs):
-        """Instantiate a TomSelectTabularField field."""
-        self.widget = TomSelectTabularWidget(
-            url=kwargs.pop("url", "autocomplete"),
-            listview_url=kwargs.pop("listview_url", ""),
-            create_url=kwargs.pop("create_url", ""),
-            edit_url=kwargs.pop("edit_url", ""),
+            update_url=kwargs.pop("update_url", ""),
             value_field=kwargs.pop("value_field", ""),
             label_field=kwargs.pop("label_field", ""),
             filter_by=kwargs.pop("filter_by", ()),
@@ -92,37 +62,7 @@ class TomSelectMultipleField(forms.ModelMultipleChoiceField):
             url=kwargs.pop("url", "autocomplete"),
             listview_url=kwargs.pop("listview_url", ""),
             create_url=kwargs.pop("create_url", ""),
-            edit_url=kwargs.pop("edit_url", ""),
-            value_field=kwargs.pop("value_field", ""),
-            label_field=kwargs.pop("label_field", ""),
-            filter_by=kwargs.pop("filter_by", ()),
-            attrs=kwargs.pop("attrs", {}),
-            bootstrap_version=kwargs.pop("bootstrap_version", DJANGO_TOMSELECT_BOOTSTRAP_VERSION),
-            general_config=kwargs.pop("general_config", DJANGO_TOMSELECT_GENERAL_CONFIG),
-            plugin_checkbox_options=kwargs.pop("plugin_checkbox_options", DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS),
-            plugin_clear_button=kwargs.pop("plugin_clear_button", DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON),
-            plugin_dropdown_header=None,
-            plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
-            plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
-            plugin_virtual_scroll=kwargs.pop("plugin_virtual_scroll", DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL),
-        )
-        super().__init__(queryset, **kwargs)
-
-    def clean(self, value):
-        self.queryset = self.widget.get_queryset()
-        return super().clean(value)
-
-
-class TomSelectTabularMultipleField(forms.ModelMultipleChoiceField):
-    """Wraps the TomSelectTabularMultipleWidget as a form field."""
-
-    def __init__(self, *args, **kwargs):
-        """Instantiate a TomSelectTabularMultipleField field."""
-        self.widget = TomSelectTabularMultipleWidget(
-            url=kwargs.pop("url", "autocomplete"),
-            listview_url=kwargs.pop("listview_url", ""),
-            create_url=kwargs.pop("create_url", ""),
-            edit_url=kwargs.pop("edit_url", ""),
+            update_url=kwargs.pop("update_url", ""),
             value_field=kwargs.pop("value_field", ""),
             label_field=kwargs.pop("label_field", ""),
             filter_by=kwargs.pop("filter_by", ()),
@@ -136,7 +76,7 @@ class TomSelectTabularMultipleField(forms.ModelMultipleChoiceField):
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
             plugin_virtual_scroll=kwargs.pop("plugin_virtual_scroll", DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL),
         )
-        super().__init__(queryset=EmptyModel.objects.none(), **kwargs)
+        super().__init__(queryset, **kwargs)
 
     def clean(self, value):
         self.queryset = self.widget.get_queryset()

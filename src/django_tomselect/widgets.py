@@ -15,6 +15,7 @@ from .configs import (
     GeneralConfig,
     PluginCheckboxOptions,
     PluginClearButton,
+    PluginDropdownFooter,
     PluginDropdownHeader,
     PluginDropdownInput,
     PluginRemoveButton,
@@ -34,7 +35,7 @@ class TomSelectWidget(forms.Select):
         url: str = "autocomplete",
         listview_url: str = "",
         create_url: str = "",
-        edit_url: str = "",
+        update_url: str = "",
         value_field="",
         label_field="",
         create_field="",
@@ -58,7 +59,7 @@ class TomSelectWidget(forms.Select):
               handles requests from the Tom Select element
             listview_url: URL name of the listview view for this model
             create_url: URL name of the add view for this model
-            edit_url: URL name of the 'change' view for this model
+            update_url: URL name of the 'change' view for this model
             value_field: the name of the model field that corresponds to the
               choice value of an option (f.ex. 'id'). Defaults to the name of
               the model's primary key field.
@@ -87,7 +88,7 @@ class TomSelectWidget(forms.Select):
         self.url = url
         self.listview_url = listview_url
         self.create_url = create_url
-        self.edit_url = edit_url
+        self.update_url = update_url
 
         self.value_field = value_field
         self.label_field = label_field
@@ -177,6 +178,8 @@ class TomSelectWidget(forms.Select):
 
     def get_context(self, name, value, attrs):
         """Get the context for rendering the widget."""
+        self.get_queryset()
+
         context = super().get_context(name, value, attrs)
 
         context["widget"]["value_field"] = self.value_field
@@ -186,6 +189,9 @@ class TomSelectWidget(forms.Select):
 
         context["widget"]["search_lookups"] = self.get_search_lookups()
         context["widget"]["autocomplete_url"] = self.get_autocomplete_url()
+        context["widget"]["listview_url"] = self.get_listview_url()
+        context["widget"]["create_url"] = self.get_create_url()
+        context["widget"]["update_url"] = self.get_update_url()
 
         context["widget"]["general_config"] = self.general_config.as_dict()
         context["widget"]["plugins"] = {}
@@ -232,53 +238,46 @@ class TomSelectWidget(forms.Select):
         self.choices = all_choices
         return results
 
+    @staticmethod
+    def get_url(view_name, view_type: str = "", **kwargs):
+        """
+        Reverse the given view name and return the path.
+
+        Fail silently with logger warning if the url cannot be reversed.
+        """
+        if view_name:
+            try:
+                return reverse_lazy(view_name, **kwargs)
+            except NoReverseMatch as e:
+                logger.warning(
+                    "TomSelectWidget requires a resolvable '%s' attribute. Original error: %s" % view_type, e
+                )
+        return ""
+
     def get_autocomplete_url(self):
         """Hook to specify the autocomplete URL."""
-        try:
-            return reverse_lazy(self.url)
-        except NoReverseMatch as e:
-            logger.exception("Error resolving autocomplete URL")
-            raise NoReverseMatch("TomSelectWidget requires a resolvable 'url' attribute. Original error: %s" % e) from e
+        return self.get_url(self.url, "autocomplete URL")
 
     def get_create_url(self):
-        """Hook to specify the URL to the model's 'create' page."""
-        if self.create_url:
-            try:
-                return reverse_lazy(self.create_url)
-            except NoReverseMatch as e:
-                logger.exception("Error resolving create URL")
-                raise NoReverseMatch(
-                    "TomSelectWidget requires a resolvable 'create_url' attribute. Original error: %s" % e
-                ) from e
+        """Hook to specify the URL to the model's 'create' view."""
+        return self.get_url(self.create_url, "create URL")
 
     def get_listview_url(self):
         """Hook to specify the URL the model's listview."""
-        if self.listview_url:
-            try:
-                return reverse_lazy(self.listview_url)
-            except NoReverseMatch as e:
-                logger.exception("Error resolving listview URL")
-                raise NoReverseMatch(
-                    "TomSelectWidget requires a resolvable 'listview_url' attribute. Original error: %s" % e
-                ) from e
+        return self.get_url(self.listview_url, "listview URL")
 
-    def get_edit_url(self):
-        """Hook to specify the URL to the model's 'change' page."""
-        if self.edit_url:
-            try:
-                return unquote(reverse_lazy(self.edit_url, args=["{pk}"]))
-            except NoReverseMatch as e:
-                logger.exception("Error resolving edit URL")
-                raise NoReverseMatch(
-                    "TomSelectWidget requires a resolvable 'edit_url' attribute. Original error: %s" % e
-                ) from e
+    def get_update_url(self):
+        """Hook to specify the URL to the model's 'change' view."""
+        return self.get_url(self.update_url, "update URL", args=["_pk_"])
 
     def get_model(self):
         """Gets the model from the field's QuerySet"""
         return self.choices.queryset.model
 
     def get_autocomplete_view(self):
-        """Gets the autocomplete view"""
+        """
+        Gets an instance of the autocomplete view, so we can use its queryset and search_lookups
+        """
         self.model = self.get_model()
 
         # Create a ProxyRequest that we can pass to the view to obtain its queryset
@@ -290,34 +289,14 @@ class TomSelectWidget(forms.Select):
         return autocomplete_view
 
     def get_queryset(self):
-        """Gets the queryset from the autocomplete view"""
+        """Gets the queryset from the specified autocomplete view"""
         autocomplete_view = self.get_autocomplete_view()
         return autocomplete_view.get_queryset()
 
     def get_search_lookups(self):
-        """Gets the search lookups from the autocomplete view"""
+        """Gets the search lookups from the specified autocomplete view"""
         autocomplete_view = self.get_autocomplete_view()
         return autocomplete_view.search_lookups
-
-    def build_attrs(self, base_attrs, extra_attrs=None):
-        """Build HTML attributes for the widget."""
-
-        self.get_queryset()
-
-        self.value_field = self.value_field or self.model._meta.pk.name
-        self.label_field = self.label_field or getattr(self.model, "name_field", "name")
-
-        attrs = super().build_attrs(base_attrs, extra_attrs)
-
-        attrs.update(
-            {
-                "is-tomselect": True,
-                "data-listview-url": self.get_listview_url() or "",
-                "data-create-url": self.get_create_url() or "",
-                "data-edit-url": self.get_edit_url() or "",
-            }
-        )
-        return attrs
 
     @property
     def media(self):

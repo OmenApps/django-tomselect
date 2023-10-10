@@ -42,6 +42,7 @@ class Form(forms.Form):
         # create_field="name",  # ToDo: Move to config
         listview_url="listview",
         create_url="create",
+        update_url="update",
         value_field="id",
         label_field="name",
         attrs={
@@ -101,6 +102,7 @@ class ModelForm(forms.ModelForm):
         # create_field="name",  # ToDo: Move to config
         listview_url="listview",
         create_url="create",
+        update_url="update",
         value_field="id",
         label_field="name",
         attrs={
