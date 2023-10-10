@@ -8,12 +8,18 @@ kwargs = {"model": Edition, "url": "ac"}
 
 
 class SimpleForm(forms.Form):
-    field = forms.ModelChoiceField(Edition.objects.all(), widget=TomSelectWidget(**kwargs), required=False)
+    field = forms.ModelChoiceField(
+        Edition.objects.all(),
+        widget=TomSelectWidget(**kwargs),
+        required=False,
+    )
 
 
 class MultipleForm(forms.Form):
     field = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(multiple=True, **kwargs), required=False
+        Edition.objects.all(),
+        widget=TomSelectWidget(multiple=True, **kwargs),
+        required=False,
     )
 
 
@@ -22,7 +28,11 @@ class TabularForm(forms.Form):
         Edition.objects.all(),
         widget=TomSelectTabularWidget(
             **kwargs,
-            extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
+            extra_columns={
+                "year": "Year",
+                "pages": "Pages",
+                "pub_num": "Publication Number",
+            },
             label_field_label="Edition",
         ),
         required=False,
@@ -34,7 +44,11 @@ class TabularWithValueFieldForm(forms.Form):
         Edition.objects.all(),
         widget=TomSelectTabularWidget(
             **kwargs,
-            extra_columns={"year": "Year", "pages": "Pages", "pub_num": "Publication Number"},
+            extra_columns={
+                "year": "Year",
+                "pages": "Pages",
+                "pub_num": "Publication Number",
+            },
             label_field_label="Edition",
             show_value_field=True,
         ),
@@ -44,7 +58,9 @@ class TabularWithValueFieldForm(forms.Form):
 
 class CreateForm(forms.Form):
     field = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(create_field="name", **kwargs), required=False
+        Edition.objects.all(),
+        widget=TomSelectWidget(create_field="name", **kwargs),
+        required=False,
     )
 
 
@@ -52,7 +68,12 @@ class AddForm(forms.Form):
     """Test form with a widget with a 'create' URL."""
 
     field = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(create_field="name", create_url="create_page", **kwargs)
+        Edition.objects.all(),
+        widget=TomSelectWidget(
+            create_field="name",
+            create_url="create_page",
+            **kwargs,
+        ),
     )
 
 
@@ -60,7 +81,11 @@ class ListViewForm(forms.Form):
     """Test form with a widget with a 'listview' URL."""
 
     field = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(listview_url="listview_page", **kwargs)
+        Edition.objects.all(),
+        widget=TomSelectWidget(
+            listview_url="listview_page",
+            **kwargs,
+        ),
     )
 
 
@@ -72,5 +97,9 @@ class FilteredForm(forms.Form):
 
     magazine = forms.ModelChoiceField(Magazine.objects.all())
     edition = forms.ModelChoiceField(
-        Edition.objects.all(), widget=TomSelectWidget(filter_by=("magazine", "magazine_id"), **kwargs)
+        Edition.objects.all(),
+        widget=TomSelectWidget(
+            filter_by=("magazine", "magazine_id"),
+            **kwargs,
+        ),
     )
