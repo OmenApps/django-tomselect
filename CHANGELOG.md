@@ -1,5 +1,13 @@
 # Changelog
 
+## django-tomselect 0.5.1b0
+
+- Rewrote large portions of the package
+- Implemented templates for each renderable callback
+- Now uses form fields vice widgets to allow updating the queryset correctly
+- Simplified from 4 wigets to 2 fields
+- Implemented configuration objects to customize behavior
+
 ## django-tomselect 0.4.2
 
 - Add ability to trigger tomselect creation on individual elements

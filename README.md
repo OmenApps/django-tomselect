@@ -27,8 +27,8 @@ translations, customization, explicitness, and minimal use of custom JavaScript
     * [PluginClearButton](#pluginclearbutton)
     * [PluginRemoveButton](#pluginremovebutton)
     * [PluginDropdownHeader](#plugindropdownheader)
-    * [PluginDropdownFooter](#plugindropdownfooter)
       * [Adding more columns to the fields](#adding-more-columns-to-the-fields)
+    * [PluginDropdownFooter](#plugindropdownfooter)
   * [Settings](#settings)
   * [Function & Features](#function--features)
     * [Modifying the initial QuerySet](#modifying-the-initial-queryset)
@@ -304,26 +304,6 @@ Available arguments:
 | label_field_label | `f"{model._meta.verbose_name}"`                                             | table header for the label column                                                                                              |
 | show_value_field  | `False`                                                                     | show the value field column (typically `id`)                                                                                   |
 
-### PluginDropdownFooter
-
-Overridable template: `django_tomselect/render/dropdown_footer.html`
-
-Adding this configuration object includes a footer below the results dropdown. By default, the footer
-contains a link to the list view of the model, if the `listview_url` argument is provided to the field.
-
-Available arguments:
-
-| Argument          | Default value                                                               | Description                                                                                                                    |
-|-------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| extra_columns     | {}                                                                          | a dict mapping for additional columns to be displayed, where the key is the model field name and the value is the column label |
-| header_class      | "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header" | the classes to use for the header container                                                                                    |
-| title_row_class   | "row"                                                                       | the classes to use for the title row                                                                                           |
-| label_class       | "form-label"                                                                | the classes to use for the label column                                                                                        |
-| value_field_label | `f"{value_field.title()}"`                                                  | table header for the value column                                                                                              |
-| label_field_label | `f"{model._meta.verbose_name}"`                                             | table header for the label column                                                                                              |
-| show_value_field  | `False`                                                                     | show the value field column (typically `id`)                                                                                   |
-
-
 #### Adding more columns to the fields
 
 To add more columns, pass a dictionary mapping field names to column labels as
@@ -358,6 +338,26 @@ attribute or property with that name or the field's contents will remain empty.
 The results for Tom Select are created by the view calling `values()` on the 
 result queryset, so you must make sure that the attribute name is available
 on the view's root queryset as either a model field or as an annotation.
+
+### PluginDropdownFooter
+
+Overridable template: `django_tomselect/render/dropdown_footer.html`
+
+Adding this configuration object includes a footer below the results dropdown. By default, the footer
+contains a link to the list view of the model, if the `listview_url` argument is provided to the field.
+
+Available arguments:
+
+| Argument          | Default value                                                               | Description                                                                                                                    |
+|-------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| extra_columns     | {}                                                                          | a dict mapping for additional columns to be displayed, where the key is the model field name and the value is the column label |
+| header_class      | "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header" | the classes to use for the header container                                                                                    |
+| title_row_class   | "row"                                                                       | the classes to use for the title row                                                                                           |
+| label_class       | "form-label"                                                                | the classes to use for the label column                                                                                        |
+| value_field_label | `f"{value_field.title()}"`                                                  | table header for the value column                                                                                              |
+| label_field_label | `f"{model._meta.verbose_name}"`                                             | table header for the label column                                                                                              |
+| show_value_field  | `False`                                                                     | show the value field column (typically `id`)                                                                                   |
+
 
 ----
 
