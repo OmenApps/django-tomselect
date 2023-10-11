@@ -4384,7 +4384,7 @@
     const self2 = this;
     const options = Object.assign({
       title: "Autocomplete Footer",
-      footerClass: "mt-1 px-2 flex-wrap border-top dropdown-footer",
+      footerClass: "container-fluid mt-1 px-2 border-top dropdown-footer",
       html: (data) => {
         return '<div title="' + data.title + '" class="' + data.footerClass + '"></div>';
       }
