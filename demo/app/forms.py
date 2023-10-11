@@ -45,6 +45,7 @@ class Form(forms.Form):
         attrs={
             "class": "form-control mb-3",
             "placeholder": "Select a value",
+            "id": "tomselect-custom-id",
         },
         general_config=general_config,
         plugin_dropdown_header=None,

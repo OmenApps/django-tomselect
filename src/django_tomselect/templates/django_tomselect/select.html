@@ -1,4 +1,4 @@
-<select name="{{ widget.name }}" id="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>{% for group_name, group_choices, group_index in widget.optgroups %}{% if group_name %}
+<select name="{{ widget.name }}" id="{% if widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}"{% include "django/forms/widgets/attrs.html" %}>{% for group_name, group_choices, group_index in widget.optgroups %}{% if group_name %}
     <optgroup label="{{ group_name }}">{% endif %}{% for option in group_choices %}
         {% include option.template_name with widget=option %}{% endfor %}{% if group_name %}
     </optgroup>{% endif %}{% endfor %}
@@ -6,7 +6,7 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function(e) {
-        new TomSelect('#{{ widget.name }}',{
+        new TomSelect('#{% if widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}',{
             valueField: '{{ widget.value_field }}',
             labelField: '{{ widget.label_field }}',
             searchField: [],  // Not using built-in search
