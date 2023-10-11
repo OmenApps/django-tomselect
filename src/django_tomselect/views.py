@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 SEARCH_VAR = "q"
 FILTERBY_VAR = "f"
-VALUES_VAR = "vs"
 
 PAGE_VAR = "p"
 PAGE_SIZE = 20
@@ -26,17 +25,13 @@ class AutocompleteView(views.generic.list.BaseListView):
     order_by: Optional[Union[Tuple[str], List[str]]] = None  # Either None, a str, or list/tuple of str
     paginate_by: int = PAGE_SIZE
     page_kwarg: str = PAGE_VAR
+    values_select: List[str] = []
 
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
         request_data = getattr(request, request.method)
 
         self.create_field = request_data.get("create-field", None)
-
-        self.values_select = []
-        if VALUES_VAR in request_data:
-            values = unquote(request_data[VALUES_VAR])
-            self.values_select = json.loads(values)
         self.q = unquote(request_data.get(SEARCH_VAR, ""))
 
         if isinstance(self.order_by, str):
