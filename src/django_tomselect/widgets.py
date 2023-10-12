@@ -102,8 +102,18 @@ class TomSelectWidget(forms.Select):
 
         self.template_name = "django_tomselect/select.html"
 
-        self.general_config = general_config if isinstance(general_config, GeneralConfig) or None else GeneralConfig()
-
+        # For each config, if the user provided a valid config or a value of None, use
+        #   that value, otherwise default to the Base Config classes from configs.py
+        self.general_config = (
+            general_config
+            if any(
+                [
+                    isinstance(general_config, GeneralConfig),
+                    general_config is None,
+                ]
+            )
+            else GeneralConfig()
+        )
         self.plugin_checkbox_options = (
             plugin_checkbox_options
             if any(
