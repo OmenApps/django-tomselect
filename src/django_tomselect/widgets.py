@@ -322,6 +322,14 @@ class TomSelectWidget(forms.Select):
 class TomSelectMultipleWidget(TomSelectWidget, forms.SelectMultiple):
     """A TomSelect widget that allows multiple selection."""
 
+    def get_context(self, name, value, attrs):
+        """Get the context for rendering the widget."""
+        context = super().get_context(name, value, attrs)
+
+        # Update context to ensure the max_items matches user-provided value
+        context["widget"]["is_multiple"] = True
+        return context
+
     def build_attrs(self, base_attrs, extra_attrs=None):
         """Build HTML attributes for the widget."""
         attrs = super().build_attrs(base_attrs, extra_attrs)  # noqa
