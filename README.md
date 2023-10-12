@@ -23,7 +23,6 @@ translations, customization, explicitness, and minimal use of custom JavaScript
     * [GeneralConfig](#generalconfig)
     * [PluginCheckboxOptions](#plugincheckboxoptions)
     * [PluginDropdownInput](#plugindropdowninput)
-    * [PluginVirtualScroll](#pluginvirtualscroll)
     * [PluginClearButton](#pluginclearbutton)
     * [PluginRemoveButton](#pluginremovebutton)
     * [PluginDropdownHeader](#plugindropdownheader)
@@ -208,7 +207,6 @@ Base autocomplete fields for `ModelChoiceField` and `ModelMultipleChoiceField`. 
 | general_config          | GeneralConfig()                        | GeneralConfig          | A GeneralConfig object or None                                                          |
 | plugin_checkbox_options | PluginCheckboxOptions()                | PluginCheckboxOptions  | A PluginCheckboxOptions object or None                                                  |
 | plugin_dropdown_input   | PluginDropdownInput()                  | PluginDropdownInput    | A PluginDropdownInput object or None                                                    |
-| plugin_virtual_scroll   | PluginVirtualScroll()                  | PluginVirtualScroll    | A PluginVirtualScroll object or None                                                    |
 | plugin_clear_button     | PluginClearButton()                    | PluginClearButton      | A PluginClearButton object or None                                                      |
 | plugin_remove_button    | PluginRemoveButton()                   | PluginRemoveButton     | A PluginRemoveButton object or None                                                     |
 | plugin_dropdown_header  | PluginDropdownHeader()                 | PluginDropdownHeader   | A PluginDropdownHeader object or None                                                   |
@@ -223,7 +221,6 @@ The TomSelect fields can be configured be passing in instances of the following 
 | `django_tomselect.configs.GeneralConfig`         | Base class for all configuration objects.                                                                   |
 | `django_tomselect.configs.PluginCheckboxOptions` | Configures Tom Select to display results with checkboxes.                                                   |
 | `django_tomselect.configs.PluginDropdownInput`   | Configures the Tom Select dropdown to display an input field for searching and displaying selected results. |
-| `django_tomselect.configs.PluginVirtualScroll`   | Configures Tom Select to use virtual scrolling, retrieving results as needed.                               |
 | `django_tomselect.configs.PluginClearButton`     | Configures Tom Select to display a button to clear all selected values.                                     |
 | `django_tomselect.configs.PluginRemoveButton`    | Configures Tom Select to display a button to clear a single selected value.                                 |
 | `django_tomselect.configs.PluginDropdownHeader`  | Configures the Tom Select dropdown to display results in a table.                                           |
@@ -233,31 +230,28 @@ The TomSelect fields can be configured be passing in instances of the following 
 
 Available arguments:
 
-| Argument           | Default value    | Type            | Description                                                                                                                                                                                                                                                                               |
-|--------------------|------------------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| close_after_select | None             | bool or None    | After a selection is made, the dropdown will remain open if in a multi-selection control or will close in a single-selection control. Setting to True will force the dropdown to close after selections are made. Setting to False will keep the dropdown open after selections are made. |
-| hide_placeholder   | None             | bool or None    | If True, the placeholder will be hidden when the control has one or more items (selected options) and is not focused. This defaults to False when in a multi-selection control, and to True otherwise.                                                                                    |
-| highlight          | True             | bool            | Toggles match highlighting within the dropdown menu when a search term is entered                                                                                                                                                                                                         |
-| load_throttle      | 300              | int             | The number of milliseconds to wait before requesting options from the server or None. If None, throttling is disabled. Useful when loading options dynamically while the user types a search / filter expression.                                                                         |
-| loading_class      | "loading"        | str             | The class name added to the wrapper element while awaiting the fulfillment of load requests.                                                                                                                                                                                              |
-| max_items          | 50               | int             | The max number of items the user can select. A value of 1 makes the control mono-selection, None allows an unlimited number of items.                                                                                                                                                     |
-| max_options        | 50               | int or None     | The max number of options to display in the dropdown. Set to None for an unlimited number of options.                                                                                                                                                                                     |
-| open_on_focus      | True             | bool            | Show the dropdown immediately when the control receives focus.                                                                                                                                                                                                                            |
-| placeholder        | "Select a value" | str or None     | The placeholder of the field. Defaults to input widget's placeholder, unless this one is specified.                                                                                                                                                                                       |
-| preload            | "focus"          | bool or "focus" | If True, the load function will be called upon control initialization (with an empty search). Alternatively it can be set to "focus" to call the load function when control receives focus.                                                                                               |
-| create             | False            | bool            | Determines if the user is allowed to create new items that aren't in the initial list of options.                                                                                                                                                                                         |
-| create_filter      | None             | str or None     | Specifies a RegExp or a string containing a regular expression that the current search filter must match to be allowed to be created. May also be a predicate function provided as a string that takes the filter text and returns whether it is allowed.                                 |
-| create_with_htmx   | False            | bool            | Reserved for future use.                                                                                                                                                                                                                                                                  |
-         
+| Argument             | Default value    | Type            | Description                                                                                                                                                                                                                                                                               |
+|----------------------|------------------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| close_after_select   | None             | bool or None    | After a selection is made, the dropdown will remain open if in a multi-selection control or will close in a single-selection control. Setting to True will force the dropdown to close after selections are made. Setting to False will keep the dropdown open after selections are made. |
+| hide_placeholder     | None             | bool or None    | If True, the placeholder will be hidden when the control has one or more items (selected options) and is not focused. This defaults to False when in a multi-selection control, and to True otherwise.                                                                                    |
+| highlight            | True             | bool            | Toggles match highlighting within the dropdown menu when a search term is entered                                                                                                                                                                                                         |
+| load_throttle        | 300              | int             | The number of milliseconds to wait before requesting options from the server or None. If None, throttling is disabled. Useful when loading options dynamically while the user types a search / filter expression.                                                                         |
+| loading_class        | "loading"        | str             | The class name added to the wrapper element while awaiting the fulfillment of load requests.                                                                                                                                                                                              |
+| max_items            | 50               | int             | The max number of items the user can select. A value of 1 makes the control mono-selection, None allows an unlimited number of items. `TomSelectField` is limited to a value of 1, regardless of the provided config value.                                                               |
+| max_options          | 50               | int or None     | The max number of options to display in the dropdown. Set to None for an unlimited number of options.                                                                                                                                                                                     |
+| open_on_focus        | True             | bool            | Show the dropdown immediately when the control receives focus.                                                                                                                                                                                                                            |
+| placeholder          | "Select a value" | str or None     | The placeholder of the field. Defaults to input widget's placeholder, unless this one is specified.                                                                                                                                                                                       |
+| preload              | "focus"          | bool or "focus" | If True, the load function will be called upon control initialization (with an empty search). Alternatively it can be set to "focus" to call the load function when control receives focus.                                                                                               |
+| create               | False            | bool            | Determines if the user is allowed to create new items that aren't in the initial list of options.                                                                                                                                                                                         |
+| create_filter        | None             | str or None     | Specifies a RegExp or a string containing a regular expression that the current search filter must match to be allowed to be created. May also be a predicate function provided as a string that takes the filter text and returns whether it is allowed.                                 |
+| create_with_htmx     | False            | bool            | Reserved for future use.                                                                                                                                                                                                                                                                  |
+| minimum_query_length | 2                | int             | the minimum number of characters to enter before displaying results                                                                                                                                                                                                                       |
+   
 ### PluginCheckboxOptions
 
 Available arguments: None
 
 ### PluginDropdownInput
-
-Available arguments: None
-
-### PluginVirtualScroll
 
 Available arguments: None
 
@@ -294,15 +288,15 @@ human-readable part of the choice).
 
 Available arguments:
 
-| Argument          | Default value                                                               | Description                                                                                                                    |
-|-------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| extra_columns     | {}                                                                          | a dict mapping for additional columns to be displayed, where the key is the model field name and the value is the column label |
-| header_class      | "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header" | the classes to use for the header container                                                                                    |
-| title_row_class   | "row"                                                                       | the classes to use for the title row                                                                                           |
-| label_class       | "form-label"                                                                | the classes to use for the label column                                                                                        |
-| value_field_label | `f"{value_field.title()}"`                                                  | table header for the value column                                                                                              |
-| label_field_label | `f"{model._meta.verbose_name}"`                                             | table header for the label column                                                                                              |
-| show_value_field  | `False`                                                                     | show the value field column (typically `id`)                                                                                   |
+| Argument             | Default value                                                               | Description                                                                                                                    |
+|----------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| extra_columns        | {}                                                                          | a dict mapping for additional columns to be displayed, where the key is the model field name and the value is the column label |
+| header_class         | "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header" | the classes to use for the header container                                                                                    |
+| title_row_class      | "row"                                                                       | the classes to use for the title row                                                                                           |
+| label_class          | "form-label"                                                                | the classes to use for the label column                                                                                        |
+| value_field_label    | `f"{value_field.title()}"`                                                  | table header for the value column                                                                                              |
+| label_field_label    | `f"{model._meta.verbose_name}"`                                             | table header for the label column                                                                                              |
+| show_value_field     | `False`                                                                     | show the value field column (typically `id`)                                                                                   |
 
 #### Adding more columns to the fields
 
@@ -374,7 +368,6 @@ Available arguments:
 | DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT   | PluginDropdownInput()                                          | Either a PluginDropdownInput object or None   | Sets the default for this configuration in all forms (can be overridden per-form). If not provided in settings, forms default to use the version provided in `django_tomselect.configs`.                                                                                 |
 | DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER  | PluginDropdownHeader()                                         | Either a PluginDropdownHeader object or None  | Sets the default for this configuration in all forms (can be overridden per-form). If not provided in settings, forms default to use the version provided in `django_tomselect.configs`.                                                                                 |
 | DJANGO_TOMSELECT_PLUGIN_DROPDOWN_FOOTER  | PluginDropdownFooter()                                         | Either a PluginDropdownFooter object or None  | Sets the default for this configuration in all forms (can be overridden per-form). If not provided in settings, forms default to use the version provided in `django_tomselect.configs`.                                                                                 |
-| DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL   | PluginVirtualScroll()                                          | Either a PluginVirtualScroll object or None   | Sets the default for this configuration in all forms (can be overridden per-form). If not provided in settings, forms default to use the version provided in `django_tomselect.configs`.                                                                                 |
 | DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS | PluginCheckboxOptions()                                        | Either a PluginCheckboxOptions object or None | Sets the default for this configuration in all forms (can be overridden per-form). If not provided in settings, forms default to use the version provided in `django_tomselect.configs`.                                                                                 |
 
 **Note**: The DefaultProxyRequest class is used to obtain the model details for the autocomplete. 
@@ -465,13 +458,13 @@ city = TomSelectField(
 )
 ```
 
-### Chained Dropdown Filtering
+### Dependent Filtering
 
 **Important**: This is a work in progress. The API may change in the future.
 
 Use the `filter_by` argument to restrict the available options of one 
 TomSelectField to the value selected in another form field. The parameter must 
-be a 2-tuple:  `(name_of_the_other_form_field, django_field_lookup)`
+be a 2-tuple:  `(field_this_field_is_dependent_on, django_field_lookup)`.
 
 ```python
 # models.py
@@ -501,7 +494,7 @@ class PersonsFromCapitolsForm(forms.Form):
     )
 ```
 
-This will result in the Person result queryset to be filtered against 
+In this example, the options for the `Person` QuerySet are dependent on the
 `city_id` for the currently selected `capitol` formfield value.  
 NOTE: When using `filter_by`, the declaring element now **requires** that the 
 other field provides a value, since its choices are dependent on the other 

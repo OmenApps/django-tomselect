@@ -1,7 +1,6 @@
 import copy
 import logging
 from typing import Optional
-from urllib.parse import unquote
 
 from django import forms
 from django.urls import NoReverseMatch, resolve, reverse_lazy
