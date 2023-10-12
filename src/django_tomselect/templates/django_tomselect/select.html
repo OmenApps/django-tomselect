@@ -78,7 +78,7 @@
 
             load: function(query, callback) {
                 // retrieve the appropriate url
-                const url = '{{ widget.autocomplete_url }}?q=' + encodeURIComponent(query);
+                const url = this.getUrl(query);
 
                 fetch(url)
                     .then(response => response.json())
