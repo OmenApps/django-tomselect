@@ -66,12 +66,15 @@
                 virtual_scroll: true
             },
 
-            {% if widget.plugins.virtual_scroll %}
-                // fetch remote data
-                firstUrl: function(query){
-                    return '{{ widget.autocomplete_url }}?p=1';
-                },
-            {% endif %}
+            // minimum query length
+            shouldLoad:function(query){
+                return query.length >= {{ widget.general_config.minimum_query_length }};
+            },
+
+            // fetch remote data
+            firstUrl: function(query){
+                return '{{ widget.autocomplete_url }}';
+            },
 
             load: function(query, callback) {
                 // retrieve the appropriate url

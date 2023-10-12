@@ -27,6 +27,7 @@ class GeneralConfig(BaseConfig):
     open_on_focus: bool = True
     placeholder: Optional[str] = "Select a value"
     preload: Union[bool, str] = "focus"  # Either 'focus' or True/False
+    minimum_query_length: int = 2
 
     use_htmx: bool = False
 
