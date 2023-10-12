@@ -73,7 +73,7 @@
 
             // fetch remote data
             firstUrl: function(query){
-                return '{{ widget.autocomplete_url }}';
+                return '{{ widget.autocomplete_url }}' + '?q=' + encodeURIComponent(query);
             },
 
             load: function(query, callback) {
@@ -84,7 +84,7 @@
                     .then(response => response.json())
                     .then(json => {
                         if (json.has_more) {
-                            this.setNextUrl(query, '{{ widget.autocomplete_url }}?q=' + encodeURIComponent(query) + '&p=' + (json.page + 1));
+                            this.setNextUrl(query, url + '&p=' + (json.page + 1));
                         }
                         // Workaround for an issue of the virtual scroll plugin
                         // where it    scrolls to the top of the results whenever
