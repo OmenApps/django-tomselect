@@ -273,7 +273,7 @@ class ModelForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
 
-class FilteredForm(forms.Form):
+class DependentForm(forms.Form):
     magazine = TomSelectField(
         url="autocomplete-magazine",
     )
