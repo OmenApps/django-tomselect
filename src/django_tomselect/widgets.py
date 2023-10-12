@@ -19,7 +19,6 @@ from .configs import (
     PluginDropdownHeader,
     PluginDropdownInput,
     PluginRemoveButton,
-    PluginVirtualScroll,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +47,6 @@ class TomSelectWidget(forms.Select):
         plugin_dropdown_footer: Optional[PluginDropdownFooter] = PluginDropdownFooter(),
         plugin_dropdown_input: Optional[PluginDropdownInput] = PluginDropdownInput(),
         plugin_remove_button: Optional[PluginRemoveButton] = PluginRemoveButton(),
-        plugin_virtual_scroll: Optional[PluginVirtualScroll] = PluginVirtualScroll(),
         **kwargs,
     ):
         """
@@ -82,7 +80,6 @@ class TomSelectWidget(forms.Select):
             plugin_dropdown_header: a PluginDropdownHeader instance
             plugin_dropdown_input: a PluginDropdownInput instance
             plugin_remove_button: a PluginRemoveButton instance
-            plugin_virtual_scroll: a PluginVirtualScroll instance
             kwargs: additional keyword arguments passed to forms.Select
         """
         self.url = url
@@ -163,16 +160,6 @@ class TomSelectWidget(forms.Select):
             )
             else PluginRemoveButton()
         )
-        self.plugin_virtual_scroll = (
-            plugin_virtual_scroll
-            if any(
-                [
-                    isinstance(plugin_virtual_scroll, PluginVirtualScroll),
-                    plugin_virtual_scroll is None,
-                ]
-            )
-            else PluginVirtualScroll()
-        )
 
         super().__init__(**kwargs)
 
@@ -225,7 +212,6 @@ class TomSelectWidget(forms.Select):
         #   depending on whether they are provided or not
         context["widget"]["plugins"]["checkbox_options"] = True if self.plugin_checkbox_options else False
         context["widget"]["plugins"]["dropdown_input"] = True if self.plugin_dropdown_input else False
-        context["widget"]["plugins"]["virtual_scroll"] = True if self.plugin_virtual_scroll else False
 
         return context
 

@@ -7,7 +7,6 @@ from django_tomselect.configs import (
     PluginDropdownHeader,
     PluginDropdownInput,
     PluginRemoveButton,
-    PluginVirtualScroll,
 )
 from django_tomselect.forms import TomSelectField, TomSelectMultipleField
 
@@ -28,7 +27,6 @@ plugin_dropdown_header = PluginDropdownHeader(
 )
 plugin_dropdown_input = PluginDropdownInput()
 plugin_remove_button = PluginRemoveButton()
-plugin_virtual_scroll = PluginVirtualScroll()
 
 
 class Form(forms.Form):

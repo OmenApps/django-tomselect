@@ -44,11 +44,6 @@ class PluginDropdownInput(BaseConfig):
 
 
 @dataclass(kw_only=True)
-class PluginVirtualScroll(BaseConfig):
-    pass
-
-
-@dataclass(kw_only=True)
 class PluginClearButton(BaseConfig):
     title: str = "Clear Selections"
     class_name: str = "clear-button"

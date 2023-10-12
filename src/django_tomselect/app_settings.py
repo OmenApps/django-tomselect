@@ -11,7 +11,6 @@ from .configs import (
     PluginDropdownHeader,
     PluginDropdownInput,
     PluginRemoveButton,
-    PluginVirtualScroll,
 )
 from .request import DefaultProxyRequest
 
@@ -58,7 +57,6 @@ DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON = getattr(settings, "TOMSELECT_PLUGIN_REMO
 DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT = getattr(settings, "TOMSELECT_PLUGIN_DROPDOWN_INPUT", PluginDropdownInput())
 DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER = getattr(settings, "TOMSELECT_PLUGIN_DROPDOWN_HEADER", PluginDropdownHeader())
 DJANGO_TOMSELECT_PLUGIN_DROPDOWN_FOOTER = getattr(settings, "TOMSELECT_PLUGIN_DROPDOWN_FOOTER", PluginDropdownFooter())
-DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL = getattr(settings, "TOMSELECT_PLUGIN_VIRTUAL_SCROLL", PluginVirtualScroll())
 DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS = getattr(
     settings, "TOMSELECT_PLUGIN_CHECKBOX_OPTIONS", PluginCheckboxOptions()
 )

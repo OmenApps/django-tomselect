@@ -10,7 +10,6 @@ from .app_settings import (
     DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER,
     DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT,
     DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON,
-    DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL,
 )
 from .models import EmptyModel
 from .widgets import TomSelectMultipleWidget, TomSelectWidget
@@ -39,7 +38,6 @@ class TomSelectField(forms.ModelChoiceField):
             plugin_dropdown_header=kwargs.pop("plugin_dropdown_header", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER),
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
-            plugin_virtual_scroll=kwargs.pop("plugin_virtual_scroll", DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL),
         )
         super().__init__(queryset=EmptyModel.objects.none(), *args, **kwargs)
 
@@ -69,7 +67,6 @@ class TomSelectMultipleField(forms.ModelMultipleChoiceField):
             plugin_dropdown_header=kwargs.pop("plugin_dropdown_header", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER),
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
-            plugin_virtual_scroll=kwargs.pop("plugin_virtual_scroll", DJANGO_TOMSELECT_PLUGIN_VIRTUAL_SCROLL),
         )
         super().__init__(queryset, **kwargs)
 
