@@ -1,0 +1,28 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Django Tom Select Demo</title>
+    <link href="{% static 'bootstrap/dist/css/bootstrap.css' %}" rel="stylesheet">
+    <link href="{% static 'bootswatch/dist/flatly/bootstrap.css' %}" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script src="{% static 'bootstrap/dist/js/bootstrap.bundle.js' %}"></script>
+    <link href="{% static 'django_tomselect/vendor/tom-select/css/tom-select.bootstrap5.css' %}" rel="stylesheet">
+    <link href="{% static 'django_tomselect/css/django-tomselect.css' %}" rel="stylesheet">
+    <script src="{% static 'django_tomselect/js/django-tomselect.js' %}"></script>
+
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+    </style>
+
+</head>
+<body>
+    <div class="container mt-5" hx-get="{%  url 'htmx-form-fragment' %}" hx-trigger="load" hx-swap="innerHTML">
+
+    </div>
+</body>
+</html>

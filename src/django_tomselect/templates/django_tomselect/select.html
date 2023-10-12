@@ -5,7 +5,9 @@
 </select>
 
 <script>
+    {% if not widget.use_htmx %}
     document.addEventListener("DOMContentLoaded", function(e) {
+    {% endif %}
         new TomSelect('#{% if widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}',{
             valueField: '{{ widget.value_field }}',
             labelField: '{{ widget.label_field }}',
@@ -107,6 +109,9 @@
                 {% include "django_tomselect/render/option_create.html" with widget=widget %}
             }
         });
+
+    {% if not widget.use_htmx %}
     });
+    {% endif %}
 
 </script>

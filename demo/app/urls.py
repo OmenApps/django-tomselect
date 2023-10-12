@@ -27,6 +27,8 @@ from .views import (
     listview_view,
     model_form_test_view,
     update_view,
+    htmx_view,
+    htmx_form_fragment_view,
 )
 
 urlpatterns = [
@@ -41,4 +43,6 @@ urlpatterns = [
     path("update/<path:pk>/", update_view, name="update"),
     path("filtered/", FormView.as_view(form_class=FilteredForm, template_name="base5.html"), name="filtered"),
     path("filtered-bs4/", FormView.as_view(form_class=FilteredForm, template_name="base4.html"), name="filtered-bs4"),
+    path("htmx/", htmx_view, name="htmx"),
+    path("htmx-form-fragment/", htmx_form_fragment_view, name="htmx-form-fragment"),
 ]

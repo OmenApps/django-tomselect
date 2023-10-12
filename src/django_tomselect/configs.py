@@ -28,6 +28,8 @@ class GeneralConfig(BaseConfig):
     placeholder: Optional[str] = "Select a value"
     preload: Union[bool, str] = "focus"  # Either 'focus' or True/False
 
+    use_htmx: bool = False
+
     create: bool = False  # Needs rework. If we supply a 'create' url, we should allow creation.
     create_filter: Optional[str] = None
     create_with_htmx: bool = False

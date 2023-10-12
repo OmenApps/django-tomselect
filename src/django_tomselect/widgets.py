@@ -39,6 +39,7 @@ class TomSelectWidget(forms.Select):
         label_field="",
         create_field="",
         filter_by=(),
+        use_htmx=False,
         bootstrap_version=DJANGO_TOMSELECT_BOOTSTRAP_VERSION,
         general_config: Optional[GeneralConfig] = GeneralConfig(),
         plugin_checkbox_options: Optional[PluginCheckboxOptions] = PluginCheckboxOptions(),
@@ -92,6 +93,9 @@ class TomSelectWidget(forms.Select):
 
         self.create_field = create_field
         self.filter_by = filter_by
+
+        self.use_htmx = use_htmx
+
         self.bootstrap_version = (
             bootstrap_version if bootstrap_version in (4, 5) else 5
         )  # ToDo: Rename to something more generic to allow for other frameworks
@@ -176,6 +180,7 @@ class TomSelectWidget(forms.Select):
         context["widget"]["label_field"] = self.label_field
 
         context["widget"]["is_tabular"] = False
+        context["widget"]["use_htmx"] = self.use_htmx
 
         context["widget"]["search_lookups"] = self.get_search_lookups()
         context["widget"]["autocomplete_url"] = self.get_autocomplete_url()

@@ -4,8 +4,9 @@ from django.template.response import TemplateResponse
 
 from django_tomselect.views import AutocompleteView
 
-from .forms import FilteredForm, Form, ModelForm
-from .models import Edition, Magazine, ModelFormTestModel
+from .forms import DependentForm, Form, ModelForm, FormHTMX
+from django.db.models import Q
+from .models import Edition, Magazine
 
 
 class DemoEditionAutocompleteView(AutocompleteView):
@@ -88,3 +89,30 @@ def create_view(request):
 
 def update_view(request):
     return HttpResponse("This is a dummy update page.")
+
+
+def htmx_view(request):
+    template = "base5_htmx.html"
+    context = {}
+
+    return TemplateResponse(request, template, context)
+
+
+def htmx_form_fragment_view(request):
+    template = "base5_htmx_fragment.html"
+    context = {}
+
+    form = FormHTMX(request.POST or None)
+
+    if request.POST:
+        if form.is_valid():
+            print(f"Form valid. Form cleaned_data: {form.cleaned_data}")
+        else:
+            print(f"Form NOT valid. Form cleaned_data: {form.cleaned_data}")
+            print(f"Form NOT valid. Form errors: {form.errors.as_data()}")
+
+        return HttpResponseRedirect("/")
+
+    context["form"] = form
+
+    return TemplateResponse(request, template, context)

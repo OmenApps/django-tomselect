@@ -1,0 +1,6 @@
+{% load static %}
+<form method="post" action="{{ request.path }}">
+    {% csrf_token %}
+    {{ form.as_div }}
+    <button type="submit" class="btn btn-success">Save</button>
+</form>
