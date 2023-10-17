@@ -233,10 +233,12 @@ class TomSelectWidget(forms.Select):
         """Only query for selected model objects."""
 
         # inspired by dal.widgets.WidgetMixin from django-autocomplete-light
-        selected_choices = [str(c) for c in value if c]  # Is this right?
+        selected_choices = [str(c) for c in value if c]
         all_choices = copy.copy(self.choices)
-        # TODO: empty values in selected_choices will be filtered out twice
-        self.choices.queryset = self.get_queryset().filter(pk__in=[c for c in selected_choices if c])
+        try:
+            self.choices.queryset = self.choices.queryset.filter(pk__in=[c for c in selected_choices if c])
+        except ValueError:
+            pass
         results = super().optgroups(name, value, attrs)
         self.choices = all_choices
         return results
