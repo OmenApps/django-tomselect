@@ -271,6 +271,7 @@ class ModelForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        print(f"Queryset: {self.fields['tomselect_multiple'].queryset}")
 
 
 class DependentForm(forms.Form):

@@ -4,17 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-tomselect"
-version = "0.5.1b6"
+version = "0.5.1b7"
 authors = [
-  { name="Jack Linke", email="jacklinke@gmail.com" },
-  { name="Philip Becker", email="yummytea1@gmail.com" },
+    { name = "Jack Linke", email = "jacklinke@gmail.com" },
+    { name = "Philip Becker", email = "yummytea1@gmail.com" },
 ]
 description = "Django autocomplete widgets and views using Tom Select"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "Django"
-]
+dependencies = ["Django"]
 classifiers = [
     "Framework :: Django",
     "Programming Language :: Python :: 3",
@@ -26,7 +24,7 @@ classifiers = [
 Source = "https://github.com/jacklinke/django-tomselect"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -50,16 +48,17 @@ src = ["src"]
 target-version = "py311"
 line-length = 120
 select = [
-    "D",        # pydocstyle
-    "E", "W",   # pycodestyle
-    "F",        # flake8
-    "I",        # isort
+    "D", # pydocstyle
+    "E",
+    "W", # pycodestyle
+    "F", # flake8
+    "I", # isort
 ]
 ignore = [
-    "D1",    # D1: Missing docstring error codes (because not every function and class has a docstring)
-    "D203",  # D203: 1 blank line required before class docstring (conflicts with D211 and should be disabled, see https://github.com/PyCQA/pydocstyle/pull/91)
-    "D205",  # D205: 1 blank line required between summary line and description
-    "D212",  # D212: Multi-line docstring summary should start at the first line
+    "D1",   # D1: Missing docstring error codes (because not every function and class has a docstring)
+    "D203", # D203: 1 blank line required before class docstring (conflicts with D211 and should be disabled, see https://github.com/PyCQA/pydocstyle/pull/91)
+    "D205", # D205: 1 blank line required between summary line and description
+    "D212", # D212: Multi-line docstring summary should start at the first line
 ]
 
 [tool.ruff.pydocstyle]

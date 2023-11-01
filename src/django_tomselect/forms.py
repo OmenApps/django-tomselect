@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class TomSelectField(forms.ModelChoiceField):
     """Wraps the TomSelectWidget as a form field."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, queryset=EmptyModel.objects.none(), *args, **kwargs):
         """Instantiate a TomSelectField field."""
         self.widget = TomSelectWidget(
             url=kwargs.pop("url", "autocomplete"),
@@ -40,7 +40,7 @@ class TomSelectField(forms.ModelChoiceField):
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
         )
-        super().__init__(queryset=EmptyModel.objects.none(), *args, **kwargs)
+        super().__init__(queryset, *args, **kwargs)
 
     def clean(self, value):
         self.queryset = self.widget.get_queryset()
@@ -50,7 +50,7 @@ class TomSelectField(forms.ModelChoiceField):
 class TomSelectMultipleField(forms.ModelMultipleChoiceField):
     """Wraps the TomSelectMultipleWidget as a form field."""
 
-    def __init__(self, queryset=EmptyModel.objects.none(), **kwargs):
+    def __init__(self, queryset=EmptyModel.objects.none(), *args, **kwargs):
         """Instantiate a TomSelectMultipleField field."""
         self.widget = TomSelectMultipleWidget(
             url=kwargs.pop("url", "autocomplete"),
@@ -70,7 +70,7 @@ class TomSelectMultipleField(forms.ModelMultipleChoiceField):
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
         )
-        super().__init__(queryset, **kwargs)
+        super().__init__(queryset, *args, **kwargs)
 
     def clean(self, value):
         self.queryset = self.widget.get_queryset()

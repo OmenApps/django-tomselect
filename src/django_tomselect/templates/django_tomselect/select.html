@@ -15,7 +15,7 @@
 
             highlight: {% if widget.general_config.highlight %}true{% else %}false{% endif %},
             openOnFocus: {% if widget.general_config.open_on_focus %}true{% else %}false{% endif %},
-            maxOptions: {% if widget.general_config.max_options %}{{ widget.general_config.max_options }}{% else %}50{% endif %},
+            maxOptions: {% if widget.general_config.max_options %}{{ widget.general_config.max_options }}{% else %}null{% endif %},
             preload: {% if widget.general_config.preload == "focus" %}'focus'{% elif widget.general_config.preload %}true{% else %}false{% endif %},
             maxItems: {% if not widget.is_multiple %}1{% else %}{% if widget.general_config.max_items %}{{ widget.general_config.max_items }}{% else %}null{% endif %}{% endif %},
             showValueField: {% if widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
