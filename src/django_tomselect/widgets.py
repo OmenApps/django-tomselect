@@ -173,7 +173,6 @@ class TomSelectWidget(forms.Select):
             )
             else PluginRemoveButton()
         )
-
         super().__init__(**kwargs)
 
     def get_context(self, name, value, attrs):
@@ -230,15 +229,18 @@ class TomSelectWidget(forms.Select):
         return context
 
     def optgroups(self, name, value, attrs=None):
-        """Only query for selected model objects."""
+        """Return a list of optgroups for this widget.
+        Only query for selected model objects.
+        """
 
         # inspired by dal.widgets.WidgetMixin from django-autocomplete-light
         selected_choices = [str(c) for c in value if c]
         all_choices = copy.copy(self.choices)
         try:
-            self.choices.queryset = self.choices.queryset.filter(pk__in=[c for c in selected_choices if c])
+            # self.choices.queryset is empty at this point, so get and filter the queryset from the view
+            self.choices.queryset = self.get_queryset().filter(pk__in=[c for c in selected_choices if c])
         except ValueError:
-            pass
+            logger.info(f"ValueError in optgroups for selected_choices: {selected_choices=}")
         results = super().optgroups(name, value, attrs)
         self.choices = all_choices
         return results
