@@ -22,8 +22,8 @@ class GeneralConfig(BaseConfig):
     highlight: bool = True
     load_throttle: int = 300
     loading_class: str = "loading"
-    max_items: int = 50
-    max_options: int = 50
+    max_items: Optional[int] = 50
+    max_options: Optional[int] = None
     open_on_focus: bool = True
     placeholder: Optional[str] = "Select a value"
     preload: Union[bool, str] = "focus"  # Either 'focus' or True/False
