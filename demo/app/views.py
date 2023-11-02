@@ -6,7 +6,7 @@ from django_tomselect.views import AutocompleteView
 
 from .forms import DependentForm, Form, ModelForm, FormHTMX
 from django.db.models import Q
-from .models import Edition, Magazine
+from .models import Edition, Magazine, ModelFormTestModel
 
 
 class DemoEditionAutocompleteView(AutocompleteView):
@@ -87,6 +87,29 @@ def model_form_test_view(request):
     context = {}
 
     form = ModelForm(request.POST or None)
+
+    if request.POST:
+        if form.is_valid():
+            print(f"Form valid. Form cleaned_data: {form.cleaned_data}")
+            form.save()
+        else:
+            print(f"Form NOT valid. Form cleaned_data: {form.cleaned_data}")
+            print(f"Form NOT valid. Form errors: {form.errors.as_data()}")
+
+        return HttpResponseRedirect(reverse("demo_with_model"))
+
+    context["form"] = form
+
+    return TemplateResponse(request, template, context)
+
+
+def model_form_edit_test_view(request, pk):
+    template = "base5.html"
+    context = {}
+
+    instance = ModelFormTestModel.objects.get(pk=pk)
+
+    form = ModelForm(request.POST or None, instance=instance)
 
     if request.POST:
         if form.is_valid():
