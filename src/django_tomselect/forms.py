@@ -1,6 +1,7 @@
 import logging
 
 from django import forms
+from django.db.models.base import Model
 
 from .app_settings import (
     DJANGO_TOMSELECT_BOOTSTRAP_VERSION,
@@ -40,11 +41,30 @@ class TomSelectField(forms.ModelChoiceField):
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
         )
-        super().__init__(queryset, *args, **kwargs)
+        super().__init__(queryset, *args, **kwargs)        
 
     def clean(self, value):
+        logger.debug(f"clean {value=}")
         self.queryset = self.widget.get_queryset()
+        logger.debug(f"clean {self.queryset=}")
         return super().clean(value)
+    
+    def _set_queryset(self, queryset):
+        logger.debug(f"_set_queryset {queryset=}")
+        return super()._set_queryset(queryset)
+    
+    def to_python(self, value):
+        logger.debug(f"to_python {value=}")
+        logger.debug(f"to_python {self.to_field_name=}")
+        return super().to_python(value)
+    
+    def validate(self, value: Model | None) -> None:
+        logger.debug(f"validate {value=}")
+        return super().validate(value)
+    
+    def prepare_value(self, value):
+        logger.debug(f"prepare_value {self.__class__} {value=}")
+        return super().prepare_value(value)
 
 
 class TomSelectMultipleField(forms.ModelMultipleChoiceField):
@@ -73,5 +93,30 @@ class TomSelectMultipleField(forms.ModelMultipleChoiceField):
         super().__init__(queryset, *args, **kwargs)
 
     def clean(self, value):
+        logger.debug(f"clean {value=}")
         self.queryset = self.widget.get_queryset()
+        logger.debug(f"clean {self.queryset=}")
         return super().clean(value)
+    
+    def _check_values(self, value):
+        logger.debug(f"_check_values {value=}")
+        qs = super()._check_values(value)
+        logger.debug(f"_check_values {qs=}")
+        return qs
+    
+    def _set_queryset(self, queryset):
+        logger.debug(f"_set_queryset {queryset=}")
+        return super()._set_queryset(queryset)
+    
+    def to_python(self, value):
+        logger.debug(f"to_python {value=}")
+        logger.debug(f"to_python {self.to_field_name=}")
+        return super().to_python(value)
+    
+    def validate(self, value: Model | None) -> None:
+        logger.debug(f"validate {value=}")
+        return super().validate(value)
+    
+    def prepare_value(self, value):
+        logger.debug(f"prepare_value {self.__class__} {value=}")
+        return super().prepare_value(value)
