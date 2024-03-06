@@ -1087,6 +1087,7 @@
           preload: null,
           allowEmptyOption: false,
           //closeAfterSelect: false,
+          refreshThrottle: 300,
           loadThrottle: 300,
           loadingClass: "loading",
           dataAttr: null,
@@ -1158,16 +1159,23 @@
         const escape_html2 = (str) => {
           return (str + "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         };
+        const timeout = (fn, timeout2) => {
+          if (timeout2 > 0) {
+            return setTimeout(fn, timeout2);
+          }
+          fn.call(null);
+          return null;
+        };
         const loadDebounce = (fn, delay) => {
-          var timeout;
+          var timeout2;
           return function(value, callback) {
             var self2 = this;
-            if (timeout) {
+            if (timeout2) {
               self2.loading = Math.max(self2.loading - 1, 0);
-              clearTimeout(timeout);
+              clearTimeout(timeout2);
             }
-            timeout = setTimeout(function() {
-              timeout = null;
+            timeout2 = setTimeout(function() {
+              timeout2 = null;
               self2.loadedSearches[value] = true;
               fn.call(self2, value, callback);
             }, delay);
@@ -1267,6 +1275,7 @@
             var options = settings_element.options;
             var optionsMap = {};
             var group_count = 1;
+            let $order = 0;
             var readData = (el) => {
               var data = Object.assign({}, el.dataset);
               var json = attr_data && data[attr_data];
@@ -1299,6 +1308,7 @@
                 option_data[field_disabled] = option_data[field_disabled] || option.disabled;
                 option_data[field_optgroup] = option_data[field_optgroup] || group;
                 option_data.$option = option;
+                option_data.$order = option_data.$order || ++$order;
                 optionsMap[value] = option_data;
                 options.push(option_data);
               }
@@ -1312,6 +1322,7 @@
               optgroup_data[field_optgroup_label] = optgroup_data[field_optgroup_label] || optgroup.getAttribute("label") || "";
               optgroup_data[field_optgroup_value] = optgroup_data[field_optgroup_value] || group_count++;
               optgroup_data[field_disabled] = optgroup_data[field_disabled] || optgroup.disabled;
+              optgroup_data.$order = optgroup_data.$order || ++$order;
               settings_element.optgroups.push(optgroup_data);
               id = optgroup_data[field_optgroup_value];
               iterate2(optgroup.children, (option) => {
@@ -1358,7 +1369,6 @@
         }
         var instance_i = 0;
         class TomSelect3 extends MicroPlugin(MicroEvent) {
-          // @deprecated 1.8
           constructor(input_arg, user_settings) {
             super();
             this.control_input = void 0;
@@ -1378,6 +1388,7 @@
             this.sifter = void 0;
             this.isOpen = false;
             this.isDisabled = false;
+            this.isReadOnly = false;
             this.isRequired = void 0;
             this.isInvalid = false;
             this.isValid = true;
@@ -1399,6 +1410,7 @@
             this.options = {};
             this.userOptions = {};
             this.items = [];
+            this.refreshTimeout = null;
             instance_i++;
             var dir;
             var input = getDom2(input_arg);
@@ -1461,7 +1473,7 @@
             getDom2(settings.dropdownParent || wrapper).appendChild(dropdown);
             if (isHtmlString2(settings.controlInput)) {
               control_input = getDom2(settings.controlInput);
-              var attrs = ["autocorrect", "autocapitalize", "autocomplete"];
+              var attrs = ["autocorrect", "autocapitalize", "autocomplete", "spellcheck"];
               iterate$1(attrs, (attr) => {
                 if (input.getAttribute(attr)) {
                   setAttr(control_input, {
@@ -1551,7 +1563,6 @@
             if (settings.load && settings.loadThrottle) {
               settings.load = loadDebounce(settings.load, settings.loadThrottle);
             }
-            self2.control_input.type = input.type;
             addEvent2(dropdown, "mousemove", () => {
               self2.ignoreHover = false;
             });
@@ -1641,6 +1652,8 @@
             self2.isSetup = true;
             if (input.disabled) {
               self2.disable();
+            } else if (input.readOnly) {
+              self2.setReadOnly(true);
             } else {
               self2.enable();
             }
@@ -1916,19 +1929,32 @@
            *
            */
           onInput(e) {
-            var self2 = this;
-            if (self2.isLocked) {
+            if (this.isLocked) {
               return;
             }
-            var value = self2.inputValue();
-            if (self2.lastValue !== value) {
-              self2.lastValue = value;
-              if (self2.settings.shouldLoad.call(self2, value)) {
-                self2.load(value);
-              }
-              self2.refreshOptions();
-              self2.trigger("type", value);
+            const value = this.inputValue();
+            if (this.lastValue === value)
+              return;
+            this.lastValue = value;
+            if (value == "") {
+              this._onInput();
+              return;
             }
+            if (this.refreshTimeout) {
+              clearTimeout(this.refreshTimeout);
+            }
+            this.refreshTimeout = timeout(() => {
+              this.refreshTimeout = null;
+              this._onInput();
+            }, this.settings.refreshThrottle);
+          }
+          _onInput() {
+            const value = this.lastValue;
+            if (this.settings.shouldLoad.call(this, value)) {
+              this.load(value);
+            }
+            this.refreshOptions();
+            this.trigger("type", value);
           }
           /**
            * Triggered when the user rolls over
@@ -1947,7 +1973,7 @@
           onFocus(e) {
             var self2 = this;
             var wasFocused = self2.isFocused;
-            if (self2.isDisabled) {
+            if (self2.isDisabled || self2.isReadOnly) {
               self2.blur();
               preventDefault2(e);
               return;
@@ -1960,7 +1986,7 @@
             if (!wasFocused)
               self2.trigger("focus");
             if (!self2.activeItems.length) {
-              self2.showInput();
+              self2.inputState();
               self2.refreshOptions(!!self2.settings.openOnFocus);
             }
             self2.refreshState();
@@ -2163,7 +2189,7 @@
             if (!item) {
               self2.clearActiveItems();
               if (self2.isFocused) {
-                self2.showInput();
+                self2.inputState();
               }
               return;
             }
@@ -2194,7 +2220,7 @@
               self2.clearActiveItems();
               self2.setActiveItemClass(item);
             }
-            self2.hideInput();
+            self2.inputState();
             if (!self2.isFocused) {
               self2.focus();
             }
@@ -2310,7 +2336,7 @@
             const activeItems = self2.controlChildren();
             if (!activeItems.length)
               return;
-            self2.hideInput();
+            self2.inputState();
             self2.close();
             self2.activeItems = activeItems;
             iterate$1(activeItems, (item) => {
@@ -2342,21 +2368,6 @@
             self2.wrapper.classList.toggle("input-hidden", self2.isInputHidden);
           }
           /**
-           * Hides the input element out of view, while
-           * retaining its focus.
-           * @deprecated 1.3
-           */
-          hideInput() {
-            this.inputState();
-          }
-          /**
-           * Restores input visibility.
-           * @deprecated 1.3
-           */
-          showInput() {
-            this.inputState();
-          }
-          /**
            * Get the input value
            */
           inputValue() {
@@ -2367,7 +2378,7 @@
            */
           focus() {
             var self2 = this;
-            if (self2.isDisabled)
+            if (self2.isDisabled || self2.isReadOnly)
               return;
             self2.ignoreFocus = true;
             if (self2.control_input.offsetWidth) {
@@ -2482,6 +2493,23 @@
             if (n > 0) {
               show_dropdown = true;
             }
+            const getGroupFragment = (optgroup2, order) => {
+              let group_order_i = groups[optgroup2];
+              if (group_order_i !== void 0) {
+                let order_group = groups_order[group_order_i];
+                if (order_group !== void 0) {
+                  return [group_order_i, order_group.fragment];
+                }
+              }
+              let group_fragment = document.createDocumentFragment();
+              group_order_i = groups_order.length;
+              groups_order.push({
+                fragment: group_fragment,
+                order,
+                optgroup: optgroup2
+              });
+              return [group_order_i, group_fragment];
+            };
             for (i = 0; i < n; i++) {
               let item = results.items[i];
               if (!item)
@@ -2499,14 +2527,14 @@
               optgroups = Array.isArray(optgroup) ? optgroup : [optgroup];
               for (j = 0, k = optgroups && optgroups.length; j < k; j++) {
                 optgroup = optgroups[j];
-                if (!self2.optgroups.hasOwnProperty(optgroup)) {
+                let order = option.$order;
+                let self_optgroup = self2.optgroups[optgroup];
+                if (self_optgroup === void 0) {
                   optgroup = "";
+                } else {
+                  order = self_optgroup.$order;
                 }
-                let group_fragment = groups[optgroup];
-                if (group_fragment === void 0) {
-                  group_fragment = document.createDocumentFragment();
-                  groups_order.push(optgroup);
-                }
+                const [group_order_i, group_fragment] = getGroupFragment(optgroup, order);
                 if (j > 0) {
                   option_el = option_el.cloneNode(true);
                   setAttr(option_el, {
@@ -2522,21 +2550,20 @@
                   }
                 }
                 group_fragment.appendChild(option_el);
-                groups[optgroup] = group_fragment;
+                if (optgroup != "") {
+                  groups[optgroup] = group_order_i;
+                }
               }
             }
             if (self2.settings.lockOptgroupOrder) {
               groups_order.sort((a, b) => {
-                const grp_a = self2.optgroups[a];
-                const grp_b = self2.optgroups[b];
-                const a_order = grp_a && grp_a.$order || 0;
-                const b_order = grp_b && grp_b.$order || 0;
-                return a_order - b_order;
+                return a.order - b.order;
               });
             }
             html = document.createDocumentFragment();
-            iterate$1(groups_order, (optgroup2) => {
-              let group_fragment = groups[optgroup2];
+            iterate$1(groups_order, (group_order) => {
+              let group_fragment = group_order.fragment;
+              let optgroup2 = group_order.optgroup;
               if (!group_fragment || !group_fragment.children.length)
                 return;
               let group_heading = self2.optgroups[optgroup2];
@@ -3050,6 +3077,7 @@
             const wrap_classList = self2.wrapper.classList;
             wrap_classList.toggle("focus", self2.isFocused);
             wrap_classList.toggle("disabled", self2.isDisabled);
+            wrap_classList.toggle("readonly", self2.isReadOnly);
             wrap_classList.toggle("required", self2.isRequired);
             wrap_classList.toggle("invalid", !self2.isValid);
             wrap_classList.toggle("locked", isLocked);
@@ -3169,7 +3197,7 @@
             if (setTextboxValue) {
               self2.setTextboxValue();
               if (self2.settings.mode === "single" && self2.items.length) {
-                self2.hideInput();
+                self2.inputState();
               }
             }
             self2.isOpen = false;
@@ -3218,7 +3246,7 @@
             iterate$1(items, (item) => {
               self2.removeItem(item, true);
             });
-            self2.showInput();
+            self2.inputState();
             if (!silent)
               self2.updateOriginalInput();
             self2.trigger("clear");
@@ -3274,7 +3302,7 @@
             while (rm_items.length) {
               self2.removeItem(rm_items.pop());
             }
-            self2.showInput();
+            self2.inputState();
             self2.positionDropdown();
             self2.refreshOptions(false);
             return true;
@@ -3364,14 +3392,19 @@
            * items are being asynchronously created.
            */
           lock() {
-            this.isLocked = true;
-            this.refreshState();
+            this.setLocked(true);
           }
           /**
            * Re-enables user input on the control.
            */
           unlock() {
-            this.isLocked = false;
+            this.setLocked(false);
+          }
+          /**
+           * Disable or enable user input on the control
+           */
+          setLocked(lock = this.isReadOnly || this.isDisabled) {
+            this.isLocked = lock;
             this.refreshState();
           }
           /**
@@ -3379,25 +3412,28 @@
            * While disabled, it cannot receive focus.
            */
           disable() {
-            var self2 = this;
-            self2.input.disabled = true;
-            self2.control_input.disabled = true;
-            self2.focus_node.tabIndex = -1;
-            self2.isDisabled = true;
+            this.setDisabled(true);
             this.close();
-            self2.lock();
           }
           /**
            * Enables the control so that it can respond
            * to focus and user input.
            */
           enable() {
-            var self2 = this;
-            self2.input.disabled = false;
-            self2.control_input.disabled = false;
-            self2.focus_node.tabIndex = self2.tabIndex;
-            self2.isDisabled = false;
-            self2.unlock();
+            this.setDisabled(false);
+          }
+          setDisabled(disabled) {
+            this.focus_node.tabIndex = disabled ? -1 : this.tabIndex;
+            this.isDisabled = disabled;
+            this.input.disabled = disabled;
+            this.control_input.disabled = disabled;
+            this.setLocked();
+          }
+          setReadOnly(isReadOnly) {
+            this.isReadOnly = isReadOnly;
+            this.input.readOnly = isReadOnly;
+            this.control_input.readOnly = isReadOnly;
+            this.setLocked();
           }
           /**
            * Completely destroys the control and
@@ -4049,19 +4085,41 @@
   };
 
   // node_modules/tom-select/src/plugins/checkbox_options/plugin.ts
-  function plugin_default() {
+  function plugin_default(userOptions) {
     var self2 = this;
     var orig_onOptionSelect = self2.onOptionSelect;
     self2.settings.hideSelected = false;
+    const cbOptions = Object.assign({
+      // so that the user may add different ones as well
+      className: "tomselect-checkbox",
+      // the following default to the historic plugin's values
+      checkedClassNames: void 0,
+      uncheckedClassNames: void 0
+    }, userOptions);
+    var UpdateChecked = function(checkbox, toCheck) {
+      if (toCheck) {
+        checkbox.checked = true;
+        if (cbOptions.uncheckedClassNames) {
+          checkbox.classList.remove(...cbOptions.uncheckedClassNames);
+        }
+        if (cbOptions.checkedClassNames) {
+          checkbox.classList.add(...cbOptions.checkedClassNames);
+        }
+      } else {
+        checkbox.checked = false;
+        if (cbOptions.checkedClassNames) {
+          checkbox.classList.remove(...cbOptions.checkedClassNames);
+        }
+        if (cbOptions.uncheckedClassNames) {
+          checkbox.classList.add(...cbOptions.uncheckedClassNames);
+        }
+      }
+    };
     var UpdateCheckbox = function(option) {
       setTimeout(() => {
-        var checkbox = option.querySelector("input");
+        var checkbox = option.querySelector("input." + cbOptions.className);
         if (checkbox instanceof HTMLInputElement) {
-          if (option.classList.contains("selected")) {
-            checkbox.checked = true;
-          } else {
-            checkbox.checked = false;
-          }
+          UpdateChecked(checkbox, option.classList.contains("selected"));
         }
       }, 1);
     };
@@ -4070,14 +4128,15 @@
       self2.settings.render.option = (data, escape_html2) => {
         var rendered = getDom(orig_render_option.call(self2, data, escape_html2));
         var checkbox = document.createElement("input");
+        if (cbOptions.className) {
+          checkbox.classList.add(cbOptions.className);
+        }
         checkbox.addEventListener("click", function(evt) {
           preventDefault(evt);
         });
         checkbox.type = "checkbox";
         const hashed = hash_key(data[self2.settings.valueField]);
-        if (hashed && self2.items.indexOf(hashed) > -1) {
-          checkbox.checked = true;
-        }
+        UpdateChecked(checkbox, !!(hashed && self2.items.indexOf(hashed) > -1));
         rendered.prepend(checkbox);
         return rendered;
       };
@@ -4121,9 +4180,8 @@
     self2.on("initialize", () => {
       var button = getDom(options.html(options));
       button.addEventListener("click", (evt) => {
-        if (self2.isDisabled) {
+        if (self2.isLocked)
           return;
-        }
         self2.clear();
         if (self2.settings.mode === "single" && self2.settings.allowEmptyOption) {
           self2.addItem("");
@@ -4240,6 +4298,8 @@
           preventDefault(evt, true);
         });
         addEvent(close_button, "click", (evt) => {
+          if (self2.isLocked)
+            return;
           preventDefault(evt, true);
           if (self2.isLocked)
             return;
@@ -4309,8 +4369,11 @@
         pagination[query] = false;
         return next_url;
       }
-      pagination = {};
+      self2.clearPagination();
       return self2.settings.firstUrl.call(self2, query);
+    };
+    self2.clearPagination = () => {
+      pagination = {};
     };
     self2.hook("instead", "clearActiveOption", () => {
       if (loading_more) {
