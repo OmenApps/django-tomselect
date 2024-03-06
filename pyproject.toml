@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-tomselect"
-version = "0.5.1b10"
+version = "0.5.1b11"
 authors = [
     { name = "Jack Linke", email = "jacklinke@gmail.com" },
     { name = "Philip Becker", email = "yummytea1@gmail.com" },
 ]
 description = "Django autocomplete widgets and views using Tom Select"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = ["Django"]
 classifiers = [
     "Framework :: Django",
@@ -41,7 +41,7 @@ source = ["src", ".tox/*/site-packages"]
 
 [tool.black]
 line-length = 120
-target_version = ["py39", "py310", "py311"]
+target_version = ["py39", "py310", "py311",  "py312"]
 
 [tool.ruff]
 src = ["src"]
@@ -65,4 +65,5 @@ ignore = [
 convention = "google"
 
 [tool.ruff.pycodestyle]
-max-doc-length = 88
+max-doc-length = 120
+
