@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 class TomSelectField(forms.ModelChoiceField):
-    """Wraps the TomSelectWidget as a form field."""
+    """Wraps the TomSelectWidget as a form field.
+    
+    This is required so that we can implement the updated clean() method."""
 
     def __init__(self, queryset=EmptyModel.objects.none(), *args, **kwargs):
         """Instantiate a TomSelectField field."""
@@ -44,31 +46,17 @@ class TomSelectField(forms.ModelChoiceField):
         super().__init__(queryset, *args, **kwargs)        
 
     def clean(self, value):
-        logger.debug(f"clean {value=}")
+        """Return the queryset of objects that match the value."""
+
+        # Gets the queryset from the widget, which is set by the view.
         self.queryset = self.widget.get_queryset()
-        logger.debug(f"clean {self.queryset=}")
         return super().clean(value)
     
-    def _set_queryset(self, queryset):
-        logger.debug(f"_set_queryset {queryset=}")
-        return super()._set_queryset(queryset)
-    
-    def to_python(self, value):
-        logger.debug(f"to_python {value=}")
-        logger.debug(f"to_python {self.to_field_name=}")
-        return super().to_python(value)
-    
-    def validate(self, value: Model | None) -> None:
-        logger.debug(f"validate {value=}")
-        return super().validate(value)
-    
-    def prepare_value(self, value):
-        logger.debug(f"prepare_value {self.__class__} {value=}")
-        return super().prepare_value(value)
-
 
 class TomSelectMultipleField(forms.ModelMultipleChoiceField):
-    """Wraps the TomSelectMultipleWidget as a form field."""
+    """Wraps the TomSelectMultipleWidget as a form field.
+    
+    This is required so that we can implement the updated clean() method."""
 
     def __init__(self, queryset=EmptyModel.objects.none(), *args, **kwargs):
         """Instantiate a TomSelectMultipleField field."""
@@ -93,30 +81,8 @@ class TomSelectMultipleField(forms.ModelMultipleChoiceField):
         super().__init__(queryset, *args, **kwargs)
 
     def clean(self, value):
-        logger.debug(f"clean {value=}")
+        """Return the queryset of objects that match the value."""
+
+        # Gets the queryset from the widget, which is set by the view.
         self.queryset = self.widget.get_queryset()
-        logger.debug(f"clean {self.queryset=}")
         return super().clean(value)
-    
-    def _check_values(self, value):
-        logger.debug(f"_check_values {value=}")
-        qs = super()._check_values(value)
-        logger.debug(f"_check_values {qs=}")
-        return qs
-    
-    def _set_queryset(self, queryset):
-        logger.debug(f"_set_queryset {queryset=}")
-        return super()._set_queryset(queryset)
-    
-    def to_python(self, value):
-        logger.debug(f"to_python {value=}")
-        logger.debug(f"to_python {self.to_field_name=}")
-        return super().to_python(value)
-    
-    def validate(self, value: Model | None) -> None:
-        logger.debug(f"validate {value=}")
-        return super().validate(value)
-    
-    def prepare_value(self, value):
-        logger.debug(f"prepare_value {self.__class__} {value=}")
-        return super().prepare_value(value)

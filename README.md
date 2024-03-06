@@ -13,33 +13,34 @@ generalized solution for Django autocompletion and a focus on use of django temp
 translations, customization, explicitness, and minimal use of custom JavaScript
 
 <!-- TOC -->
-* [Tom Select for Django](#tom-select-for-django)
-  * [Examples](#examples)
-  * [Installation](#installation)
-  * [Usage](#usage)
-  * [Form Fields](#form-fields)
-    * [TomSelectField & TomSelectMultipleField](#tomselectfield--tomselectmultiplefield)
-  * [Configuration Objects](#configuration-objects)
-    * [GeneralConfig](#generalconfig)
-    * [PluginCheckboxOptions](#plugincheckboxoptions)
-    * [PluginDropdownInput](#plugindropdowninput)
-    * [PluginClearButton](#pluginclearbutton)
-    * [PluginRemoveButton](#pluginremovebutton)
-    * [PluginDropdownHeader](#plugindropdownheader)
-      * [Adding more columns to the fields](#adding-more-columns-to-the-fields)
-    * [PluginDropdownFooter](#plugindropdownfooter)
-  * [Settings](#settings)
-  * [Function & Features](#function--features)
-    * [Modifying the initial QuerySet](#modifying-the-initial-queryset)
-    * [Searching](#searching)
-    * [Option creation](#option-creation)
-    * [List View link](#list-view-link)
-    * [Chained Dropdown Filtering](#chained-dropdown-filtering)
-  * [Advanced Topics](#advanced-topics)
-    * [Manually Initializing Tom Select Fields](#manually-initializing-tom-select-fields)
-  * [Development & Demo](#development--demo)
-    * [Customizing Templates](#customizing-templates)
-    * [Translations](#translations)
+- [Tom Select for Django](#tom-select-for-django)
+  - [Examples](#examples)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Form Fields](#form-fields)
+    - [TomSelectField \& TomSelectMultipleField](#tomselectfield--tomselectmultiplefield)
+  - [Configuration Objects](#configuration-objects)
+    - [GeneralConfig](#generalconfig)
+    - [PluginCheckboxOptions](#plugincheckboxoptions)
+    - [PluginDropdownInput](#plugindropdowninput)
+    - [PluginClearButton](#pluginclearbutton)
+    - [PluginRemoveButton](#pluginremovebutton)
+    - [PluginDropdownHeader](#plugindropdownheader)
+      - [Adding more columns to the fields](#adding-more-columns-to-the-fields)
+    - [PluginDropdownFooter](#plugindropdownfooter)
+  - [Settings](#settings)
+  - [Function \& Features](#function--features)
+    - [Modifying the initial QuerySet](#modifying-the-initial-queryset)
+    - [Searching](#searching)
+    - [Option creation](#option-creation)
+    - [List View link](#list-view-link)
+    - [Dependent Filtering](#dependent-filtering)
+  - [Advanced Topics](#advanced-topics)
+    - [Manually Initializing Tom Select Fields](#manually-initializing-tom-select-fields)
+    - [Using Annotated QuerySets in Autocomplete view](#using-annotated-querysets-in-autocomplete-view)
+  - [Development \& Demo](#development--demo)
+    - [Customizing Templates](#customizing-templates)
+    - [Translations](#translations)
 <!-- TOC -->
 
 ----
@@ -192,32 +193,32 @@ from the attributes in the dataset property.
 
 Base autocomplete fields for `ModelChoiceField` and `ModelMultipleChoiceField`. The arguments of TomSelectField & TomSelectMultipleField are:
 
-| Argument                | Default value                          | Type                   | Description                                                                             |
-|-------------------------|----------------------------------------|------------------------|-----------------------------------------------------------------------------------------|
-| model                   | **required**                           | Model                  | the model class that provides the choices                                               |
-| url                     | `"autocomplete"`                       | str                    | URL pattern name of the autocomplete view                                               |
-| value_field             | `f"{model._meta.pk.name}"`             | str                    | model field that provides the value of an option                                        |
-| label_field             | `getattr(model, "name_field", "name")` | str                    | model field that provides the label of an option                                        |
-| create_field            | ""                                     | str                    | model field name used to create new objects with ([see below](#ajax-request))           |
-| listview_url            | ""                                     | str                    | URL name of the list view for this model ([see below](#list-view-link))                 |
-| create_url              | ""                                     | str                    | URL name of the create view for this model([see below](#option-creation))               |
-| update_url              | ""                                     | str                    | URL name of the update view for each instance of this model([see below](#option-edits)) |
-| filter_by               | ()                                     | tuple                  | a 2-tuple defining an additional filter ([see below](#chained-dropdown-filtering))      |
-| bootstrap_version       | 5                                      | int (4 or 5)           | the bootstrap version to use, either `4` or `5`                                         |
-| general_config          | GeneralConfig()                        | GeneralConfig          | A GeneralConfig object or None                                                          |
-| plugin_checkbox_options | PluginCheckboxOptions()                | PluginCheckboxOptions  | A PluginCheckboxOptions object or None                                                  |
-| plugin_dropdown_input   | PluginDropdownInput()                  | PluginDropdownInput    | A PluginDropdownInput object or None                                                    |
-| plugin_clear_button     | PluginClearButton()                    | PluginClearButton      | A PluginClearButton object or None                                                      |
-| plugin_remove_button    | PluginRemoveButton()                   | PluginRemoveButton     | A PluginRemoveButton object or None                                                     |
-| plugin_dropdown_header  | PluginDropdownHeader()                 | PluginDropdownHeader   | A PluginDropdownHeader object or None                                                   |
-| plugin_dropdown_footer  | PluginDropdownFooter()                 | PluginDropdownFooter   | A PluginDropdownFooter object or None                                                   |
+| Argument                | Default value                          | Type                  | Description                                                                             |
+| ----------------------- | -------------------------------------- | --------------------- | --------------------------------------------------------------------------------------- |
+| model                   | **required**                           | Model                 | the model class that provides the choices                                               |
+| url                     | `"autocomplete"`                       | str                   | URL pattern name of the autocomplete view                                               |
+| value_field             | `f"{model._meta.pk.name}"`             | str                   | model field that provides the value of an option                                        |
+| label_field             | `getattr(model, "name_field", "name")` | str                   | model field that provides the label of an option                                        |
+| create_field            | ""                                     | str                   | model field name used to create new objects with ([see below](#ajax-request))           |
+| listview_url            | ""                                     | str                   | URL name of the list view for this model ([see below](#list-view-link))                 |
+| create_url              | ""                                     | str                   | URL name of the create view for this model([see below](#option-creation))               |
+| update_url              | ""                                     | str                   | URL name of the update view for each instance of this model([see below](#option-edits)) |
+| filter_by               | ()                                     | tuple                 | a 2-tuple defining an additional filter ([see below](#chained-dropdown-filtering))      |
+| bootstrap_version       | 5                                      | int (4 or 5)          | the bootstrap version to use, either `4` or `5`                                         |
+| general_config          | GeneralConfig()                        | GeneralConfig         | A GeneralConfig object or None                                                          |
+| plugin_checkbox_options | PluginCheckboxOptions()                | PluginCheckboxOptions | A PluginCheckboxOptions object or None                                                  |
+| plugin_dropdown_input   | PluginDropdownInput()                  | PluginDropdownInput   | A PluginDropdownInput object or None                                                    |
+| plugin_clear_button     | PluginClearButton()                    | PluginClearButton     | A PluginClearButton object or None                                                      |
+| plugin_remove_button    | PluginRemoveButton()                   | PluginRemoveButton    | A PluginRemoveButton object or None                                                     |
+| plugin_dropdown_header  | PluginDropdownHeader()                 | PluginDropdownHeader  | A PluginDropdownHeader object or None                                                   |
+| plugin_dropdown_footer  | PluginDropdownFooter()                 | PluginDropdownFooter  | A PluginDropdownFooter object or None                                                   |
 
 ## Configuration Objects
 
 The TomSelect fields can be configured be passing in instances of the following classes from django_tomselect.configs:
 
 | Class                                            | Description                                                                                                 |
-|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `django_tomselect.configs.GeneralConfig`         | Base class for all configuration objects.                                                                   |
 | `django_tomselect.configs.PluginCheckboxOptions` | Configures Tom Select to display results with checkboxes.                                                   |
 | `django_tomselect.configs.PluginDropdownInput`   | Configures the Tom Select dropdown to display an input field for searching and displaying selected results. |
@@ -231,7 +232,7 @@ The TomSelect fields can be configured be passing in instances of the following 
 Available arguments:
 
 | Argument             | Default value    | Type            | Description                                                                                                                                                                                                                                                                               |
-|----------------------|------------------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -------------------- | ---------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | close_after_select   | None             | bool or None    | After a selection is made, the dropdown will remain open if in a multi-selection control or will close in a single-selection control. Setting to True will force the dropdown to close after selections are made. Setting to False will keep the dropdown open after selections are made. |
 | hide_placeholder     | None             | bool or None    | If True, the placeholder will be hidden when the control has one or more items (selected options) and is not focused. This defaults to False when in a multi-selection control, and to True otherwise.                                                                                    |
 | highlight            | True             | bool            | Toggles match highlighting within the dropdown menu when a search term is entered                                                                                                                                                                                                         |
@@ -262,7 +263,7 @@ Overridable template: `django_tomselect/render/clear_button.html`
 Available arguments:
 
 | Argument   | Default value      | Description                                            |
-|------------|--------------------|--------------------------------------------------------|
+| ---------- | ------------------ | ------------------------------------------------------ |
 | title      | "Clear Selections" | A string to use as the title of the clear button.      |
 | class_name | "clear-button"     | A string to use as the class name of the clear button. |
 
@@ -271,7 +272,7 @@ Available arguments:
 Available arguments:
 
 | Argument   | Default value      | Description                                            |
-|------------|--------------------|--------------------------------------------------------|
+| ---------- | ------------------ | ------------------------------------------------------ |
 | title      | "Remove this item" | A string to use as the title of the remove button.     |
 | label      | "&times;"          | A string to use as the label of the remove button.     |
 | class_name | "remove"           | A string to use as the class name of the clear button. |
@@ -288,15 +289,15 @@ human-readable part of the choice).
 
 Available arguments:
 
-| Argument             | Default value                                                               | Description                                                                                                                    |
-|----------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| extra_columns        | {}                                                                          | a dict mapping for additional columns to be displayed, where the key is the model field name and the value is the column label |
-| header_class         | "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header" | the classes to use for the header container                                                                                    |
-| title_row_class      | "row"                                                                       | the classes to use for the title row                                                                                           |
-| label_class          | "form-label"                                                                | the classes to use for the label column                                                                                        |
-| value_field_label    | `f"{value_field.title()}"`                                                  | table header for the value column                                                                                              |
-| label_field_label    | `f"{model._meta.verbose_name}"`                                             | table header for the label column                                                                                              |
-| show_value_field     | `False`                                                                     | show the value field column (typically `id`)                                                                                   |
+| Argument          | Default value                                                               | Description                                                                                                                    |
+| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| extra_columns     | {}                                                                          | a dict mapping for additional columns to be displayed, where the key is the model field name and the value is the column label |
+| header_class      | "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header" | the classes to use for the header container                                                                                    |
+| title_row_class   | "row"                                                                       | the classes to use for the title row                                                                                           |
+| label_class       | "form-label"                                                                | the classes to use for the label column                                                                                        |
+| value_field_label | `f"{value_field.title()}"`                                                  | table header for the value column                                                                                              |
+| label_field_label | `f"{model._meta.verbose_name}"`                                             | table header for the label column                                                                                              |
+| show_value_field  | `False`                                                                     | show the value field column (typically `id`)                                                                                   |
 
 #### Adding more columns to the fields
 
@@ -343,7 +344,7 @@ contains a link to the list view of the model, if the `listview_url` argument is
 Available arguments:
 
 | Argument          | Default value                                                               | Description                                                                                                                    |
-|-------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | extra_columns     | {}                                                                          | a dict mapping for additional columns to be displayed, where the key is the model field name and the value is the column label |
 | header_class      | "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header" | the classes to use for the header container                                                                                    |
 | title_row_class   | "row"                                                                       | the classes to use for the title row                                                                                           |
@@ -358,7 +359,7 @@ Available arguments:
 ## Settings
 
 | Setting                                  | Default value                                                  | Type                                          | Description                                                                                                                                                                                                                                                              |
-|------------------------------------------|----------------------------------------------------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------------------- | -------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | TOMSELECT_BOOTSTRAP_VERSION              | `5`                                                            | int (4 or 5)                                  | The bootstrap version to use. Either `4` or `5`. Defaults to `5`. This sets the project-wide default for the `bootstrap_version` argument of the fields. <p>You can overwrite the default for a specific field by passing the `bootstrap_version` argument to the field. |
 | TOMSELECT_PROXY_REQUEST                  | `"django_tomselect.utils.DefaultProxyRequest"`                 | `DefaultProxyRequest` or subclass             | Either a direct reference to a DefaultProxyRequest subclass or the path to the DefaultProxyRequest subclass to use. See below.                                                                                                                                           |
 | DJANGO_TOMSELECT_MINIFIED                | `django_tomselect.app_settings.currently_in_production_mode()` | Boolean or callable                           | Either a boolean or a callable that returns a boolean to determine whether to use minified static files.                                                                                                                                                                 |
@@ -518,9 +519,87 @@ form field as a value in `detail` as follows.
     }
   }));
 </script>
-````
+```
 
 ---
+
+### Using Annotated QuerySets in Autocomplete view
+
+If you want to use annotations in your QuerySet, you must overide your form's clean_fieldname method to
+remove the annotation before saving the form.
+
+Assuming you have a model with a foreign key to a City model, and you want to annotate the City name
+onto the QuerySet in the AutoComplete view, you would do the following:
+
+```python
+from django import forms
+from django_tomselect.views import AutocompleteView
+
+
+class MyAutocompleteView(AutocompleteView):
+    model = MyModel
+    search_lookups = [
+        "name__icontains",
+    ]
+    
+    def get_queryset(self):
+        """Toy example of annotating the city name onto the queryset"""
+        queryset = super().get_queryset()
+        queryset = queryset.annotate(city_name=F("city__name"))
+        return queryset
+```
+
+Then, in your ModelForm, you would override the clean_fieldname method to remove the annotation. Here is an example
+using TomSelectField for a single selection field, which should return a single model instance (or None):
+
+```python
+from django import forms
+from django_tomselect.forms import TomSelectField
+from .models import City, Person
+
+
+class MyForm(forms.ModelForm):
+    city = TomSelectField(
+        url="my_autocomplete_view",
+        value_field="id",
+        label_field="name",
+    )
+
+    def clean_city(self):
+        city = self.cleaned_data.get("city")
+        try:
+            city = City.objects.get(pk=data.get("pkid"))
+            return city
+        except City.DoesNotExist:
+            logger.error(f"Error cleaning city: {e}")
+            return None
+```
+
+And an example using TomSelectMultipleField for a multi-selection field, which should return a QuerySet:
+
+```python
+from django import forms
+from django_tomselect.forms import TomSelectMultipleField
+from .models import City, Person
+
+
+class MyForm(forms.ModelForm):
+    cities = TomSelectMultipleField(
+        url="my_autocomplete_view",
+        value_field="id",
+        label_field="name",
+    )
+
+    def clean_cities(self):
+        cities = self.cleaned_data.get("cities")
+        try:
+            city_id_list = list(cities.values_list("city_id", flat=True))
+            cities_qs = City.objects.filter(id__in=city_id_list)
+            return cities_qs
+        except AttributeError as e:
+            logger.error(f"Error cleaning cities: {e}")
+            return City.objects.none()
+```
 
 ## Development & Demo
 
@@ -547,7 +626,7 @@ Additionally, each of the [Render Templates](https://tom-select.js.org/docs/#ren
 The templates are rendered with the following context:
 
 | Variable | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `ToDo`   | ToDo        |
 
 You can override templates by creating a template with the same name in your project's `templates/django_tomselect/` directory.
