@@ -38,9 +38,9 @@ translations, customization, explicitness, and minimal use of custom JavaScript
   - [Advanced Topics](#advanced-topics)
     - [Manually Initializing Tom Select Fields](#manually-initializing-tom-select-fields)
     - [Using Annotated QuerySets in Autocomplete view](#using-annotated-querysets-in-autocomplete-view)
-  - [Development \& Demo](#development--demo)
     - [Customizing Templates](#customizing-templates)
     - [Translations](#translations)
+  - [Development \& Demo](#development--demo)
 <!-- TOC -->
 
 ----
@@ -204,7 +204,7 @@ Base autocomplete fields for `ModelChoiceField` and `ModelMultipleChoiceField`. 
 | create_url              | ""                                     | str                   | URL name of the create view for this model([see below](#option-creation))               |
 | update_url              | ""                                     | str                   | URL name of the update view for each instance of this model([see below](#option-edits)) |
 | filter_by               | ()                                     | tuple                 | a 2-tuple defining an additional filter ([see below](#chained-dropdown-filtering))      |
-| bootstrap_version       | 5                                      | int (4 or 5)          | the bootstrap version to use, either `4` or `5`                                         |
+| bootstrap_version       | 5                                      | int (4 or 5)          | the bootstrap version to use, either `4` or `5`, overriding the default in django settings                                         |
 | general_config          | GeneralConfig()                        | GeneralConfig         | A GeneralConfig object or None                                                          |
 | plugin_checkbox_options | PluginCheckboxOptions()                | PluginCheckboxOptions | A PluginCheckboxOptions object or None                                                  |
 | plugin_dropdown_input   | PluginDropdownInput()                  | PluginDropdownInput   | A PluginDropdownInput object or None                                                    |
@@ -601,20 +601,6 @@ class MyForm(forms.ModelForm):
             return City.objects.none()
 ```
 
-## Development & Demo
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-make init
-```
-
-Then see the demo for a preview: `python demo/manage.py runserver`
-
-Run tests with `make test` or `make tox`. To install required browsers for playwright: `playwright install`.
-See the makefile for other commands.
-
-
 ### Customizing Templates
 
 All templates are located in [`django_tomselect/templates/django_tomselect/`](https://github.com/jacklinke/django-tomselect/tree/main/src/django_tomselect/templates/django_tomselect).
@@ -648,3 +634,17 @@ LANGUAGES = (
 To update translations, from the django_tomselect directory run `python ../../manage.py maketmessages -a`. 
 This will update the `.po` files in `django_tomselect/locale/` directory. Once translations files  have been 
 updated, compile them with `python ../../manage.py compilemessages`.
+
+
+## Development & Demo
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+make init
+```
+
+Then see the demo for a preview: `python demo/manage.py runserver`
+
+Run tests with `make test` or `make tox`. To install required browsers for playwright: `playwright install`.
+See the makefile for other commands.
