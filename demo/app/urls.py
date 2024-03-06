@@ -19,9 +19,8 @@ from django.urls import path
 from django.views.generic import FormView
 
 from .forms import DependentForm, Form
+from .autocompletes import DemoEditionAutocompleteView, DemoMagazineAutocompleteView
 from .views import (
-    DemoEditionAutocompleteView,
-    DemoMagazineAutocompleteView,
     create_view,
     form_test_view,
     listview_view,
