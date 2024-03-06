@@ -8,6 +8,7 @@ from .app_settings import (
     DJANGO_TOMSELECT_GENERAL_CONFIG,
     DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS,
     DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON,
+    DJANGO_TOMSELECT_PLUGIN_DROPDOWN_FOOTER,
     DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER,
     DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT,
     DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON,
@@ -40,6 +41,7 @@ class TomSelectField(forms.ModelChoiceField):
             plugin_checkbox_options=kwargs.pop("plugin_checkbox_options", DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS),
             plugin_clear_button=kwargs.pop("plugin_clear_button", DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON),
             plugin_dropdown_header=kwargs.pop("plugin_dropdown_header", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER),
+            plugin_dropdown_footer=kwargs.pop("plugin_dropdown_footer", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_FOOTER),
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
         )
@@ -75,6 +77,7 @@ class TomSelectMultipleField(forms.ModelMultipleChoiceField):
             plugin_checkbox_options=kwargs.pop("plugin_checkbox_options", DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS),
             plugin_clear_button=kwargs.pop("plugin_clear_button", DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON),
             plugin_dropdown_header=kwargs.pop("plugin_dropdown_header", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER),
+            plugin_dropdown_footer=kwargs.pop("plugin_dropdown_footer", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_FOOTER),
             plugin_dropdown_input=kwargs.pop("plugin_dropdown_input", DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT),
             plugin_remove_button=kwargs.pop("plugin_remove_button", DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON),
         )
