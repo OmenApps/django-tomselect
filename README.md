@@ -9,7 +9,7 @@ database table.
 
 The package is adapted from the fantastic work of [Philip Becker](https://pypi.org/user/actionb/)
 in [mizdb-tomselect](https://www.pypi.org/project/mizdb-tomselect/), with the goal of a more
-generalized solution for Django autocompletion and a focus on use of django templates, 
+generalized solution for Django autocompletion and a focus on use of django templates,
 translations, customization, explicitness, and minimal use of custom JavaScript
 
 <!-- TOC -->
@@ -40,7 +40,7 @@ translations, customization, explicitness, and minimal use of custom JavaScript
     - [Using Annotated QuerySets in Autocomplete view](#using-annotated-querysets-in-autocomplete-view)
     - [Customizing Templates](#customizing-templates)
     - [Translations](#translations)
-  - [Development \& Demo](#development--demo)
+  - [Development \& Example](#development--example)
 <!-- TOC -->
 
 ----
@@ -54,7 +54,7 @@ show the Tom Select fields with single selection, with and without the tabular d
 
 ![Tom Select Tabular With Single Select](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/assets/SingleTabular.png)
 
-The next two examples show the Tom Select fields with multiple selection, with and 
+The next two examples show the Tom Select fields with multiple selection, with and
 without the tabular display.
 
 ![Tom Select With Multiple Select](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/assets/Multiple.png)
@@ -154,9 +154,9 @@ class MyForm(forms.Form):
         label_field="full_name",
         plugin_dropdown_header=person_plugin_dropdown_header,
     )
-``` 
+```
 
-NOTE: Make sure to include [bootstrap](https://getbootstrap.com/docs/5.2/getting-started/download/) 
+NOTE: Make sure to include [bootstrap](https://getbootstrap.com/docs/5.2/getting-started/download/)
 4 or 5, and the form media (or manually add the tomselect css and js files) in your template:
 
 ```html
@@ -247,7 +247,7 @@ Available arguments:
 | create_filter        | None             | str or None     | Specifies a RegExp or a string containing a regular expression that the current search filter must match to be allowed to be created. May also be a predicate function provided as a string that takes the filter text and returns whether it is allowed.                                 |
 | create_with_htmx     | False            | bool            | Reserved for future use.                                                                                                                                                                                                                                                                  |
 | minimum_query_length | 2                | int             | the minimum number of characters to enter before displaying results                                                                                                                                                                                                                       |
-   
+
 ### PluginCheckboxOptions
 
 Available arguments: None
@@ -283,8 +283,8 @@ Available arguments:
 Overridable template: `django_tomselect/render/dropdown_header.html`
 
 Adding this configuration object displays the results in tabular form. A table header will be
-added to the dropdown. By default, the table contains two columns: one column for the choice 
-value (commonly the "ID" of the option) and one column for the choice label (the 
+added to the dropdown. By default, the table contains two columns: one column for the choice
+value (commonly the "ID" of the option) and one column for the choice label (the
 human-readable part of the choice).
 
 Available arguments:
@@ -328,9 +328,9 @@ class MyForm(forms.Form):
     )
 ```
 
-**Important**: that means that the result visible to Tom Select must have an 
-attribute or property with that name or the field's contents will remain empty. 
-The results for Tom Select are created by the view calling `values()` on the 
+**Important**: that means that the result visible to Tom Select must have an
+attribute or property with that name or the field's contents will remain empty.
+The results for Tom Select are created by the view calling `values()` on the
 result queryset, so you must make sure that the attribute name is available
 on the view's root queryset as either a model field or as an annotation.
 
@@ -371,9 +371,9 @@ Available arguments:
 | DJANGO_TOMSELECT_PLUGIN_DROPDOWN_FOOTER  | PluginDropdownFooter()                                         | Either a PluginDropdownFooter object or None  | Sets the default for this configuration in all forms (can be overridden per-form). If not provided in settings, forms default to use the version provided in `django_tomselect.configs`.                                                                                 |
 | DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS | PluginCheckboxOptions()                                        | Either a PluginCheckboxOptions object or None | Sets the default for this configuration in all forms (can be overridden per-form). If not provided in settings, forms default to use the version provided in `django_tomselect.configs`.                                                                                 |
 
-**Note**: The DefaultProxyRequest class is used to obtain the model details for the autocomplete. 
-In order to simplify the process of creating a custom autocomplete view, django-tomselect provides 
-a `DefaultProxyRequest` class that can be used to obtain the model details from the queryset and the 
+**Note**: The DefaultProxyRequest class is used to obtain the model details for the autocomplete.
+In order to simplify the process of creating a custom autocomplete view, django-tomselect provides
+a `DefaultProxyRequest` class that can be used to obtain the model details from the queryset and the
 request. In most cases, you will not need to use this class directly.
 
 ----
@@ -382,7 +382,7 @@ request. In most cases, you will not need to use this class directly.
 
 ### Modifying the initial QuerySet
 
-If you want to modify all autocomplete queries for a subclassed AutocompleteView, 
+If you want to modify all autocomplete queries for a subclassed AutocompleteView,
 you can use `super()` with the `get_queryset()` method.
 
 ```python
@@ -394,7 +394,7 @@ class MyAutocompleteView(AutocompleteView):
     search_lookups = [
         "name__icontains",
     ]
-    
+
     def get_queryset(self):
         """Toy example of filtering all queries in this view to id values less than 10"""
         queryset = super().get_queryset()
@@ -404,8 +404,8 @@ class MyAutocompleteView(AutocompleteView):
 
 ### Searching
 
-The AutocompleteView filters the result QuerySet against `search_lookups`. 
-The default value for the lookup is `[]`. Overwrite the `AutocompleteView.search` 
+The AutocompleteView filters the result QuerySet against `search_lookups`.
+The default value for the lookup is `[]`. Overwrite the `AutocompleteView.search`
 method to modify the search process.
 
 ```python
@@ -417,7 +417,7 @@ class MyAutocompleteView(AutocompleteView):
     search_lookups = [
         "name__icontains",
     ]
-    
+
     def search(self, queryset, q):
         # Filter using your own queryset method:
         return queryset.search(q)
@@ -427,7 +427,7 @@ class MyAutocompleteView(AutocompleteView):
 
 **Important**: This is a work in progress. The API may change in the future.
 
-To enable option creation in the dropdown, pass the URL name of the create view of the given model to the field. 
+To enable option creation in the dropdown, pass the URL name of the create view of the given model to the field.
 This will add an 'Add' option to the bottom of the dropdown.
 
 
@@ -463,8 +463,8 @@ city = TomSelectField(
 
 **Important**: This is a work in progress. The API may change in the future.
 
-Use the `filter_by` argument to restrict the available options of one 
-TomSelectField to the value selected in another form field. The parameter must 
+Use the `filter_by` argument to restrict the available options of one
+TomSelectField to the value selected in another form field. The parameter must
 be a 2-tuple:  `(field_this_field_is_dependent_on, django_field_lookup)`.
 
 ```python
@@ -496,19 +496,19 @@ class PersonsFromCapitolsForm(forms.Form):
 ```
 
 In this example, the options for the `Person` QuerySet are dependent on the
-`city_id` for the currently selected `capitol` formfield value.  
-NOTE: When using `filter_by`, the declaring element now **requires** that the 
-other field provides a value, since its choices are dependent on the other 
-field. If the other field does not have a value, the search will not return any 
+`city_id` for the currently selected `capitol` formfield value.
+NOTE: When using `filter_by`, the declaring element now **requires** that the
+other field provides a value, since its choices are dependent on the other
+field. If the other field does not have a value, the search will not return any
 results.
 
 ## Advanced Topics
 
 ### Manually Initializing Tom Select Fields
 
-If a form is added dynamically after the page loads (e.g.: with htmx), the new form 
-fields will not be initialized as django-tomselect fields. In order to manually 
-initialize them, dispatch a `triggerTomSelect` event, providing the id of the 
+If a form is added dynamically after the page loads (e.g.: with htmx), the new form
+fields will not be initialized as django-tomselect fields. In order to manually
+initialize them, dispatch a `triggerTomSelect` event, providing the id of the
 form field as a value in `detail` as follows.
 
 ```javascript
@@ -541,7 +541,7 @@ class MyAutocompleteView(AutocompleteView):
     search_lookups = [
         "name__icontains",
     ]
-    
+
     def get_queryset(self):
         """Toy example of annotating the city name onto the queryset"""
         queryset = super().get_queryset()
@@ -631,20 +631,22 @@ LANGUAGES = (
 )
 ````
 
-To update translations, from the django_tomselect directory run `python ../../manage.py maketmessages -a`. 
-This will update the `.po` files in `django_tomselect/locale/` directory. Once translations files  have been 
+To update translations, from the django_tomselect directory run `python ../../manage.py maketmessages -a`.
+This will update the `.po` files in `django_tomselect/locale/` directory. Once translations files  have been
 updated, compile them with `python ../../manage.py compilemessages`.
 
 
-## Development & Demo
+## Development & Example
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-make init
+# Create the virtual environment
+uv sunc --prerelease=allow
+
+# Activate the virtual environment
+source ./.venv/bin/activate
 ```
 
-Then see the demo for a preview: `python demo/manage.py runserver`
+Then see the example for a preview: `python manage.py runserver`
 
 Run tests with `make test` or `make tox`. To install required browsers for playwright: `playwright install`.
 See the makefile for other commands.

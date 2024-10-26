@@ -4,7 +4,7 @@
     "bootstrap-legacy": "npm:bootstrap@4.6.2",
     "bootswatch": "^5.3.3",
     "bootswatch-legacy": "npm:bootswatch@4.6.2",
-    "esbuild": "0.20.1",
+    "esbuild": "0.23.1",
     "standard": "^17.1.0",
     "tom-select": "^2.3.1"
   },

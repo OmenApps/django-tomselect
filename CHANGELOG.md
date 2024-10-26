@@ -1,5 +1,8 @@
 # Changelog
 
+## django-tomselect 2024.10.1
+
+
 ## django-tomselect 0.5.1b0
 
 - Rewrote large portions of the package

@@ -12,7 +12,6 @@
  * governing permissions and limitations under the License.
  *
  */
-import TomSelect from 'tom-select/dist/js/tom-select.base.js';
 import { getDom } from 'tom-select/src/vanilla';
 
 type DFOptions = {
