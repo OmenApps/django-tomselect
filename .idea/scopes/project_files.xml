@@ -1,3 +1,0 @@
-<component name="DependencyValidationManager">
-  <scope name="project_files" pattern="file[django-tomselect]:src//*||file[django-tomselect]:tests//*||file[django-tomselect]:demo//*||file[django-tomselect]:client//*" />
-</component>
