@@ -1,4 +1,5 @@
-import json
+"""Views for handling queries from django-tomselect widgets."""
+
 import logging
 from typing import List, Optional, Tuple, Union
 from urllib.parse import unquote
@@ -27,6 +28,9 @@ class AutocompleteView(views.generic.list.BaseListView):
     page_kwarg: str = PAGE_VAR
     values_select: List[str] = []
 
+    create_field: Optional[str] = None  # The field to create a new object with. Set by the request.
+    q: str = ""  # The search term. Set by the request.
+
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
         request_data = getattr(request, request.method)
@@ -38,8 +42,7 @@ class AutocompleteView(views.generic.list.BaseListView):
             self.order_by = (self.order_by,)
 
     def apply_filter_by(self, queryset):
-        """
-        Filter the given queryset against values set by other form fields.
+        """Filter the given queryset against values set by other form fields.
 
         If the widget was set up with a `filter_by` parameter, the request will
         include the `FILTERBY_VAR` parameter, indicating that the results must
@@ -49,13 +52,12 @@ class AutocompleteView(views.generic.list.BaseListView):
         """
         if FILTERBY_VAR not in self.request.GET:
             return queryset
-        else:
-            lookup, value = unquote(self.request.GET[FILTERBY_VAR]).split("=")
-            if not value:
-                # A filter was set up for this autocomplete, but no filter value
-                # was provided; return an empty queryset.
-                return queryset.none()
-            return queryset.filter(**{lookup: value})
+        lookup, value = unquote(self.request.GET[FILTERBY_VAR]).split("=")
+        if not value:
+            # A filter was set up for this autocomplete, but no filter value
+            # was provided; return an empty queryset.
+            return queryset.none()
+        return queryset.filter(**{lookup: value})
 
     def search(self, queryset, q):
         """Filter the result queryset against the search term."""
@@ -65,7 +67,7 @@ class AutocompleteView(views.generic.list.BaseListView):
 
     def order_queryset(self, queryset):
         """Order the result queryset by the provided field, or by the model's default ordering."""
-        ordering = self.order_by or self.model._meta.ordering or ["id"]
+        ordering = self.order_by or self.model._meta.ordering or ["id"]  # pylint: disable=W0212
         return queryset.order_by(*ordering)
 
     def get_queryset(self):
@@ -85,10 +87,12 @@ class AutocompleteView(views.generic.list.BaseListView):
         """Return a JSON-serializable list of values for the given results."""
         return list(results.values(*self.values_select))
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):  # pylint: disable=W0613
         queryset = self.get_queryset()
         page_size = self.get_paginate_by(queryset)
-        paginator, page, object_list, has_other_pages = self.paginate_queryset(queryset, page_size)
+        paginator, page, object_list, has_other_pages = self.paginate_queryset(  # pylint: disable=W0612
+            queryset, page_size
+        )
         data = {
             "results": self.get_result_values(self.get_page_results(page)),
             "page": page.number,
@@ -102,24 +106,20 @@ class AutocompleteView(views.generic.list.BaseListView):
         if not request.user.is_authenticated:
             return False
 
-        opts = self.model._meta
+        opts = self.model._meta  # pylint: disable=W0212
         codename = get_permission_codename("add", opts)
-        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
 
     def create_object(self, data):
         """Create a new object with the given data."""
         return self.model.objects.create(**{self.create_field: data[self.create_field]})
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):  # pylint: disable=W0613
+        """Create a new object based on the POST data."""
         if not self.has_add_permission(request):
             return http.HttpResponseForbidden()
         if request.POST.get(self.create_field) is None:
             return http.HttpResponseBadRequest()
         with transaction.atomic():
             obj = self.create_object(request.POST)
-        return http.JsonResponse(
-            {
-                "pk": obj.pk,
-                "text": str(obj),
-            }
-        )
+        return http.JsonResponse({"pk": obj.pk, "text": str(obj)})

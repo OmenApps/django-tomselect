@@ -1,21 +1,24 @@
+"""Configuration classes for the django-tomselect package."""
+
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Dict, Optional, Union
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)
 class BaseConfig:
+    """Base configuration class for the django-tomselect widgets."""
+
     def as_dict(self):
+        """Return the configuration as a dictionary."""
         return self.__dict__
 
 
 @dataclass(kw_only=True)
-class GeneralConfig(BaseConfig):
-    """
-    General configuration for the TomSelect widget.
-    """
+class GeneralConfig(BaseConfig):  # pylint: disable=R0902
+    """General configuration for the django-tomselect widgets."""
 
     close_after_select: Optional[bool] = None
     hide_placeholder: Optional[bool] = None
@@ -29,8 +32,6 @@ class GeneralConfig(BaseConfig):
     preload: Union[bool, str] = "focus"  # Either 'focus' or True/False
     minimum_query_length: int = 2
 
-    use_htmx: bool = False
-
     create: bool = False  # Needs rework. If we supply a 'create' url, we should allow creation.
     create_filter: Optional[str] = None
     create_with_htmx: bool = False
@@ -38,23 +39,26 @@ class GeneralConfig(BaseConfig):
 
 @dataclass(kw_only=True)
 class PluginCheckboxOptions(BaseConfig):
-    pass
+    """Plugin configuration for the checkbox_options plugin. No additional settings are required."""
 
 
 @dataclass(kw_only=True)
 class PluginDropdownInput(BaseConfig):
-    pass
+    """Plugin configuration for the dropdown_input plugin. No additional settings are required."""
 
 
 @dataclass(kw_only=True)
 class PluginClearButton(BaseConfig):
+    """Plugin configuration for the clear_button plugin."""
+
     title: str = "Clear Selections"
     class_name: str = "clear-button"
 
 
 @dataclass(kw_only=True)
-class PluginDropdownHeader(BaseConfig):
-    """
+class PluginDropdownHeader(BaseConfig):  # pylint: disable=R0902
+    """Plugin configuration for the dropdown_header plugin.
+
     Args:
         extra_columns: a mapping of <model field names> to <column labels>
           for additional columns. The field name tells Tom Select what
@@ -80,7 +84,8 @@ class PluginDropdownHeader(BaseConfig):
 
 @dataclass(kw_only=True)
 class PluginDropdownFooter(BaseConfig):
-    """
+    """Plugin configuration for the dropdown_footer plugin.
+
     Args:
         footer_class: CSS class for the footer container.
     """
@@ -91,6 +96,66 @@ class PluginDropdownFooter(BaseConfig):
 
 @dataclass(kw_only=True)
 class PluginRemoveButton(BaseConfig):
+    """Plugin configuration for the remove_button plugin."""
+
     title: str = "Remove this item"
     label: str = "&times;"
     class_name: str = "remove"
+
+
+class TomSelectConfig:
+    """Configuration class for the TomSelect widget."""
+
+    def __init__(self, **kwargs):
+        """Set global defaults."""
+        self.url = kwargs.get("url", "autocomplete")
+        self.listview_url = kwargs.get("listview_url", "")
+        self.create_url = kwargs.get("create_url", "")
+        self.update_url = kwargs.get("update_url", "")
+        self.value_field = kwargs.get("value_field", "id")
+        self.label_field = kwargs.get("label_field", "name")
+        self.create_field = kwargs.get("create_field", "")
+        self.filter_by = kwargs.get("filter_by", ())
+        self.use_htmx = kwargs.get("use_htmx", False)
+        self.css_framework = kwargs.get("css_framework", "bootstrap")
+        self.css_framework_version = kwargs.get("css_framework_version", 5)
+        self.attrs = kwargs.get("attrs", {})
+        # Config objects
+        self.general_config = kwargs.get("general_config", GeneralConfig())
+        self.plugin_checkbox_options = kwargs.get("plugin_checkbox_options", PluginCheckboxOptions())
+        self.plugin_clear_button = kwargs.get("plugin_clear_button", PluginClearButton())
+        self.plugin_dropdown_header = kwargs.get("plugin_dropdown_header", PluginDropdownHeader())
+        self.plugin_dropdown_footer = kwargs.get("plugin_dropdown_footer", PluginDropdownFooter())
+        self.plugin_dropdown_input = kwargs.get("plugin_dropdown_input", PluginDropdownInput())
+        self.plugin_remove_button = kwargs.get("plugin_remove_button", PluginRemoveButton())
+        self.verify_config_types()
+
+
+    def update(self, **kwargs):
+        """Update config with widget-level settings."""
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def as_dict(self):
+        """Return the configuration as a dictionary."""
+        return self.__dict__
+
+    def verify_config_types(self):
+        """Verify that the configuration types are correct."""
+        # Check the general config
+        if not isinstance(self.general_config, GeneralConfig):
+            logger.warning("GeneralConfig is not of type GeneralConfig")
+        # Check the plugin config
+        if not isinstance(self.plugin_checkbox_options, PluginCheckboxOptions):
+            logger.warning("PluginCheckboxOptions is not of type PluginCheckboxOptions")
+        if not isinstance(self.plugin_clear_button, PluginClearButton):
+            logger.warning("PluginClearButton is not of type PluginClearButton")
+        if not isinstance(self.plugin_dropdown_header, PluginDropdownHeader):
+            logger.warning("PluginDropdownHeader is not of type PluginDropdownHeader")
+        if not isinstance(self.plugin_dropdown_footer, PluginDropdownFooter):
+            logger.warning("PluginDropdownFooter is not of type PluginDropdownFooter")
+        if not isinstance(self.plugin_dropdown_input, PluginDropdownInput):
+            logger.warning("PluginDropdownInput is not of type PluginDropdownInput")
+        if not isinstance(self.plugin_remove_button, PluginRemoveButton):
+            logger.warning("PluginRemoveButton is not of type PluginRemoveButton")
+        return True

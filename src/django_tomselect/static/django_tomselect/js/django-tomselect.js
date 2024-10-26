@@ -61,8 +61,7 @@
                 return;
               }
               const event_array = this._events[event];
-              if (event_array === void 0)
-                return;
+              if (event_array === void 0) return;
               event_array.splice(event_array.indexOf(fct), 1);
               this._events[event] = event_array;
             });
@@ -71,8 +70,7 @@
             var self2 = this;
             forEvents(events, (event) => {
               const event_array = self2._events[event];
-              if (event_array === void 0)
-                return;
+              if (event_array === void 0) return;
               event_array.forEach((fct) => {
                 fct.apply(self2, args);
               });
@@ -218,8 +216,7 @@
         };
         const toArray = (p) => Array.from(p);
         const allSubstrings = (input) => {
-          if (input.length === 1)
-            return [[input]];
+          if (input.length === 1) return [[input]];
           let result = [];
           const start = input.substring(1);
           const suba = allSubstrings(start);
@@ -291,8 +288,7 @@
         }
         const convert_pat = new RegExp(Object.keys(latin_convert).join("|") + "|" + accent_pat, "gu");
         const initialize = (_code_points) => {
-          if (unicode_map !== void 0)
-            return;
+          if (unicode_map !== void 0) return;
           unicode_map = generateMap(_code_points || code_points);
         };
         const normalize = (str, form = "NFKD") => str.normalize(form);
@@ -554,37 +550,29 @@
           return pattern;
         };
         const getAttr = (obj, name) => {
-          if (!obj)
-            return;
+          if (!obj) return;
           return obj[name];
         };
         const getAttrNesting = (obj, name) => {
-          if (!obj)
-            return;
+          if (!obj) return;
           var part, names = name.split(".");
-          while ((part = names.shift()) && (obj = obj[part]))
-            ;
+          while ((part = names.shift()) && (obj = obj[part])) ;
           return obj;
         };
         const scoreValue = (value, token, weight) => {
           var score, pos;
-          if (!value)
-            return 0;
+          if (!value) return 0;
           value = value + "";
-          if (token.regex == null)
-            return 0;
+          if (token.regex == null) return 0;
           pos = value.search(token.regex);
-          if (pos === -1)
-            return 0;
+          if (pos === -1) return 0;
           score = token.string.length / value.length;
-          if (pos === 0)
-            score += 0.5;
+          if (pos === 0) score += 0.5;
           return score * weight;
         };
         const propToArray = (obj, key) => {
           var value = obj[key];
-          if (typeof value == "function")
-            return value;
+          if (typeof value == "function") return value;
           if (value && !Array.isArray(value)) {
             obj[key] = [value];
           }
@@ -606,10 +594,8 @@
           }
           a = asciifold2(a + "").toLowerCase();
           b = asciifold2(b + "").toLowerCase();
-          if (a > b)
-            return 1;
-          if (b > a)
-            return -1;
+          if (a > b) return 1;
+          if (b > a) return -1;
           return 0;
         };
         class Sifter {
@@ -634,8 +620,7 @@
            *
            */
           tokenize(query, respect_word_boundaries, weights) {
-            if (!query || !query.length)
-              return [];
+            if (!query || !query.length) return [];
             const tokens = [];
             const words = query.split(/\s+/);
             var field_regex;
@@ -656,8 +641,7 @@
                 } else {
                   regex = escape_regex(word);
                 }
-                if (regex && respect_word_boundaries)
-                  regex = "\\b" + regex;
+                if (regex && respect_word_boundaries) regex = "\\b" + regex;
               }
               tokens.push({
                 string: word,
@@ -730,8 +714,7 @@
                 var score, sum = 0;
                 for (let token of tokens) {
                   score = scoreObject(token, data);
-                  if (score <= 0)
-                    return 0;
+                  if (score <= 0) return 0;
                   sum += score;
                 }
                 return sum / token_count;
@@ -764,8 +747,7 @@
               return sort.bind(this);
             }
             const get_field = function get_field2(name, result) {
-              if (name === "$score")
-                return result.score;
+              if (name === "$score") return result.score;
               return search.getAttrFn(self2.items[result.id], name);
             };
             if (sort) {
@@ -802,8 +784,7 @@
                 field = sort_fld.field;
                 let multiplier = sort_fld.direction === "desc" ? -1 : 1;
                 result = multiplier * cmp(get_field(field, a), get_field(field, b));
-                if (result)
-                  return result;
+                if (result) return result;
               }
               return 0;
             };
@@ -873,8 +854,7 @@
               });
             }
             const fn_sort = self2._getSortFunction(search);
-            if (fn_sort)
-              search.items.sort(fn_sort);
+            if (fn_sort) search.items.sort(fn_sort);
             search.total = search.items.length;
             if (typeof options.limit === "number") {
               search.items = search.items.slice(0, options.limit);
@@ -981,8 +961,7 @@
           return Object.keys(obj).length === 0;
         };
         const nodeIndex = (el, amongst) => {
-          if (!el)
-            return -1;
+          if (!el) return -1;
           amongst = amongst || el.nodeName;
           var i = 0;
           while (el = el.previousElementSibling) {
@@ -1002,15 +981,12 @@
           });
         };
         const replaceNode = (existing, replacement) => {
-          if (existing.parentNode)
-            existing.parentNode.replaceChild(replacement, existing);
+          if (existing.parentNode) existing.parentNode.replaceChild(replacement, existing);
         };
         const highlight = (element, regex) => {
-          if (regex === null)
-            return;
+          if (regex === null) return;
           if (typeof regex === "string") {
-            if (!regex.length)
-              return;
+            if (!regex.length) return;
             regex = new RegExp(regex, "i");
           }
           const highlightText = (node) => {
@@ -1147,13 +1123,11 @@
           }
         };
         const hash_key2 = (value) => {
-          if (typeof value === "undefined" || value === null)
-            return null;
+          if (typeof value === "undefined" || value === null) return null;
           return get_hash2(value);
         };
         const get_hash2 = (value) => {
-          if (typeof value === "boolean")
-            return value ? "1" : "0";
+          if (typeof value === "boolean") return value ? "1" : "0";
           return value + "";
         };
         const escape_html2 = (str) => {
@@ -1243,8 +1217,7 @@
           return str.replace(/[\\"']/g, "\\$&");
         };
         const append = (parent, node) => {
-          if (node)
-            parent.append(node);
+          if (node) parent.append(node);
         };
         function getSettings(input, settings_user) {
           var settings = Object.assign({}, defaults, settings_user);
@@ -1286,10 +1259,8 @@
             };
             var addOption = (option, group) => {
               var value = hash_key2(option.value);
-              if (value == null)
-                return;
-              if (!value && !settings.allowEmptyOption)
-                return;
+              if (value == null) return;
+              if (!value && !settings.allowEmptyOption) return;
               if (optionsMap.hasOwnProperty(value)) {
                 if (group) {
                   var arr = optionsMap[value][field_optgroup];
@@ -1343,8 +1314,7 @@
             const data_raw = input.getAttribute(attr_data);
             if (!data_raw) {
               var value = input.value.trim() || "";
-              if (!settings.allowEmptyOption && !value.length)
-                return;
+              if (!settings.allowEmptyOption && !value.length) return;
               const values = value.split(settings.delimiter);
               iterate2(values, (value2) => {
                 const option = {};
@@ -1568,8 +1538,7 @@
             });
             addEvent2(dropdown, "mouseenter", (e) => {
               var target_match = parentMatch(e.target, "[data-selectable]", dropdown);
-              if (target_match)
-                self2.onOptionHover(e, target_match);
+              if (target_match) self2.onOptionHover(e, target_match);
             }, {
               capture: true
             });
@@ -1625,8 +1594,7 @@
               document.removeEventListener("mousedown", doc_mousedown);
               window.removeEventListener("scroll", win_scroll);
               window.removeEventListener("resize", win_scroll);
-              if (label)
-                label.removeEventListener("click", label_click);
+              if (label) label.removeEventListener("click", label_click);
             };
             this.revertSettings = {
               innerHTML: input.innerHTML,
@@ -1742,8 +1710,7 @@
             };
             for (key in callbacks) {
               fn = this.settings[callbacks[key]];
-              if (fn)
-                this.on(key, fn);
+              if (fn) this.on(key, fn);
             }
           }
           /**
@@ -1854,6 +1821,7 @@
               return;
             }
             switch (e.keyCode) {
+              // ctrl+A: select all
               case KEY_A:
                 if (isKeyDown(KEY_SHORTCUT, e)) {
                   if (self2.control_input.value == "") {
@@ -1863,6 +1831,7 @@
                   }
                 }
                 break;
+              // esc: close dropdown
               case KEY_ESC2:
                 if (self2.isOpen) {
                   preventDefault2(e, true);
@@ -1870,24 +1839,25 @@
                 }
                 self2.clearActiveItems();
                 return;
+              // down: open dropdown or move selection down
               case KEY_DOWN:
                 if (!self2.isOpen && self2.hasOptions) {
                   self2.open();
                 } else if (self2.activeOption) {
                   let next = self2.getAdjacent(self2.activeOption, 1);
-                  if (next)
-                    self2.setActiveOption(next);
+                  if (next) self2.setActiveOption(next);
                 }
                 preventDefault2(e);
                 return;
+              // up: move selection up
               case KEY_UP:
                 if (self2.activeOption) {
                   let prev = self2.getAdjacent(self2.activeOption, -1);
-                  if (prev)
-                    self2.setActiveOption(prev);
+                  if (prev) self2.setActiveOption(prev);
                 }
                 preventDefault2(e);
                 return;
+              // return: select active option
               case KEY_RETURN:
                 if (self2.canSelect(self2.activeOption)) {
                   self2.onOptionSelect(e, self2.activeOption);
@@ -1898,12 +1868,15 @@
                   preventDefault2(e);
                 }
                 return;
+              // left: modifiy item selection to the left
               case KEY_LEFT:
                 self2.advanceSelection(-1, e);
                 return;
+              // right: modifiy item selection to the right
               case KEY_RIGHT:
                 self2.advanceSelection(1, e);
                 return;
+              // tab: select active option and/or create item
               case KEY_TAB2:
                 if (self2.settings.selectOnTab) {
                   if (self2.canSelect(self2.activeOption)) {
@@ -1915,6 +1888,7 @@
                   }
                 }
                 return;
+              // delete|backspace: delete items
               case KEY_BACKSPACE:
               case KEY_DELETE:
                 self2.deleteSelection(e);
@@ -1933,8 +1907,7 @@
               return;
             }
             const value = this.inputValue();
-            if (this.lastValue === value)
-              return;
+            if (this.lastValue === value) return;
             this.lastValue = value;
             if (value == "") {
               this._onInput();
@@ -1962,8 +1935,7 @@
            *
            */
           onOptionHover(evt, option) {
-            if (this.ignoreHover)
-              return;
+            if (this.ignoreHover) return;
             this.setActiveOption(option, false);
           }
           /**
@@ -1978,13 +1950,10 @@
               preventDefault2(e);
               return;
             }
-            if (self2.ignoreFocus)
-              return;
+            if (self2.ignoreFocus) return;
             self2.isFocused = true;
-            if (self2.settings.preload === "focus")
-              self2.preload();
-            if (!wasFocused)
-              self2.trigger("focus");
+            if (self2.settings.preload === "focus") self2.preload();
+            if (!wasFocused) self2.trigger("focus");
             if (!self2.activeItems.length) {
               self2.inputState();
               self2.refreshOptions(!!self2.settings.openOnFocus);
@@ -1996,11 +1965,9 @@
            *
            */
           onBlur(e) {
-            if (document.hasFocus() === false)
-              return;
+            if (document.hasFocus() === false) return;
             var self2 = this;
-            if (!self2.isFocused)
-              return;
+            if (!self2.isFocused) return;
             self2.isFocused = false;
             self2.ignoreFocus = false;
             var deactivate = () => {
@@ -2086,10 +2053,8 @@
            *
            */
           canLoad(value) {
-            if (!this.settings.load)
-              return false;
-            if (this.loadedSearches.hasOwnProperty(value))
-              return false;
+            if (!this.settings.load) return false;
+            if (this.loadedSearches.hasOwnProperty(value)) return false;
             return true;
           }
           /**
@@ -2098,8 +2063,7 @@
            */
           load(value) {
             const self2 = this;
-            if (!self2.canLoad(value))
-              return;
+            if (!self2.canLoad(value)) return;
             addClasses2(self2.wrapper, self2.settings.loadingClass);
             self2.loading++;
             const callback = self2.loadCallback.bind(self2);
@@ -2123,8 +2087,7 @@
           }
           preload() {
             var classList = this.wrapper.classList;
-            if (classList.contains("preloaded"))
-              return;
+            if (classList.contains("preloaded")) return;
             classList.add("preloaded");
             this.load("");
           }
@@ -2170,8 +2133,7 @@
            *
            */
           setMaxItems(value) {
-            if (value === 0)
-              value = null;
+            if (value === 0) value = null;
             this.settings.maxItems = value;
             this.refreshState();
           }
@@ -2184,8 +2146,7 @@
             var eventName;
             var i, begin, end, swap;
             var last;
-            if (self2.settings.mode === "single")
-              return;
+            if (self2.settings.mode === "single") return;
             if (!item) {
               self2.clearActiveItems();
               if (self2.isFocused) {
@@ -2232,8 +2193,7 @@
           setActiveItemClass(item) {
             const self2 = this;
             const last_active = self2.control.querySelector(".last-active");
-            if (last_active)
-              removeClasses(last_active, "last-active");
+            if (last_active) removeClasses(last_active, "last-active");
             addClasses2(item, "active last-active");
             self2.trigger("item_select", item);
             if (self2.activeItems.indexOf(item) == -1) {
@@ -2267,8 +2227,7 @@
               return;
             }
             this.clearActiveOption();
-            if (!option)
-              return;
+            if (!option) return;
             this.activeOption = option;
             setAttr(this.focus_node, {
               "aria-activedescendant": option.getAttribute("id")
@@ -2277,16 +2236,14 @@
               "aria-selected": "true"
             });
             addClasses2(option, "active");
-            if (scroll)
-              this.scrollToOption(option);
+            if (scroll) this.scrollToOption(option);
           }
           /**
            * Sets the dropdown_content scrollTop to display the option
            *
            */
           scrollToOption(option, behavior) {
-            if (!option)
-              return;
+            if (!option) return;
             const content = this.dropdown_content;
             const height_menu = content.clientHeight;
             const scrollTop = content.scrollTop || 0;
@@ -2331,11 +2288,9 @@
            */
           selectAll() {
             const self2 = this;
-            if (self2.settings.mode === "single")
-              return;
+            if (self2.settings.mode === "single") return;
             const activeItems = self2.controlChildren();
-            if (!activeItems.length)
-              return;
+            if (!activeItems.length) return;
             self2.inputState();
             self2.close();
             self2.activeItems = activeItems;
@@ -2349,8 +2304,7 @@
            */
           inputState() {
             var self2 = this;
-            if (!self2.control.contains(self2.control_input))
-              return;
+            if (!self2.control.contains(self2.control_input)) return;
             setAttr(self2.control_input, {
               placeholder: self2.settings.placeholder
             });
@@ -2378,8 +2332,7 @@
            */
           focus() {
             var self2 = this;
-            if (self2.isDisabled || self2.isReadOnly)
-              return;
+            if (self2.isDisabled || self2.isReadOnly) return;
             self2.ignoreFocus = true;
             if (self2.control_input.offsetWidth) {
               self2.control_input.focus();
@@ -2512,12 +2465,10 @@
             };
             for (i = 0; i < n; i++) {
               let item = results.items[i];
-              if (!item)
-                continue;
+              if (!item) continue;
               let opt_value = item.id;
               let option = self2.options[opt_value];
-              if (option === void 0)
-                continue;
+              if (option === void 0) continue;
               let opt_hash = get_hash2(opt_value);
               let option_el = self2.getOption(opt_hash, true);
               if (!self2.settings.hideSelected) {
@@ -2564,8 +2515,7 @@
             iterate$1(groups_order, (group_order) => {
               let group_fragment = group_order.fragment;
               let optgroup2 = group_order.optgroup;
-              if (!group_fragment || !group_fragment.children.length)
-                return;
+              if (!group_fragment || !group_fragment.children.length) return;
               let group_heading = self2.optgroups[optgroup2];
               if (group_heading !== void 0) {
                 let group_options = document.createDocumentFragment();
@@ -2700,8 +2650,7 @@
            */
           registerOptionGroup(data) {
             var key = hash_key2(data[this.settings.optgroupValueField]);
-            if (key === null)
-              return false;
+            if (key === null) return false;
             data.$order = data.$order || ++this.order;
             this.optgroups[key] = data;
             return key;
@@ -2749,13 +2698,10 @@
             var index_item;
             const value_old = hash_key2(value);
             const value_new = hash_key2(data[self2.settings.valueField]);
-            if (value_old === null)
-              return;
+            if (value_old === null) return;
             const data_old = self2.options[value_old];
-            if (data_old == void 0)
-              return;
-            if (typeof value_new !== "string")
-              throw new Error("Value must be set in option data");
+            if (data_old == void 0) return;
+            if (typeof value_new !== "string") throw new Error("Value must be set in option data");
             const option = self2.getOption(value_old);
             const item = self2.getItem(value_old);
             data.$order = data.$order || data_old.$order;
@@ -2778,8 +2724,7 @@
                 self2.items.splice(index_item, 1, value_new);
               }
               item_new = self2._render("item", data);
-              if (item.classList.contains("active"))
-                addClasses2(item_new, "active");
+              if (item.classList.contains("active")) addClasses2(item_new, "active");
               replaceNode(item, item_new);
             }
             self2.lastQuery = null;
@@ -2834,8 +2779,7 @@
            */
           getOption(value, create = false) {
             const hashed = hash_key2(value);
-            if (hashed === null)
-              return null;
+            if (hashed === null) return null;
             const option = this.options[hashed];
             if (option != void 0) {
               if (option.$div) {
@@ -2920,12 +2864,9 @@
                   return;
                 }
               }
-              if (hashed === null || !self2.options.hasOwnProperty(hashed))
-                return;
-              if (inputMode === "single")
-                self2.clear(silent);
-              if (inputMode === "multi" && self2.isFull())
-                return;
+              if (hashed === null || !self2.options.hasOwnProperty(hashed)) return;
+              if (inputMode === "single") self2.clear(silent);
+              if (inputMode === "multi" && self2.isFull()) return;
               item = self2._render("item", self2.options[hashed]);
               if (self2.control.contains(item)) {
                 item = item.cloneNode(true);
@@ -2970,8 +2911,7 @@
           removeItem(item = null, silent) {
             const self2 = this;
             item = self2.getItem(item);
-            if (!item)
-              return;
+            if (!item) return;
             var i, idx;
             const value = item.dataset.value;
             i = nodeIndex(item);
@@ -3026,8 +2966,7 @@
             var created = false;
             var create = (data) => {
               self2.unlock();
-              if (!data || typeof data !== "object")
-                return callback();
+              if (!data || typeof data !== "object") return callback();
               var value = hash_key2(data[self2.settings.valueField]);
               if (typeof value !== "string") {
                 return callback();
@@ -3169,8 +3108,7 @@
            */
           open() {
             var self2 = this;
-            if (self2.isLocked || self2.isOpen || self2.settings.mode === "multi" && self2.isFull())
-              return;
+            if (self2.isLocked || self2.isOpen || self2.settings.mode === "multi" && self2.isFull()) return;
             self2.isOpen = true;
             setAttr(self2.focus_node, {
               "aria-expanded": "true"
@@ -3211,8 +3149,7 @@
               self2.clearActiveOption();
             }
             self2.refreshState();
-            if (trigger)
-              self2.trigger("dropdown_close", self2.dropdown);
+            if (trigger) self2.trigger("dropdown_close", self2.dropdown);
           }
           /**
            * Calculates and applies the appropriate
@@ -3240,15 +3177,13 @@
            */
           clear(silent) {
             var self2 = this;
-            if (!self2.items.length)
-              return;
+            if (!self2.items.length) return;
             var items = self2.controlChildren();
             iterate$1(items, (item) => {
               self2.removeItem(item, true);
             });
             self2.inputState();
-            if (!silent)
-              self2.updateOriginalInput();
+            if (!silent) self2.updateOriginalInput();
             self2.trigger("clear");
           }
           /**
@@ -3326,10 +3261,8 @@
            */
           advanceSelection(direction, e) {
             var last_active, adjacent, self2 = this;
-            if (self2.rtl)
-              direction *= -1;
-            if (self2.inputValue().length)
-              return;
+            if (self2.rtl) direction *= -1;
+            if (self2.inputValue().length) return;
             if (isKeyDown(KEY_SHORTCUT, e) || isKeyDown("shiftKey", e)) {
               last_active = self2.getLastActive(direction);
               if (last_active) {
@@ -3543,8 +3476,7 @@
            */
           uncacheValue(value) {
             const option_el = this.getOption(value);
-            if (option_el)
-              option_el.remove();
+            if (option_el) option_el.remove();
           }
           /**
            * Determines whether or not to display the
@@ -3640,8 +3572,7 @@
         };
         const toArray = (p) => Array.from(p);
         const allSubstrings = (input) => {
-          if (input.length === 1)
-            return [[input]];
+          if (input.length === 1) return [[input]];
           let result = [];
           const start = input.substring(1);
           const suba = allSubstrings(start);
@@ -3713,8 +3644,7 @@
         }
         const convert_pat = new RegExp(Object.keys(latin_convert).join("|") + "|" + accent_pat, "gu");
         const initialize = (_code_points) => {
-          if (exports2.unicode_map !== void 0)
-            return;
+          if (exports2.unicode_map !== void 0) return;
           exports2.unicode_map = generateMap(_code_points || code_points);
         };
         const normalize = (str, form = "NFKD") => str.normalize(form);
@@ -3997,13 +3927,11 @@
 
   // node_modules/tom-select/src/utils.ts
   var hash_key = (value) => {
-    if (typeof value === "undefined" || value === null)
-      return null;
+    if (typeof value === "undefined" || value === null) return null;
     return get_hash(value);
   };
   var get_hash = (value) => {
-    if (typeof value === "boolean")
-      return value ? "1" : "0";
+    if (typeof value === "boolean") return value ? "1" : "0";
     return value + "";
   };
   var escape_html = (str) => {
@@ -4180,8 +4108,7 @@
     self2.on("initialize", () => {
       var button = getDom(options.html(options));
       button.addEventListener("click", (evt) => {
-        if (self2.isLocked)
-          return;
+        if (self2.isLocked) return;
         self2.clear();
         if (self2.settings.mode === "single" && self2.settings.allowEmptyOption) {
           self2.addItem("");
@@ -4262,14 +4189,12 @@
       });
       const orig_onBlur = self2.onBlur;
       self2.hook("instead", "onBlur", (evt) => {
-        if (evt && evt.relatedTarget == self2.control_input)
-          return;
+        if (evt && evt.relatedTarget == self2.control_input) return;
         return orig_onBlur.call(self2);
       });
       addEvent(self2.control_input, "blur", () => self2.onBlur());
       self2.hook("before", "close", () => {
-        if (!self2.isOpen)
-          return;
+        if (!self2.isOpen) return;
         self2.focus_node.focus({ preventScroll: true });
       });
     });
@@ -4298,13 +4223,10 @@
           preventDefault(evt, true);
         });
         addEvent(close_button, "click", (evt) => {
-          if (self2.isLocked)
-            return;
+          if (self2.isLocked) return;
           preventDefault(evt, true);
-          if (self2.isLocked)
-            return;
-          if (!self2.shouldDelete([item], evt))
-            return;
+          if (self2.isLocked) return;
+          if (!self2.shouldDelete([item], evt)) return;
           self2.removeItem(item);
           self2.refreshOptions(false);
           self2.inputState();
@@ -4434,8 +4356,7 @@
         if (!canLoadMore(self2.lastValue)) {
           return;
         }
-        if (loading_more)
-          return;
+        if (loading_more) return;
         loading_more = true;
         self2.load.call(self2, self2.lastValue);
       });
