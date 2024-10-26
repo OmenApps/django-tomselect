@@ -461,6 +461,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-ninja"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9c/77/89ee4ebaa5151b7d85cebaf8d6ec0b9e5074326c3ad8259c763763306d51/django_ninja-1.3.0.tar.gz", hash = "sha256:5b320e2dc0f41a6032bfa7e1ebc33559ae1e911a426f0c6be6674a50b20819be", size = 3702324 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/72/fd2589323b40893d3224e174eeec0c4ce5a42c7d2d384d11ba269ad4d050/django_ninja-1.3.0-py3-none-any.whl", hash = "sha256:f58096b6c767d1403dfd6c49743f82d780d7b9688d9302ecab316ac1fa6131bb", size = 2423381 },
+]
+
+[[package]]
 name = "django-tomselect"
 version = "2024.10.1"
 source = { editable = "." }
@@ -474,6 +487,8 @@ dev = [
     { name = "black" },
     { name = "coverage", extra = ["toml"] },
     { name = "darglint" },
+    { name = "django-ninja" },
+    { name = "djangorestframework" },
     { name = "flake8" },
     { name = "flake8-bugbear" },
     { name = "flake8-docstrings" },
@@ -510,6 +525,8 @@ dev = [
     { name = "black", specifier = ">=24.4.2" },
     { name = "coverage", extras = ["toml"], specifier = ">=7.5.1" },
     { name = "darglint", specifier = ">=1.8.1" },
+    { name = "django-ninja", specifier = ">=1.3.0" },
+    { name = "djangorestframework", specifier = "~=3.15" },
     { name = "flake8", specifier = "==7.0.0" },
     { name = "flake8-bugbear", specifier = ">=24.4.26" },
     { name = "flake8-docstrings", specifier = ">=1.7.0" },
@@ -529,12 +546,24 @@ dev = [
     { name = "pytest-django", specifier = ">=4.9.0" },
     { name = "python-environ", specifier = "~=0.4" },
     { name = "pyupgrade", specifier = ">=3.15.2" },
-    { name = "ruff", specifier = ">=0.7.1" },
+    { name = "ruff", specifier = "~=0.7" },
     { name = "safety", specifier = ">=3.2.0" },
     { name = "sphinx", specifier = ">=8.0.2" },
     { name = "sphinx-autobuild", specifier = ">=2024.4.16" },
     { name = "sphinx-click", specifier = ">=6.0.0" },
     { name = "xdoctest", extras = ["colors"], specifier = ">=1.1.3" },
+]
+
+[[package]]
+name = "djangorestframework"
+version = "3.15.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2c/ce/31482eb688bdb4e271027076199e1aa8d02507e530b6d272ab8b4481557c/djangorestframework-3.15.2.tar.gz", hash = "sha256:36fe88cd2d6c6bec23dca9804bab2ba5517a8bb9d8f47ebc68981b56840107ad", size = 1067420 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/b6/fa99d8f05eff3a9310286ae84c4059b08c301ae4ab33ae32e46e8ef76491/djangorestframework-3.15.2-py3-none-any.whl", hash = "sha256:2b8871b062ba1aefc2de01f773875441a961fefbf79f5eed1e32b2f096944b20", size = 1071235 },
 ]
 
 [[package]]
