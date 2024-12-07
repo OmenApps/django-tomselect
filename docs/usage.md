@@ -685,7 +685,7 @@ def article_update_view(request, pk):
     )
 ```
 
-# 6. Advanced Features
+# Advanced Features
 
 ## Dependent/Chained Fields
 
@@ -870,7 +870,7 @@ class CategoryAutocompleteView(AutocompleteView):
         )
 ```
 
-# 7. Customization
+# Customization
 
 ## Styling and Theming
 
