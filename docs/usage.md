@@ -1,6 +1,6 @@
 # Installation
 
-`django_tomselect` provides form fields and widgets to integrate [Tom Select](https://tom-select.js.org/) into your Django projects, enabling dynamic and customizable <select> elements with advanced features like autocomplete, tagging, and search. Follow the steps below to install and configure the package in your project.
+`django_tomselect` provides form fields and widgets to integrate [Tom Select](https://tom-select.js.org/) into your Django projects, enabling dynamic and customizable `<select>` elements with advanced features like autocomplete, tagging, and search. Follow the steps below to install and configure the package in your project.
 
 Most of the code samples below are based on the example app provided with the package. You can find the complete example app in the `example_project/example/` directory of the repository.
 
