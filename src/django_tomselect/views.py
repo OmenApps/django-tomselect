@@ -1,125 +1,249 @@
 """Views for handling queries from django-tomselect widgets."""
 
 import logging
-from typing import List, Optional, Tuple, Union
+from typing import Any, Optional
 from urllib.parse import unquote
 
-from django import http, views
-from django.contrib.auth import get_permission_codename
+from django.core.exceptions import FieldError, PermissionDenied
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import models, transaction
-from django.db.models import Q
+from django.db.models import Q, QuerySet
+from django.http import JsonResponse
+from django.views.generic import View
+
+from django_tomselect.models import EmptyModel
 
 logger = logging.getLogger(__name__)
 
+
 SEARCH_VAR = "q"
 FILTERBY_VAR = "f"
+EXCLUDEBY_VAR = "e"
 
 PAGE_VAR = "p"
-PAGE_SIZE = 20
 
 
-class AutocompleteView(views.generic.list.BaseListView):
-    """Base list view for queries from TomSelect select elements."""
+class AutocompleteView(View):
+    """Base view for handling autocomplete requests.
 
-    model: models.Model = None  # Must be set by subclass
-    search_lookups: List[str] = []  # Must be set by subclass
-    order_by: Optional[Union[Tuple[str], List[str]]] = None  # Either None, a str, or list/tuple of str
-    paginate_by: int = PAGE_SIZE
-    page_kwarg: str = PAGE_VAR
-    values_select: List[str] = []
+    Intended to be flexible enough for many use cases, but can be subclassed for more specific needs.
+    """
 
-    create_field: Optional[str] = None  # The field to create a new object with. Set by the request.
+    model: Optional[type[models.Model]] = None
+    search_lookups: list[str] = []
+    ordering: Optional[str | list[str] | tuple[str]] = None
+    page_size: int = 20
+
+    create_field: str = ""  # The field to create a new object with. Set by the request.
     q: str = ""  # The search term. Set by the request.
 
     def setup(self, request, *args, **kwargs):
+        """Set up the view with request parameters."""
         super().setup(request, *args, **kwargs)
-        request_data = getattr(request, request.method)
 
-        self.create_field = request_data.get("create-field", None)
-        self.q = unquote(request_data.get(SEARCH_VAR, ""))
+        if self.model is None:
+            self.model = kwargs.get("model")
 
-        if isinstance(self.order_by, str):
-            self.order_by = (self.order_by,)
+            if not self.model or isinstance(self.model, EmptyModel):
+                logger.error("Model must be specified")
+                raise ValueError("Model must be specified")
 
-    def apply_filter_by(self, queryset):
-        """Filter the given queryset against values set by other form fields.
+            if not (isinstance(self.model, type) and issubclass(self.model, models.Model)):
+                logger.error("Unknown model type specified in AutocompleteView")
+                raise ValueError("Unknown model type specified in AutocompleteView")
 
-        If the widget was set up with a `filter_by` parameter, the request will
-        include the `FILTERBY_VAR` parameter, indicating that the results must
-        be filtered against the lookup and value provided by `FILTERBY_VAR`.
-        If `FILTERBY_VAR` is present but no value is set, return an empty
-        queryset.
+            kwargs.pop("model", None)
+
+        query = unquote(request.GET.get(SEARCH_VAR, ""))
+        self.query = query if not query == "undefined" else ""
+        self.page = request.GET.get(PAGE_VAR, 1)
+
+        self.filter_by = request.GET.get(FILTERBY_VAR, None)
+        self.exclude_by = request.GET.get(EXCLUDEBY_VAR, None)
+        self.ordering_from_request = request.GET.get("ordering", None)
+
+        # Handle page size with validation
+        try:
+            requested_page_size = int(request.GET.get("page_size", self.page_size))
+            if requested_page_size > 0:
+                self.page_size = requested_page_size
+        except (ValueError, TypeError):
+            pass  # Keep default page_size for invalid values
+
+    def hook_queryset(self, queryset: QuerySet) -> QuerySet:
+        """Hook to allow for additional queryset manipulation before filtering, searching, and ordering.
+
+        For example, this could be used to prefetch related objects or add annotations that will later be used in
+        filtering, searching, or ordering.
         """
-        if FILTERBY_VAR not in self.request.GET:
+        return queryset
+
+    def get_queryset(self) -> QuerySet:
+        """Get the base queryset for the view."""
+        queryset = self.model.objects.all()
+
+        # Allow for additional queryset manipulation
+        queryset = self.hook_queryset(queryset)
+
+        # Apply filtering
+        queryset = self.apply_filters(queryset)
+        queryset = self.search(queryset, self.query)
+
+        # Apply ordering
+        queryset = self.order_queryset(queryset)
+
+        return queryset
+
+    def apply_filters(self, queryset: QuerySet) -> QuerySet:
+        """Apply additional filters to the queryset.
+
+        The filter_by and exclude_by parameters, if provided, are expected to be in the format:
+        'dependent_field__lookup_field=value'
+        """
+        if not self.filter_by and not self.exclude_by:
             return queryset
-        lookup, value = unquote(self.request.GET[FILTERBY_VAR]).split("=")
-        if not value:
-            # A filter was set up for this autocomplete, but no filter value
-            # was provided; return an empty queryset.
-            return queryset.none()
-        return queryset.filter(**{lookup: value})
 
-    def search(self, queryset, q):
-        """Filter the result queryset against the search term."""
-        kwargs = {item: q for item in self.search_lookups}
-        search_queryset = queryset.filter(Q(**kwargs, _connector=Q.OR))
-        return search_queryset
+        try:
+            if self.filter_by:
+                lookup, value = unquote(self.filter_by).replace("'", "").split("=")
+                dependent_field, dependent_field_lookup = lookup.split("__")
+                if not value or not dependent_field or not dependent_field_lookup:
+                    logger.warning("Invalid filter_by value (%s)", self.filter_by)
+                    return queryset.none()
 
-    def order_queryset(self, queryset):
-        """Order the result queryset by the provided field, or by the model's default ordering."""
-        ordering = self.order_by or self.model._meta.ordering or ["id"]  # pylint: disable=W0212
+                filter_dict = {dependent_field_lookup: value}
+                return queryset.filter(**filter_dict)
+
+            if self.exclude_by:
+                lookup, value = unquote(self.exclude_by).replace("'", "").split("=")
+                exclude_field, exclude_field_lookup = lookup.split("__")
+                if not value or not exclude_field or not exclude_field_lookup:
+                    logger.warning("Invalid exclude_by value (%s)", self.exclude_by)
+                    return queryset.none()
+
+                exclude_dict = {exclude_field_lookup: value}
+                return queryset.exclude(**exclude_dict)
+        except ValueError:
+            logger.warning("Invalid filter_by (%s) or exclude_by (%s) value", self.filter_by, self.exclude_by)
+        except FieldError:
+            logger.warning("Invalid lookup field in filter_by (%s) or exclude_by (%s)", self.filter_by, self.exclude_by)
+        return queryset.none()
+
+    def search(self, queryset: QuerySet, query: str) -> QuerySet:
+        """Apply search filtering to the queryset."""
+        if not query or not self.search_lookups:
+            return queryset
+
+        q_objects = Q()
+        for lookup in self.search_lookups:
+            q_objects |= Q(**{lookup: query})
+        return queryset.filter(q_objects)
+
+    def order_queryset(self, queryset: QuerySet) -> QuerySet:
+        """Apply ordering to the queryset."""
+        ordering = self.ordering_from_request
+        if isinstance(ordering, str):
+            ordering = [ordering]
+        if ordering is None:
+            # Use the model's default ordering or the primary key if no specific ordering is set
+            ordering = self.model._meta.ordering or [self.model._meta.pk.name]
+
+        if not ordering:
+            return queryset
+
         return queryset.order_by(*ordering)
 
-    def get_queryset(self):
-        """Return a queryset of objects that match the search parameters and filters."""
-        queryset = super().get_queryset()
-        if self.q or FILTERBY_VAR in self.request.GET:
-            queryset = self.apply_filter_by(queryset)
-            queryset = self.search(queryset, self.q)
-        ordered_queryset = self.order_queryset(queryset)
-        return ordered_queryset
+    def paginate_queryset(self, queryset) -> dict[str, Any]:
+        """Paginate the queryset with improved page handling."""
+        try:
+            page_number = int(self.page)
+        except (TypeError, ValueError):
+            page_number = 1
 
-    def get_page_results(self, page):
-        """Hook for modifying the result queryset for the given page."""
-        return page.object_list
+        paginator = Paginator(queryset, self.page_size)
 
-    def get_result_values(self, results):
-        """Return a JSON-serializable list of values for the given results."""
-        return list(results.values(*self.values_select))
+        try:
+            page = paginator.page(page_number)
+        except (EmptyPage, PageNotAnInteger):
+            page = paginator.page(1)
 
-    def get(self, request, *args, **kwargs):  # pylint: disable=W0613
-        queryset = self.get_queryset()
-        page_size = self.get_paginate_by(queryset)
-        paginator, page, object_list, has_other_pages = self.paginate_queryset(  # pylint: disable=W0612
-            queryset, page_size
-        )
-        data = {
-            "results": self.get_result_values(self.get_page_results(page)),
+        # Create pagination context with clean URL handling
+        pagination_context = {
+            "results": self.prepare_results(page.object_list),
             "page": page.number,
             "has_more": page.has_next(),
-            "show_create_option": self.has_add_permission(request),
+            # Only include next_page if there are more results
+            "next_page": page.number + 1 if page.has_next() else None,
+            "total_pages": paginator.num_pages,
         }
-        return http.JsonResponse(data)
 
-    def has_add_permission(self, request):
-        """Return True if the user has the permission to add a model object."""
+        return pagination_context
+
+    def prepare_results(self, results: QuerySet) -> list[dict[str, Any]]:
+        """Prepare the results for JSON serialization."""
+        return list(results.values())
+
+    def has_add_permission(self, request) -> bool:
+        """Check if the user has permission to add objects."""
         if not request.user.is_authenticated:
             return False
 
-        opts = self.model._meta  # pylint: disable=W0212
-        codename = get_permission_codename("add", opts)
+        opts = self.model._meta
+        codename = f"add_{opts.model_name}"
         return request.user.has_perm(f"{opts.app_label}.{codename}")
 
-    def create_object(self, data):
-        """Create a new object with the given data."""
-        return self.model.objects.create(**{self.create_field: data[self.create_field]})
+    def get_create_data(self, request) -> dict[str, Any]:
+        """Get the data for creating a new object.
 
-    def post(self, request, *args, **kwargs):  # pylint: disable=W0613
-        """Create a new object based on the POST data."""
+        Raises:
+            ValueError: If create_field is empty or the field value is missing from POST data
+        """
+        if not self.create_field:
+            raise ValueError("create_field must be specified for object creation")
+
+        field_value = request.POST.get(self.create_field)
+        if not field_value:
+            raise ValueError(f"Missing value for create field '{self.create_field}'")
+
+        return {self.create_field: field_value}
+
+    def get(self, request, *args, **kwargs) -> JsonResponse:
+        """Handle GET requests."""
+        try:
+            queryset = self.get_queryset()
+            if self.query:
+                queryset = self.search(queryset, self.query)
+            data = self.paginate_queryset(queryset)
+            data["show_create_option"] = self.has_add_permission(request)
+            return JsonResponse(data)
+        except Exception as e:
+            return JsonResponse(
+                {
+                    "error": str(e),
+                    "results": [],
+                    "page": 1,
+                    "has_more": False,
+                    "show_create_option": False,
+                },
+                status=200,  # Return 200 even for errors, with error info in response
+            )
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs) -> JsonResponse:
+        """Handle POST requests for object creation."""
         if not self.has_add_permission(request):
-            return http.HttpResponseForbidden()
-        if request.POST.get(self.create_field) is None:
-            return http.HttpResponseBadRequest()
-        with transaction.atomic():
-            obj = self.create_object(request.POST)
-        return http.JsonResponse({"pk": obj.pk, "text": str(obj)})
+            raise PermissionDenied
+
+        try:
+            data = self.get_create_data(request)
+            instance = self.model.objects.create(**data)
+            return JsonResponse(
+                {
+                    "pk": instance.pk,
+                    "text": str(instance),
+                }
+            )
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)

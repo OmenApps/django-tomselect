@@ -1,6 +1,7 @@
 """Settings for the django-tomselect package."""
 
 import logging
+from enum import Enum
 
 from django.conf import settings
 from django.utils.module_loading import import_string
@@ -38,23 +39,19 @@ def get_cached_setting(setting_name, default=None):
     return _settings_cache[setting_name]
 
 
-# Default settings for backward compatibility
-DEFAULT_CSS_FRAMEWORK = "bootstrap"
-DEFAULT_CSS_FRAMEWORK_VERSION = 5
+class AllowedCSSFrameworks(Enum):
+    """Enum for allowed CSS frameworks."""
+
+    DEFAULT = "default"
+    BOOTSTRAP4 = "bootstrap4"
+    BOOTSTRAP5 = "bootstrap5"
+
 
 # Retrieve framework and version from settings
-DJANGO_TOMSELECT_CSS_FRAMEWORK = get_cached_setting("TOMSELECT_CSS_FRAMEWORK", DEFAULT_CSS_FRAMEWORK)
-DJANGO_TOMSELECT_CSS_FRAMEWORK_VERSION = get_cached_setting(
-    "TOMSELECT_CSS_FRAMEWORK_VERSION", DEFAULT_CSS_FRAMEWORK_VERSION
-)
+DJANGO_TOMSELECT_CSS_FRAMEWORK = get_cached_setting("TOMSELECT_CSS_FRAMEWORK", AllowedCSSFrameworks.DEFAULT.value)
 
-# If the framework is Bootstrap, ensure the version is either 4 or 5
-if DJANGO_TOMSELECT_CSS_FRAMEWORK.lower() == "bootstrap":
-    if DJANGO_TOMSELECT_CSS_FRAMEWORK_VERSION not in (4, 5):
-        raise ValueError("If using Bootstrap, DJANGO_TOMSELECT_CSS_FRAMEWORK_VERSION must be either 4 or 5.")
-# elif DJANGO_TOMSELECT_CSS_FRAMEWORK.lower() == "another_framework":
-#     if DJANGO_TOMSELECT_CSS_FRAMEWORK_VERSION not in (allowed_versions):
-#         raise ValueError("CSS Framework version must be one of the allowed values.")
+if DJANGO_TOMSELECT_CSS_FRAMEWORK.lower() not in (framework.value for framework in AllowedCSSFrameworks):
+    raise ValueError("CSS Framework must be one of the allowed values.")
 
 
 def get_proxy_request_class():
