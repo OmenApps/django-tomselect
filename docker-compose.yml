@@ -1,0 +1,19 @@
+volumes:
+  postgres_data:
+
+services:
+
+  django_test:
+    build:
+      context: .
+      dockerfile: ./compose/django/Dockerfile
+    image: django_pint_field
+    container_name: django_test
+    volumes:
+      - ./example_project:/app/example_project
+      - ./src:/app/src
+    env_file:
+      - ./compose/django/.django
+    ports:
+      - "8115:8115"
+    command: /start

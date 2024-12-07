@@ -1,4 +1,5 @@
 """Nox sessions."""
+
 import os
 import shlex
 import shutil
@@ -21,7 +22,7 @@ DJANGO_VERSIONS = [
 # PYTHON_STABLE_VERSION should be set to the latest stable Python version
 
 PYTHON_STABLE_VERSION = "3.12"
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12"]
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13"]
 
 
 PACKAGE = "django_tomselect"
@@ -34,7 +35,7 @@ nox.options.sessions = (
     "xdoctest",
     "docs-build",
 )
-nox.options.default_venv_backend = "venv"
+nox.options.default_venv_backend = "uv"
 
 
 def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
