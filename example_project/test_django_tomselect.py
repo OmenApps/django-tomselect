@@ -1,8 +1,6 @@
-"""Test cases for the django-tomselect package."""
+"""Test cases for the django-tomselect package in general."""
 
-import pytest
 from django.conf import settings
-from django.utils.translation import gettext as _
 
 
 def test_succeeds() -> None:
@@ -13,4 +11,3 @@ def test_succeeds() -> None:
 def test_settings() -> None:
     """Test that the settings are configured."""
     assert settings.USE_TZ is True
-
