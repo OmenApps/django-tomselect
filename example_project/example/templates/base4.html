@@ -4,10 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Django Tom Select Demo</title>
-    <link href="{% static 'bootstrap-legacy/dist/css/bootstrap.css' %}" rel="stylesheet">
-    <link href="{% static 'bootswatch-legacy/dist/flatly/bootstrap.css' %}" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
-    <script src="{% static 'bootstrap-legacy/dist/js/bootstrap.bundle.js' %}"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
     {{ form.media }}
 
     <style>
@@ -15,16 +12,23 @@
             font-size: 10px;
             color: #757575;
         }
+
+        /* Override the default form label color to white */
+        .form-label {
+            color: #FFF;
+        }
     </style>
 
 </head>
 <body>
-<div class="container">
-    <form method="post" action="{{ request.path }}">
-        {% csrf_token %}
-        {{ form.as_div }}
-        <button type="submit" class="btn btn-success">Save</button>
-    </form>
-</div>
+    <div class="container">
+        <form method="post" action="{{ request.path }}">
+            {% csrf_token %}
+            {{ form.as_div }}
+            <button type="submit" class="btn btn-success mt-3">Save</button>
+        </form>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct" crossorigin="anonymous"></script>
 </body>
 </html>

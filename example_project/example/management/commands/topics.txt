@@ -1,0 +1,91 @@
+Cloud Computing
+Machine Learning
+DevOps
+Microservices
+Data Analytics
+Web Development
+Mobile Development
+API Design
+Security
+UI/UX Design
+Frontend Development
+Backend Development
+Kubernetes
+Docker
+Serverless
+AWS
+Azure
+Google Cloud
+React
+Angular
+Vue.js
+Node.js
+Python
+Java
+Go
+Rust
+C++
+Swift
+Kotlin
+TypeScript
+MongoDB
+PostgreSQL
+Redis
+Elasticsearch
+GraphQL
+REST APIs
+gRPC
+WebSocket
+OAuth
+JWT
+CI/CD
+Git
+Jenkins
+GitHub Actions
+Terraform
+Ansible
+Prometheus
+Grafana
+ELK Stack
+RabbitMQ
+Kafka
+Docker Swarm
+Istio
+Linux
+Windows
+macOS
+iOS
+Android
+Flutter
+React Native
+WebAssembly
+Edge Computing
+5G
+IoT
+Blockchain
+Smart Contracts
+Ethereum
+Bitcoin
+Neural Networks
+Deep Learning
+Computer Vision
+NLP
+Big Data
+Hadoop
+Spark
+Data Lakes
+Data Warehousing
+Business Intelligence
+Quantum Computing
+AR/VR
+Cybersecurity
+Penetration Testing
+Agile
+Scrum
+DevSecOps
+SRE
+Cloud Native
+Distributed Systems
+System Design
+Performance Tuning
+Load Testing

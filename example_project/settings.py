@@ -9,14 +9,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 
-import environ
-
-env = environ.Env()
 BASE_DIR = Path(__file__).resolve().parent.parent
-READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=False)
-if READ_DOT_ENV_FILE:
-    # OS environment variables take precedence over variables from .env
-    env.read_env(str(BASE_DIR / ".env"))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -40,6 +33,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_extensions",
     "django_tomselect",
     "example_project.example",
 ]
@@ -85,6 +79,7 @@ DATABASES = {
     }
 }
 
+
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
@@ -119,8 +114,38 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "static"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+DJANGO_LOG_LEVEL = "DEBUG"
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "django_tomselect": {
+            "handlers": ["console"],
+            "level": DJANGO_LOG_LEVEL,
+        },
+        "example_project": {
+            "handlers": ["console"],
+            "level": DJANGO_LOG_LEVEL,
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": DJANGO_LOG_LEVEL,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": DJANGO_LOG_LEVEL,
+        },
+    },
+}

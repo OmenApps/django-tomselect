@@ -15,8 +15,6 @@ class MagazineAdmin(admin.ModelAdmin):
     """Admin configuration for the Magazine model."""
 
 
-
 @admin.register(ModelFormTestModel)
 class ModelFormTestModelAdmin(admin.ModelAdmin):
     """Admin configuration for the ModelFormTestModel model."""
-
