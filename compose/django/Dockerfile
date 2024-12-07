@@ -1,43 +1,56 @@
-FROM python:3.11-slim
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm
 
 ARG BUILD_ENVIRONMENT=local
 ARG APP_HOME=/app
+ARG DEBIAN_FRONTEND=noninteractive
+# ARG MULTIPLE_PYTHON  # Set to True if you want to use multiple Python versions
 
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV BUILD_ENV ${BUILD_ENVIRONMENT}
-
-# Install apt packages
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt update \
-    && apt-get --no-install-recommends install -y \
-    # dependencies for building Python packages
-    build-essential \
-    # psycopg dependencies
-    libpq-dev \
-    # needed for psql
-    postgresql-client \
-    # cleaning up unused files
-    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip3 install psycopg-binary ipdb poetry
+ENV MULTIPLE_PYTHON=True
+ENV PYTHONPATH="${APP_HOME}:${APP_HOME}/src:${PYTHONPATH:-}"
+ENV DJANGO_SETTINGS_MODULE=example_project.settings
 
 WORKDIR ${APP_HOME}
-COPY poetry.lock pyproject.toml ${APP_HOME}
-COPY ./src/* ${APP_HOME}/src/
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Install apt packages
+RUN apt-get update
+RUN apt-get install -y \
+    # Some basic tools and libraries
+    bash curl wget git make gcc libc6 \
+    build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+    libsqlite3-dev llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev \
+    libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev python3-pip
+
+# Update pip
+RUN pip install --upgrade pip cffi
+
+# Install multiple Python versions with uv
+RUN if [ "$MULTIPLE_PYTHON" = "True" ] ; then \
+    uv python install 3.10; \
+    uv python install 3.11; \
+    uv python install 3.12; \
+    uv python install 3.13; \
+    fi
+
+# Copy requirements files
+COPY pyproject.toml uv.lock requirements.txt ${APP_HOME}/
+
+# Copy remaining project files
+COPY noxfile.py manage.py ${APP_HOME}
+COPY .darglint .editorconfig .flake8 .gitignore .pre-commit-config.yaml .prettierignore .readthedocs.yml bandit.yml ${APP_HOME}
+COPY CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md LICENSE README.md ${APP_HOME}
+COPY ./docs/ ${APP_HOME}/docs
+COPY ./example_project/ ${APP_HOME}/example_project/
+COPY ./src/ ${APP_HOME}/src/
+
+# Install dependencies using uv
+RUN uv venv --python 3.12
+RUN uv sync --prerelease=allow
 
 # Project initialization:
-RUN --mount=type=cache,target=/root/.cache/poetry \
-    poetry config virtualenvs.create false && poetry install --with dev --no-interaction --no-ansi --no-root
-
-# copy application files
-COPY ./pytest.ini ${APP_HOME}
-COPY ./manage.py ${APP_HOME}
-COPY ./tests/* ${APP_HOME}
-COPY ./compose/* ${APP_HOME}
-
 COPY ./compose/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint
 RUN chmod +x /entrypoint
@@ -45,5 +58,9 @@ RUN chmod +x /entrypoint
 COPY ./compose/django/start /start
 RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
+
+# Initialize git and add .
+RUN git init
+RUN git add .
 
 ENTRYPOINT ["/entrypoint"]
