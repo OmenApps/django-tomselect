@@ -12,7 +12,7 @@
  * governing permissions and limitations under the License.
  *
  */
-import { getDom } from 'tom-select/src/vanilla';
+import { getDom } from 'tom-select/vanilla';
 
 type DFOptions = {
 	title	    ?: string,
