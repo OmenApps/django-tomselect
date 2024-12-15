@@ -26,6 +26,9 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx_click",
     "myst_parser",
+    "sphinx_copybutton",
+    "sphinx_togglebutton",
+    "sphinxcontrib.mermaid",
 ]
 
 # Any paths that contain templates here, relative to this directory.
@@ -80,7 +83,10 @@ autodoc_mock_imports = [
 # Intersphinx settings
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "django": ("https://docs.djangoproject.com/en/stable/", "https://docs.djangoproject.com/en/stable/_objects/"),
+    "django": (
+        "https://docs.djangoproject.com/en/stable/",
+        "https://docs.djangoproject.com/en/stable/_objects/",
+    ),
 }
 
 # MyST Parser settings

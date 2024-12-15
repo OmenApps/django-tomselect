@@ -5,8 +5,12 @@ sphinx-click==6.0.0
 myst-parser==4.0
 furo==2024.8.6
 linkify-it-py==2.0.3
+sphinx-copybutton==0.5.2
+sphinx-togglebutton==0.3.2
+sphinxcontrib-mermaid==1.0.0
 
 # Django and related packages (for autodoc)
 Django==5.1.2
 django-crispy-forms==2.3
 crispy-bootstrap5==2024.10
+django_extensions==3.2.3
