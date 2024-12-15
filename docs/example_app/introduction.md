@@ -2,6 +2,62 @@
 
 The example project demonstrates how to use the `django-tomselect` package in a Django project. It consists of a number of basic, intermediate, and advanced implementations all using the theme of publishing articles in a magazine.
 
+## Prerequisites
+
+- Python 3.10+
+- Django 4.2+
+- `django-tomselect` package
+- Basic understanding of Django forms and views
+
+## Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/OmenApps/django-tomselect.git
+    ```
+
+2. Install the required packages:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Running the Example Project
+
+1. Navigate to the `example_app` directory:
+
+   ```bash
+   cd example_app
+   ```
+
+2. Apply the migrations:
+
+   ```bash
+   python manage.py migrate
+   ```
+
+3. Create the example data:
+
+   ```bash
+   python manage.py create_examples
+   ```
+
+4. Create a superuser:
+
+   ```bash
+   python manage.py createsuperuser
+   ```
+
+5. Run the Django development server:
+
+   ```bash
+    python manage.py runserver 0.0.0.0:8000
+    ```
+
+6. Open the browser and go to `http://localhost:8000/` to view the example project.
+
+
 ## Basic Examples
 
 - [Default Styling](default.md)
