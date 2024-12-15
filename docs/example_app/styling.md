@@ -1,8 +1,8 @@
-# Bootstrap 4 Styling Demo
+# Styling Demos
 
 ## Example Overview
 
-This example demonstrates the use of `django_tomselect` with Bootstrap 4 styling to create responsive, dynamic `<select>` fields. The example includes various configurations for single and multiple selections, highlighting the integration with a modern CSS framework.
+This example demonstrates the use of `django_tomselect` with Default, Bootstrap 4, and Bootstrap 5 styling to create responsive, dynamic `<select>` fields. The example includes various configurations for single and multiple selections, highlighting the integration with a modern CSS framework.
 
 ### What problem does it solve?
 This setup simplifies the creation of user-friendly, visually appealing dropdowns with advanced features like:
@@ -22,22 +22,26 @@ This setup simplifies the creation of user-friendly, visually appealing dropdown
 - Dynamic selection of countries, products, or categories in e-commerce platforms.
 
 *(Placeholders for screenshots or GIFs)*:
-- `![Screenshot: Initial Dropdown State](path-to-image)`
-- `![GIF: Autocomplete in Action](path-to-gif)`
+
+![Screenshot: Single Selection](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/Single.png)
+![Screenshot: Multiple Selection with Tabular Display](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/Multiple_Tabular.png)
 
 ---
 
 ## Key Code Segments
 
 ### Forms
-The `Bootstrap4StylingForm` in `basic_demos.py` configures fields using `TomSelectConfig` for Bootstrap 4.
+The `DefaultStylingForm`, `Bootstrap4StylingForm`, and `Bootstrap5StylingForm` in `basic_demos.py` configures fields using `TomSelectConfig` for the prefered styling.
+
+:::{admonition} Default Styling
+:class: dropdown
 
 ```python
 class Bootstrap4StylingForm(forms.Form):
     tomselect = TomSelectModelChoiceField(
         config=TomSelectConfig(
             url="autocomplete-edition",
-            css_framework="bootstrap4",
+            css_framework="bootstrap4",  # <<-- Bootstrap 4 styling
             placeholder="Select a value",
             highlight=True,
             open_on_focus=True,
@@ -51,15 +55,17 @@ class Bootstrap4StylingForm(forms.Form):
     )
     # Other fields omitted for brevity
 ```
+:::
 
-- **Purpose**: This sets up a dropdown with an autocomplete endpoint (`url`), styling via Bootstrap 4, and a clear button plugin.
+
+- **Purpose**: This sets up a dropdown with an autocomplete endpoint (`url`), styling with preferred style, and a clear button plugin.
 
 [See full code in the repository](#).
 
 ---
 
 ### Template
-The `bs4.html` template renders the form using Bootstrap 4 components. It extends the base layout and includes the necessary CSS and JavaScript assets.
+The `default.html`. `bs4.html`, and `bs5.html` templates render the form using the specified styling. They extend the base layout and include the necessary CSS and JavaScript assets.
 
 ```html
 {% extends 'example/base_with_bootstrap4.html' %}
@@ -88,8 +94,6 @@ The `bs4.html` template renders the form using Bootstrap 4 components. It extend
 {% endblock %}
 ```
 
-- **Purpose**: Demonstrates how to use the Bootstrap 4 styled form, integrating Django’s CSRF protection and dynamic media rendering.
-
 ---
 
 ### Autocomplete View
@@ -111,12 +115,8 @@ class EditionAutocomplete(AutocompleteModelView):
 ## Design and Implementation Notes
 
 ### Key Features
-- **Dynamic styling**: The example leverages Bootstrap 4’s `form-control` classes for consistent styling.
+- **Dynamic styling**: Uses the preferred styling.
 - **Plugins**: Includes plugins like `clear_button` and `dropdown_footer` to enhance UX.
-
-### Design Decisions
-- **Bootstrap 4**: Chosen for projects using older but still widely supported CSS frameworks.
-- **Clear button plugin**: Simplifies user interaction by allowing quick deselection.
 
 ### Alternative Approaches
 - Use the "default" styling if Bootstrap is not integrated into the project.
