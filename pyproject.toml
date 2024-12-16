@@ -30,7 +30,11 @@ classifiers = [
 ]
 requires-python = ">=3.10,<4.0"
 
-dependencies = ["django>=4.2.15"]
+dependencies = [
+    "django-htmx>=1.21.0",
+    "django>=4.2.15",
+    "pytest-asyncio>=0.25.0",
+]
 keywords = [
     "django",
     "autocomplete",

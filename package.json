@@ -3,7 +3,7 @@
     "bootstrap": "^5.3.3",
     "bootstrap-legacy": "npm:bootstrap@4.6.2",
     "esbuild": "^0.24.0",
-    "standard": "^17.1.0",
+    "standard": "^17.1.2",
     "tom-select": "^2.4.1"
   },
   "scripts": {
