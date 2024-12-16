@@ -31,39 +31,43 @@ The example project demonstrates how to use the `django-tomselect` package in a 
 
 ## Running the Example Project
 
-1. Navigate to the `example_app` directory:
-
-   ```bash
-   cd example_app
-   ```
-
-2. Apply the migrations:
+1. Apply the migrations:
 
    ```bash
    python manage.py migrate
+   # or
+   uv run python manage.py migrate
    ```
 
-3. Create the example data:
+2. Create the example data:
 
    ```bash
    python manage.py create_examples
+   # or
+    uv run python manage.py create_examples
    ```
 
-4. Create a superuser:
+This may take a couple of minutes to complete. It creates a large number of objects to demonstrate the various features of the package.
+
+3. Create a superuser:
 
    ```bash
    python manage.py createsuperuser
+   # or
+    uv run python manage.py createsuperuser
    ```
 
-5. Run the Django development server:
+4. Run the Django development server:
 
    ```bash
     python manage.py runserver 0.0.0.0:8000
+    # or
+    uv run python manage.py runserver 0.0.0.0:8000
     ```
 
-6. Open the browser and go to `http://localhost:8000/admin` to login (or directly `http://localhost:8000/` to view as AnonymousUser - some links and bttons to list/create/update/delete will not be available).
+5. Open the browser and go to `http://localhost:8000/admin` to login (or directly `http://localhost:8000/` to view as AnonymousUser - some links and bttons to list/create/update/delete will not be available).
 
-7. Go to `http://localhost:8000/` to view the example project.
+6. Go to `http://localhost:8000/` to view the example project.
 
 ## Example Project Structure
 
