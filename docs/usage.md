@@ -303,6 +303,10 @@ Autocompletes are server-side views that respond to requests from the Tom Select
   - Pagination and incremental loading for large sets of options.
   - Simpler than `AutocompleteModelView`, since no ORM queries are involved.
 
+:::{note}
+Could you manually add Tom Select to your project and supply iterables as context to the template? Absolutely. But `django_tomselect` standardizes the process, providing a consistent API, integration with Django forms, and advanced features like filtering and server-side pagination for large datasets.
+:::
+
 ### Form Fields
 
 Form fields integrate `django_tomselect` widgets into Django’s form system, making it easy to replace traditional `ModelChoiceField` or `ModelMultipleChoiceField` fields with Tom Select-enabled versions.
