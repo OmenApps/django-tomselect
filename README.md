@@ -124,8 +124,6 @@ Each of the examples is described in [the Example Project docs](https://django-t
 
 Here are a few screenshots from the example project:
 
----
-
 ![Rich Content Article Selection](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/docs/images/rich-article-select1.png)
 
 ---

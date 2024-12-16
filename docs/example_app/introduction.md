@@ -44,7 +44,7 @@ The example project demonstrates how to use the `django-tomselect` package in a 
    ```bash
    python manage.py create_examples
    # or
-    uv run python manage.py create_examples
+   uv run python manage.py create_examples
    ```
 
 This may take a couple of minutes to complete. It creates a large number of objects to demonstrate the various features of the package.
@@ -54,7 +54,7 @@ This may take a couple of minutes to complete. It creates a large number of obje
    ```bash
    python manage.py createsuperuser
    # or
-    uv run python manage.py createsuperuser
+   uv run python manage.py createsuperuser
    ```
 
 4. Run the Django development server:

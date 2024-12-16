@@ -57,4 +57,4 @@
 For more detailed information about any of these terms, please refer to:
 - [Tom Select Documentation](https://tom-select.js.org/)
 - [Django Documentation](https://docs.djangoproject.com/)
-- [Django TomSelect Documentation](https://django-tomselect.readthedocs.io/en/latest/usage/)
+- [Django TomSelect Documentation](https://django-tomselect.readthedocs.io/en/latest/usage.html)
