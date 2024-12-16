@@ -2,41 +2,34 @@
 
 ## Example Overview
 
-This example illustrates how to use `django_tomselect` with **HTMX** to load dropdown content dynamically. HTMX is a powerful library that simplifies creating dynamic, server-driven user interfaces. By combining it with `django_tomselect`, you can achieve advanced interactions such as dynamically loaded forms or dependent dropdowns without requiring full-page reloads.
-
-### What problem does it solve?
-This setup addresses scenarios where:
-- Dropdown options need to be updated based on server-side logic without reloading the page.
-- HTMX simplifies the process of fetching or updating parts of the form dynamically.
+This example is very similar to the BS5 styling example, and illustrates how to use `django_tomselect` with **[HTMX](https://htmx.org/)** to load dropdown content dynamically on page load. By combining htmx with `django_tomselect`, you can achieve advanced interactions such as dynamically loaded content without full page reloads. See the bulk actions example for a more advanced htmx use case.
 
 ### Key features highlighted:
 - Dynamic form rendering with HTMX.
 - Integration with `django_tomselect` for autocomplete and enhanced dropdown functionality.
-- Seamless updates without page reloads.
 
 ### Use Case Scenarios:
 - Filtering dropdown options based on user input or selections in other fields.
 - Dynamic form rendering for creating or updating related models.
 - Inline editing or form embedding in modal dialogs.
 
-*(Placeholders for screenshots or GIFs)*:
-- `![GIF: Dynamic Form Rendering with HTMX](path-to-gif)`
-- `![Screenshot: Dropdown with HTMX Interaction](path-to-image)`
-
 ---
 
 ## Key Code Segments
 
 ### Forms
-The `Bootstrap5StylingHTMXForm` extends `Bootstrap4StylingForm`, enabling HTMX integration.
+The `Bootstrap5StylingHTMXForm` extends `Bootstrap5StylingForm`, enabling HTMX integration.
+
+:::{admonition} Bootstrap 5 Styling with HTMX
+:class: dropdown
 
 ```python
-class Bootstrap5StylingHTMXForm(Bootstrap4StylingForm):
+class Bootstrap5StylingHTMXForm(Bootstrap5StylingForm):
     """HTMX-enabled form using TomSelectModelChoiceField."""
     tomselect = TomSelectModelChoiceField(
         config=TomSelectConfig(
             url="autocomplete-edition",
-            use_htmx=True,
+            use_htmx=True,  # <<-- Adjusts JavaScript to work with HTMX
             css_framework="bootstrap5",
             placeholder="Select a value",
             highlight=True,
@@ -54,25 +47,29 @@ class Bootstrap5StylingHTMXForm(Bootstrap4StylingForm):
     )
     # Additional fields omitted for brevity
 ```
+:::
 
-- **Purpose**: Configures a field to dynamically load options via HTMX, enhancing the interactivity of the dropdown.
-
-[See full code in the repository](#).
+- **Purpose**: Configures a field to work with HTMX, enabling dynamic content loading.
 
 ---
 
 ### HTMX Fragment Template
 The `htmx_fragment.html` template defines the dynamic content that will be loaded into the page.
 
+:::{admonition} HTMX Fragment Template
+:class: dropdown
+
 ```html
+{% load static %}
+
 {{ form.media }}
 
 <div class="card">
     <div class="card-header">
-        <h2>Loading content via HTMX Demo</h2>
+        <h2>Loading content via htmx Demo</h2>
     </div>
     <div class="card-body">
-        <div class="pb-5">This page demonstrates loading the form using HTMX.</div>
+        <div class="pb-5">This page demonstrates loading the form using htmx.</div>
         <form>
             {% csrf_token %}
             {{ form.as_div }}
@@ -80,15 +77,15 @@ The `htmx_fragment.html` template defines the dynamic content that will be loade
     </div>
 </div>
 ```
-
-- **Purpose**: Specifies the form structure that will be dynamically inserted into the page using HTMX.
-
-[See full code in the repository](#).
+:::
 
 ---
 
 ### Main HTMX Template
 The `htmx.html` template renders the page and loads the dynamic fragment via HTMX.
+
+:::{admonition} Main HTMX Template
+:class: dropdown
 
 ```html
 {% extends 'example/base_with_bootstrap5.html' %}
@@ -105,48 +102,45 @@ The `htmx.html` template renders the page and loads the dynamic fragment via HTM
 {% endblock %}
 
 {% block content %}
-    <div class="card" hx-get="{% url 'demo-htmx-form-fragment' %}" hx-trigger="load" hx-swap="innerHTML">
-    </div>
+    <div class="card" hx-get="{%  url 'demo-htmx-form-fragment' %}" hx-trigger="load" hx-swap="innerHTML">
 {% endblock %}
 ```
+:::
 
-- **Purpose**: Dynamically loads the form fragment via the `hx-get` attribute, triggered on page load.
-
-[See full code in the repository](#).
 
 ---
 
 ### Autocomplete View
-The backend for autocomplete remains consistent, but HTMX makes the interaction seamless.
+The backend for autocomplete remains consistent with thr styling examples, but HTMX makes the interaction seamless.
+
+:::{admonition} Autocomplete View
+:class: dropdown
 
 ```python
-class EditionAutocomplete(AutocompleteModelView):
-    model = Edition  # The model to query
+class EditionAutocompleteView(AutocompleteModelView):
+    """Autocomplete that returns all Edition objects."""
+
+    model = Edition
     search_lookups = ["name__icontains"]
-    ordering = "name"
+    page_size = 20
+    value_fields = ["id", "name", "year", "pages", "pub_num"]
+
+    list_url = "edition-list"
+    create_url = "edition-create"
+    update_url = "edition-update"
+    delete_url = "edition-delete"
+
+    skip_authorization = True
 ```
-
-- **Purpose**: Fetches options dynamically as the user interacts with the dropdown.
-
-[See full code in the repository](#).
+:::
 
 ---
 
 ## Design and Implementation Notes
 
 ### Key Features
-- **Dynamic Content Loading**: Leverages HTMX to dynamically load or update form sections.
+- **Dynamic Content Loading**: Leverages HTMX to dynamically load the form content on page load.
 - **Framework Integration**: Works seamlessly with `django_tomselect` and Bootstrap 5.
-- **Enhanced User Experience**: Eliminates full-page reloads, making interactions faster and smoother.
 
 ### Design Decisions
-- **HTMX**: Chosen for its simplicity and compatibility with server-rendered Django views.
 - **Reusable Templates**: Separates the dynamically loaded form (`htmx_fragment.html`) from the main template for modularity.
-
-### Alternative Approaches
-- Use JavaScript libraries like jQuery or Vue.js for dynamic updates if more complex interactions are required.
-- Avoid HTMX for projects with limited interactivity to reduce dependencies.
-
-### Potential Extensions
-- Add dependent dropdowns where one field’s options are filtered based on another field’s value.
-- Implement inline editing for dropdown options using HTMX and modal dialogs.
