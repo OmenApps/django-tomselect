@@ -23,6 +23,12 @@ The example project demonstrates how to use the `django-tomselect` package in a 
    pip install -r requirements.txt
    ```
 
+   Or with `uv`:
+
+   ```bash
+    uv sync
+    ```
+
 ## Running the Example Project
 
 1. Navigate to the `example_app` directory:
@@ -55,17 +61,18 @@ The example project demonstrates how to use the `django-tomselect` package in a 
     python manage.py runserver 0.0.0.0:8000
     ```
 
-6. Open the browser and go to `http://localhost:8000/` to view the example project.
+6. Open the browser and go to `http://localhost:8000/admin` to login (or directly `http://localhost:8000/` to view as AnonymousUser - some links and bttons to list/create/update/delete will not be available).
 
+7. Go to `http://localhost:8000/` to view the example project.
 
-## Basic Examples
+## Example Project Structure
 
-- [Default Styling](default.md)
-- [Bootstrap 4 Styling](bs4.md)
-- [Bootstrap 5 Styling](bs5.md)
+### Basic Examples
+
+- [Styling](styling.md)
 - [HTMX Integration](htmx.md)
 
-## Intermediate Examples
+### Intermediate Examples
 
 - [Filter by Magazine](filter_by_magazine.md)
 - [Filter by Category](filter_by_category.md)
@@ -75,9 +82,13 @@ The example project demonstrates how to use the `django-tomselect` package in a 
 - [Custom Content Display](custom_content_display.md)
 - [Weighted Author Search](weighted_author_search.md)
 
-## Advanced Examples
+### Advanced Examples
 
 - [Three-Level Filter-By](three_level_filter_by.md)
 - [Rich Article Select](rich_article_select.md)
 - [Article List and Create](article_list_and_create.md)
 - [Article Bulk Actions](article_bulk_actions.md)
+
+### CRUD
+
+There are also several standard CRUD views, but they are not documented here.
