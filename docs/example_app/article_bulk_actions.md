@@ -500,7 +500,7 @@ The form is rendered dynamically in the template, allowing users to filter artic
 
 ### Autocomplete Views
 
-Multiple autocomplete views are used to populate the dropdowns with dynamic data, such as categories, authors, and article statuses. Please see the example app's [Autocomplete Views Code]([/docs/autocomplete_views](https://github.com/OmenApps/django-tomselect/blob/main/example_project/example/autocompletes.py)) for more details.
+Multiple autocomplete views are used to populate the dropdowns with dynamic data, such as categories, authors, and article statuses. Please see the example app's [Autocomplete Views Code](https://github.com/OmenApps/django-tomselect/blob/main/example_project/example/autocompletes.py) for more details.
 
 ---
 
