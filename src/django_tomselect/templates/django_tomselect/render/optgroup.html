@@ -1,6 +1,11 @@
+{% comment %}
+Renders an option group container.
+{% endcomment %}
 optgroup: function(data, escape) {
     let optgroup = document.createElement('div');
     optgroup.className = 'optgroup';
+    optgroup.setAttribute('role', 'group');
+    optgroup.setAttribute('aria-label', data.label);
     optgroup.appendChild(data.options);
     return optgroup;
 },

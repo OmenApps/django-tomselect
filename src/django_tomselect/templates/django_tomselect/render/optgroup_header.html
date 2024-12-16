@@ -1,3 +1,6 @@
+{% comment %}
+Renders the header for an option group.
+{% endcomment %}
 optgroup_header: function(data, escape) {
-    return '<div class="optgroup-header">' + escape(data.label) + '</div>';
+    return '<div class="optgroup-header" role="presentation">' + escape(data.label) + '</div>';
 },

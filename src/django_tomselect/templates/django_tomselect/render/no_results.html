@@ -1,5 +1,9 @@
+{% comment %}
+Renders the message when no search results are found.
+{% endcomment %}
 {% load i18n %}
-
 no_results: function(data, escape){
-    return '<div class="no-results">{% translate "No results found for" %} "'+escape(data.input)+'"</div>';
+    return `<div class="no-results" role="status" aria-live="polite">
+        {% translate "No results found for" %} "${escape(data.input)}"
+    </div>`;
 },

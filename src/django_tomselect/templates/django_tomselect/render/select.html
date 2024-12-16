@@ -1,0 +1,24 @@
+{% comment %}
+This template renders the underlying <select> element that TomSelect will enhance.
+You generally won't need to override this unless you need to add or modify attributes.
+
+**Context Variables:**
+- widget: An object containing attributes like 'name', 'attrs', and configuration details.
+
+**Typical Usage:**
+Included from `tomselect.html` with:
+{% include "django_tomselect/render/select.html" with widget=widget %}
+
+**Overriding:**
+Place a modified version in your project's templates directory:
+`templates/django_tomselect/render/select.html`
+{% endcomment %}
+
+{% load i18n %}
+<select name="{{ widget.name }}"
+        id="{% if 'id' in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}"
+        {% include "django/forms/widgets/attrs.html" with widget=widget %}
+        aria-label="{% translate 'Select option' %}"
+        aria-expanded="false"
+        role="combobox">
+</select>

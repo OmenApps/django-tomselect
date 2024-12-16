@@ -1,5 +1,7 @@
+{% comment %}
+Renders the message when no more results are available.
+{% endcomment %}
 {% load i18n %}
-
 no_more_results: function(data, escape) {
-    return `<div class="no-more-results">{% translate "No more results" %}</div>`;
+    return `<div class="no-more-results" role="status" aria-live="polite">{% translate "No more results" %}</div>`;
 },

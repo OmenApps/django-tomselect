@@ -1,5 +1,10 @@
+{% comment %}
+Renders the "Loading more results..." message.
+{% endcomment %}
 {% load i18n %}
-
 loading_more: function(data, escape) {
-    return `<div class="loading-more-results py-2 d-flex align-items-center"><div class="spinner"></div> {% translate "Loading more results ..." %} </div>`;
+    return `<div class="loading-more-results py-2 d-flex align-items-center" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        {% translate "Loading more results..." %}
+    </div>`;
 },

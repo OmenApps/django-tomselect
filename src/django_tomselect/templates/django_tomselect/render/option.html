@@ -1,20 +1,27 @@
+{% comment %}
+Renders each option (search result) in the dropdown.
+If is_tabular is true, renders a row of columns.
+If not, checks for custom rendering templates.
+{% endcomment %}
 option: function(data, escape) {
-    {% if widget.is_tabular %}
+    {% if 'data_custom_rendering' in widget.attrs.keys and widget.attrs.data_custom_rendering %}
+        return new Function('data', 'escape', 'return `' + {{ widget.attrs.data_template_option|safe }} + '`')(data, escape);
+    {% elif widget.is_tabular %}
         let columns = ''
 
         {% if widget.plugins.dropdown_header.show_value_field %}
-            columns += `<div class="col">${data[this.settings.valueField]}</div>
-            <div class="col">${data[this.settings.labelField]}</div>`
+            columns += `<div class="col" role="gridcell">${data[this.settings.valueField]}</div>
+            <div class="col" role="gridcell">${data[this.settings.labelField]}</div>`
         {% else %}
-            columns += `<div class="col">${data[this.settings.labelField]}</div>`
+            columns += `<div class="col" role="gridcell">${data[this.settings.labelField]}</div>`
         {% endif %}
 
         {% for item in widget.plugins.dropdown_header.extra_values %}
-            columns += `<div class="col">${escape(data['{{ item }}'] || '')}</div>`
+            columns += `<div class="col" role="gridcell">${data['{{ item }}'] || ''}</div>`
         {% endfor %}
 
-        return `<div class="row">${columns}</div>`
+        return `<div class="row" role="row">${columns}</div>`
     {% else %}
-        return '<div>' + escape(data.{{ widget.label_field }}) + '</div>';
+        return `<div role="option">${data.{{ widget.label_field }}}</div>`;
     {% endif %}
 },

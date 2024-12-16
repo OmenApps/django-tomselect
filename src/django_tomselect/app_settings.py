@@ -1,42 +1,18 @@
 """Settings for the django-tomselect package."""
 
 import logging
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Literal, Optional
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.utils.module_loading import import_string
+from django.utils.translation import gettext_lazy as _
 
-from .configs import (
-    GeneralConfig,
-    PluginCheckboxOptions,
-    PluginClearButton,
-    PluginDropdownFooter,
-    PluginDropdownHeader,
-    PluginDropdownInput,
-    PluginRemoveButton,
-)
-from .request import DefaultProxyRequest
+from django_tomselect.request import DefaultProxyRequest
 
 logger = logging.getLogger(__name__)
-
-
-# Cache dictionary
-_settings_cache = {}
-
-
-def get_cached_setting(setting_name, default=None):
-    """Retrieve a setting value from the cache or django.conf.settings.
-
-    Args:
-        setting_name (str): The name of the setting to retrieve.
-        default: The default value to return if the setting is not found.
-
-    Returns:
-        The value of the setting.
-    """
-    if setting_name not in _settings_cache:
-        _settings_cache[setting_name] = getattr(settings, setting_name, default)
-    return _settings_cache[setting_name]
 
 
 class AllowedCSSFrameworks(Enum):
@@ -47,11 +23,11 @@ class AllowedCSSFrameworks(Enum):
     BOOTSTRAP5 = "bootstrap5"
 
 
-# Retrieve framework and version from settings
-DJANGO_TOMSELECT_CSS_FRAMEWORK = get_cached_setting("TOMSELECT_CSS_FRAMEWORK", AllowedCSSFrameworks.DEFAULT.value)
-
-if DJANGO_TOMSELECT_CSS_FRAMEWORK.lower() not in (framework.value for framework in AllowedCSSFrameworks):
-    raise ValueError("CSS Framework must be one of the allowed values.")
+def bool_or_callable(value):
+    """Return the value if it's a boolean, or call it if it's a callable."""
+    if callable(value):
+        return value()
+    return bool(value)
 
 
 def get_proxy_request_class():
@@ -60,7 +36,7 @@ def get_proxy_request_class():
     Returns:
         A subclass of DefaultProxyRequest.
     """
-    proxy_request_setting = get_cached_setting("TOMSELECT_PROXY_REQUEST", None)
+    proxy_request_setting = getattr(settings, "TOMSELECT_PROXY_REQUEST", None)
 
     if proxy_request_setting is None:
         return DefaultProxyRequest
@@ -95,30 +71,313 @@ ProxyRequest = get_proxy_request_class()
 
 def currently_in_production_mode():
     """Default method to determine whether to use minified files or not by checking the DEBUG setting."""
-    return get_cached_setting("DEBUG", False) is False
+    return settings.DEBUG is False
 
 
-# Should be either a boolean or a callable that returns a boolean
-DJANGO_TOMSELECT_MINIFIED = get_cached_setting("TOMSELECT_MINIFIED", currently_in_production_mode())
+@dataclass(frozen=True)
+class BaseConfig:
+    """Base configuration class for django-tomselect widgets with validation."""
+
+    def validate(self) -> None:
+        """Validate configuration values. Override in subclasses."""
+
+    def __post_init__(self):
+        """Validate config after initialization."""
+        self.validate()
+
+    def as_dict(self):
+        """Return the configuration as a dictionary."""
+        return self.__dict__
 
 
-config_defaults = {
-    "TOMSELECT_GENERAL_CONFIG": GeneralConfig(),
-    "TOMSELECT_PLUGIN_CLEAR_BUTTON": PluginClearButton(),
-    "TOMSELECT_PLUGIN_REMOVE_BUTTON": PluginRemoveButton(),
-    "TOMSELECT_PLUGIN_DROPDOWN_INPUT": PluginDropdownInput(),
-    "TOMSELECT_PLUGIN_DROPDOWN_HEADER": PluginDropdownHeader(),
-    "TOMSELECT_PLUGIN_DROPDOWN_FOOTER": PluginDropdownFooter(),
-    "TOMSELECT_PLUGIN_CHECKBOX_OPTIONS": PluginCheckboxOptions(),
-}
+@dataclass(frozen=True)
+class PluginCheckboxOptions(BaseConfig):
+    """Plugin configuration for the checkbox_options plugin.
 
-# Retrieve settings with defaults
-DJANGO_TOMSELECT_SETTINGS = {key: get_cached_setting(key, default) for key, default in config_defaults.items()}
+    No additional settings are required. If this plugin is enabled, the widget will display checkboxes.
+    """
 
-DJANGO_TOMSELECT_GENERAL_CONFIG = DJANGO_TOMSELECT_SETTINGS["TOMSELECT_GENERAL_CONFIG"]
-DJANGO_TOMSELECT_PLUGIN_CLEAR_BUTTON = DJANGO_TOMSELECT_SETTINGS["TOMSELECT_PLUGIN_CLEAR_BUTTON"]
-DJANGO_TOMSELECT_PLUGIN_REMOVE_BUTTON = DJANGO_TOMSELECT_SETTINGS["TOMSELECT_PLUGIN_REMOVE_BUTTON"]
-DJANGO_TOMSELECT_PLUGIN_DROPDOWN_INPUT = DJANGO_TOMSELECT_SETTINGS["TOMSELECT_PLUGIN_DROPDOWN_INPUT"]
-DJANGO_TOMSELECT_PLUGIN_DROPDOWN_HEADER = DJANGO_TOMSELECT_SETTINGS["TOMSELECT_PLUGIN_DROPDOWN_HEADER"]
-DJANGO_TOMSELECT_PLUGIN_DROPDOWN_FOOTER = DJANGO_TOMSELECT_SETTINGS["TOMSELECT_PLUGIN_DROPDOWN_FOOTER"]
-DJANGO_TOMSELECT_PLUGIN_CHECKBOX_OPTIONS = DJANGO_TOMSELECT_SETTINGS["TOMSELECT_PLUGIN_CHECKBOX_OPTIONS"]
+
+@dataclass(frozen=True)
+class PluginDropdownInput(BaseConfig):
+    """Plugin configuration for the dropdown_input plugin.
+
+    No additional settings are required. If this plugin is enabled, the widget will display an input field.
+    """
+
+
+@dataclass(frozen=True)
+class PluginClearButton(BaseConfig):
+    """Plugin configuration for the clear_button plugin."""
+
+    title: str = "Clear Selections"
+    class_name: str = "clear-button"
+
+
+@dataclass(frozen=True)
+class PluginDropdownHeader(BaseConfig):  # pylint: disable=R0902
+    """Plugin configuration for the dropdown_header plugin.
+
+    Args:
+        title: title for the dropdown header.
+        header_class: CSS class for the header container.
+        title_row_class: CSS class for the title row.
+        label_class: CSS class for the label.
+        value_field_label: table header label for the value field column.
+          Defaults to value_field.title().
+        label_field_label: table header label for the label field column.
+          Defaults to the verbose_name of the model.
+        label_col_class: CSS class for the label column.
+        show_value_field: if True, show the value field column in the table.
+        extra_columns: a mapping of <model field names> to <column labels>
+          for additional columns. The field name tells Tom Select what
+          values to look up on a model object result for a given column.
+          The label is the table header label for a given column.
+    """
+
+    title: str = "Autocomplete"
+    header_class: str = "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header"
+    title_row_class: str = "row"
+    label_class: str = "form-label"
+    value_field_label: str = "Value"
+    label_field_label: str = "Label"
+    label_col_class: str = "col-6"  # ToDo: Not currently used
+    show_value_field: bool = False
+    extra_columns: dict[str, str] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        """Validate dropdown header config."""
+        if not isinstance(self.extra_columns, dict):
+            raise ValidationError("extra_columns must be a dictionary")
+
+
+@dataclass(frozen=True)
+class PluginDropdownFooter(BaseConfig):
+    """Plugin configuration for the dropdown_footer plugin.
+
+    Args:
+        title: title for the footer.
+        footer_class: CSS class for the footer container.
+    """
+
+    title: str = "Autocomplete Footer"
+    footer_class: str = "container-fluid mt-1 px-2 border-top dropdown-footer"
+    list_view_label: str = "List View"
+    list_view_class: str = "btn btn-primary btn-sm m-2 p-1 float-end float-right"
+    create_view_label: str = "Create New"
+    create_view_class: str = "btn btn-primary btn-sm m-2 p-1 float-end float-right"
+
+
+@dataclass(frozen=True)
+class PluginRemoveButton(BaseConfig):
+    """Plugin configuration for the remove_button plugin, which removed an item from the list of selected items.
+
+    Args:
+        title: title for the remove button.
+        label: label for the remove button.
+        class_name: CSS class for the remove button.
+    """
+
+    title: str = "Remove this item"
+    label: str = "&times;"
+    class_name: str = "remove"
+
+
+PROJECT_TOMSELECT = getattr(settings, "TOMSELECT", {})
+
+DEFAULT_CSS_FRAMEWORK = PROJECT_TOMSELECT.get("DEFAULT_CSS_FRAMEWORK", AllowedCSSFrameworks.DEFAULT.value)
+DEFAULT_USE_MINIFIED = PROJECT_TOMSELECT.get("DEFAULT_USE_MINIFIED", currently_in_production_mode())
+
+PROJECT_DEFAULT_CONFIG = PROJECT_TOMSELECT.get("DEFAULT_CONFIG", {})
+PROJECT_PLUGINS = PROJECT_TOMSELECT.get("PLUGINS", {})
+
+PERMISSION_CACHE = getattr(settings, "PERMISSION_CACHE", {})
+PERMISSION_CACHE_TIMEOUT = PERMISSION_CACHE.get("TIMEOUT", None)
+PERMISSION_CACHE_KEY_PREFIX = PERMISSION_CACHE.get("KEY_PREFIX", "")
+PERMISSION_CACHE_NAMESPACE = PERMISSION_CACHE.get("NAMESPACE", "")
+
+
+@dataclass(frozen=True)
+class TomSelectConfig(BaseConfig):
+    """Main configuration class for TomSelect widgets, supplied as a `config` argument to the form field.
+
+    This class contains settings specific to a particular TomSelect widget.
+
+    Args:
+        url: URL for the autocomplete view.
+        show_list: if True, show the list button.
+        show_create: if True, show the create button.
+        show_detail: if True, show the detail button.
+        show_update: if True, show the update button.
+        show_delete: if True, show the delete button.
+        value_field: field name for the value field.
+        label_field: field name for the label field.
+        create_field: field name for the create field.
+        filter_by: tuple of model field and lookup value to filter by.
+        exclude_by: tuple of model field and lookup value to exclude by.
+        use_htmx: if True, use HTMX for AJAX requests.
+        css_framework: CSS framework to use ("default", "bootstrap4", "bootstrap5").
+        attrs: additional attributes for the widget.
+
+        close_after_select: if True, close the dropdown after selecting an item.
+        hide_placeholder: if True, hide the placeholder when an item is selected.
+        highlight: if True, highlight the matching text in the dropdown.
+        load_throttle: throttle time in milliseconds for loading items.
+        loading_class: CSS class for the loading indicator.
+        max_items: maximum number of items to display in the dropdown.
+        max_options: maximum number of options to display in the dropdown.
+        open_on_focus: if True, open the dropdown when the input is focused.
+        placeholder: placeholder text for the input field.
+        preload: if True, preload the dropdown on focus.
+        create: if True, allow creating new items.
+        create_filter: filter for creating new items.
+        create_with_htmx: if True, use HTMX for creating new items.
+        minimum_query_length: minimum number of characters to trigger a search.
+        css_framework: CSS framework to use ("default", "bootstrap4", "bootstrap5").
+        use_minified: if True, use minified JS and CSS files.
+
+        plugin_checkbox_options: PluginCheckboxOptions instance.
+        plugin_clear_button: PluginClearButton instance.
+        plugin_dropdown_header: PluginDropdownHeader instance.
+        plugin_dropdown_footer: PluginDropdownFooter instance.
+        plugin_dropdown_input: PluginDropdownInput instance.
+        plugin_remove_button: PluginRemoveButton instance.
+    """
+
+    url: str = "autocomplete"
+    show_list: bool = False
+    show_create: bool = False
+    show_detail: bool = False
+    show_update: bool = False
+    show_delete: bool = False
+    value_field: str = "id"
+    label_field: str = "name"
+    create_field: str = ""
+    filter_by: tuple = field(default_factory=tuple)
+    exclude_by: tuple = field(default_factory=tuple)
+    use_htmx: bool = False
+    attrs: dict[str, str] = field(default_factory=dict)
+
+    close_after_select: bool | None = None
+    hide_placeholder: bool | None = None
+    highlight: bool = True
+    load_throttle: int = 300
+    loading_class: str = "loading"
+    max_items: int | None = None
+    max_options: int | None = None
+    open_on_focus: bool = True
+    placeholder: str | None = "Select a value"
+    preload: Literal["focus"] | bool = "focus"  # Either 'focus' or True/False
+    create: bool = False
+    create_filter: str | None = None
+    create_with_htmx: bool = False
+    minimum_query_length: int = 2
+    css_framework: AllowedCSSFrameworks = DEFAULT_CSS_FRAMEWORK
+    use_minified: bool = DEFAULT_USE_MINIFIED
+
+    # Plugin configurations
+    plugin_checkbox_options: Optional["PluginCheckboxOptions"] = None
+    plugin_clear_button: Optional["PluginClearButton"] = None
+    plugin_dropdown_header: PluginDropdownHeader | None = None
+    plugin_dropdown_footer: Optional["PluginDropdownFooter"] = None
+    plugin_dropdown_input: Optional["PluginDropdownInput"] = None
+    plugin_remove_button: Optional["PluginRemoveButton"] = None
+
+    def validate(self) -> None:
+        """Validate the complete configuration."""
+        if len(self.filter_by) > 0 and len(self.filter_by) != 2:
+            raise ValidationError("filter_by must be either empty or a 2-tuple")
+
+        if len(self.exclude_by) > 0 and len(self.exclude_by) != 2:
+            raise ValidationError("exclude_by must be either empty or a 2-tuple")
+
+        if (len(self.filter_by) > 0 or len(self.exclude_by) > 0) and self.filter_by == self.exclude_by:
+            raise ValidationError("filter_by and exclude_by cannot refer to the same field")
+
+        if self.load_throttle < 0:
+            raise ValidationError("load_throttle must be positive")
+        if self.max_items is not None and self.max_items < 1:
+            raise ValidationError("max_items must be greater than 0")
+        if self.max_options is not None and self.max_options < 1:
+            raise ValidationError("max_options must be greater than 0")
+        if self.minimum_query_length < 0:
+            raise ValidationError("minimum_query_length must be positive")
+
+    def as_dict(self) -> dict:
+        """Convert config to dictionary for template rendering."""
+        return {k: v.as_dict() if isinstance(v, BaseConfig) else v for k, v in self.__dict__.items()}
+
+    def update(self, **kwargs):
+        """Update config with widget-level settings."""
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def verify_config_types(self):
+        """Verify that the configuration types are correct."""
+        # Check the plugin config
+        if not isinstance(self.plugin_checkbox_options, PluginCheckboxOptions):
+            logger.warning("PluginCheckboxOptions is not of type PluginCheckboxOptions")
+        if not isinstance(self.plugin_clear_button, PluginClearButton):
+            logger.warning("PluginClearButton is not of type PluginClearButton")
+        if not isinstance(self.plugin_dropdown_header, PluginDropdownHeader):
+            logger.warning("PluginDropdownHeader is not of type PluginDropdownHeader")
+        if not isinstance(self.plugin_dropdown_footer, PluginDropdownFooter):
+            logger.warning("PluginDropdownFooter is not of type PluginDropdownFooter")
+        if not isinstance(self.plugin_dropdown_input, PluginDropdownInput):
+            logger.warning("PluginDropdownInput is not of type PluginDropdownInput")
+        if not isinstance(self.plugin_remove_button, PluginRemoveButton):
+            logger.warning("PluginRemoveButton is not of type PluginRemoveButton")
+        return True
+
+
+def get_plugin_config(plugin_class: type[BaseConfig], plugin_key: str, defaults: BaseConfig) -> BaseConfig:
+    """Retrieve a plugin configuration from the project settings.
+
+    The plugin config might be defined as a dict or as an instance of the config class.
+    If it's not found, return the default config.
+    """
+    plugin_data = PROJECT_PLUGINS.get(plugin_key, None)
+    if plugin_data is None:
+        return defaults
+    if isinstance(plugin_data, plugin_class):
+        return plugin_data
+    if isinstance(plugin_data, dict):
+        return plugin_class(**plugin_data)
+    return defaults  # Fallback if something unexpected
+
+
+# Create a base "global default" TomSelectConfig from project settings and package defaults
+GLOBAL_DEFAULT_CONFIG = TomSelectConfig(
+    plugin_checkbox_options=get_plugin_config(PluginCheckboxOptions, "checkbox_options", None),
+    plugin_clear_button=get_plugin_config(PluginClearButton, "clear_button", None),
+    plugin_dropdown_header=get_plugin_config(PluginDropdownHeader, "dropdown_header", None),
+    plugin_dropdown_footer=get_plugin_config(PluginDropdownFooter, "dropdown_footer", None),
+    plugin_dropdown_input=get_plugin_config(PluginDropdownInput, "dropdown_input", None),
+    plugin_remove_button=get_plugin_config(PluginRemoveButton, "remove_button", None),
+    # Merge DEFAULT_CONFIG fields if needed:
+    **{k: v for k, v in PROJECT_DEFAULT_CONFIG.items()},
+)
+
+
+def merge_configs(base: TomSelectConfig, override: TomSelectConfig | None = None) -> TomSelectConfig:
+    """Merge a base TomSelectConfig with an override config.
+
+    Args:
+        base: The base configuration.
+        override: The override configuration.
+
+    Returns:
+        The merged configuration.
+    """
+    if not override:
+        return base
+    # For each field in TomSelectConfig, if override has a non-default value, use it.
+    # If it's None or not provided, keep base value.
+    # Since these are dataclasses, we can do something more direct:
+    # We'll just manually handle this for clarity
+    combined = base.__dict__.copy()
+    for field_name in override.__dataclass_fields__:
+        val = getattr(override, field_name)
+        if val is not None:
+            combined[field_name] = val
+    return TomSelectConfig(**combined)
