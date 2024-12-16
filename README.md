@@ -116,6 +116,18 @@ class MyForm(forms.Form):
 - Translation support
 - Customizable messages
 
+## Example Project
+
+To see Django TomSelect in action, check out the [Example Project](https://github.com/OmenApps/django-tomselect/tree/main/example_project). It demonstrates a variety of use cases, with **15 different implementations** from basic atocompletion to advanced applications, showing how to use django-tomselect's autocomplete fields in a Django project.
+
+Each of the examples is described in [the Example Project docs](https://django-tomselect.readthedocs.io/en/latest/example_app/introduction.html).
+
+Here are a few screenshots from the example project:
+
+![Rich Content Article Selection](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/docs/images/rich-article-select1.png)
+![Article List](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/docs/images/article-list.png)
+![Article Bulk Actions](https://raw.githubusercontent.com/jacklinke/django-tomselect/main/docs/images/article-bulk-action2.png)
+
 ## Documentation
 
 - [Complete Usage Guide](https://django-tomselect.readthedocs.io/en/latest/usage.html)
