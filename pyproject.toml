@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-tomselect"
-version = "2024.12.1"
+version = "2024.12.2"
 description = "Django autocomplete widgets and views using Tom Select"
 authors = [{ name = "Jack Linke", email = "jacklinke@gmail.com" }]
 license = { text = "MIT" }
@@ -91,7 +91,14 @@ dev-dependencies = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-django_tomselect = ["*.js", "*.css", "*.css.map", "*.html", "locale/*"]
+django_tomselect = [
+    "templates/**/*.html",
+    "static/**/*.js",
+    "static/**/*.css",
+    "static/**/*.map",
+    "locale/**/*.mo",
+    "locale/**/*.po",
+]
 
 [tool.coverage.paths]
 source = ["src", "*/site-packages"]
