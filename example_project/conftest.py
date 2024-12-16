@@ -52,7 +52,11 @@ def sample_magazine():
 def edition_with_magazine(sample_magazine):
     """Create a sample Edition instance with an associated Magazine."""
     return Edition.objects.create(
-        name="Magazine Edition", year="2024", pages="200", pub_num="MAG-001", magazine=sample_magazine
+        name="Magazine Edition",
+        year="2024",
+        pages="200",
+        pub_num="MAG-001",
+        magazine=sample_magazine,
     )
 
 
@@ -83,7 +87,11 @@ def editions(magazines):
 
     for i, (name, year) in enumerate(test_data, 1):
         edition = Edition.objects.create(
-            name=name, year=year, pages=str(i), pub_num=f"PUBNUM{i}", magazine=magazines[i % len(magazines)]
+            name=name,
+            year=year,
+            pages=str(i),
+            pub_num=f"PUBNUM{i}",
+            magazine=magazines[i % len(magazines)],
         )
         editions.append(edition)
 
