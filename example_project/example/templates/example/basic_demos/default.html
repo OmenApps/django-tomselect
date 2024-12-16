@@ -1,0 +1,21 @@
+{% extends 'example/base_with_default.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h2>Default Styling Demo</h2>
+    <div>This page demonstrates four different configurations for the django_tomselect form fields using Default styling.</div>
+    <br>
+    <form>
+        {% csrf_token %}
+        {{ form.as_div }}
+    </form>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Django Tom Select Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 20%;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .nav {
+            list-style: none;
+            padding: 0;
+        }
+        .nav-item {
+            margin-bottom: 10px;
+        }
+        .nav-link {
+            text-decoration: none;
+            color: #007bff;
+            padding: 10px;
+            display: block;
+            border-radius: 5px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .nav-link:hover {
+            background-color: #e2e6ea;
+            color: #0056b3;
+        }
+        .nav-link.active {
+            font-weight: bold;
+            background-color: #e9ecef;
+        }
+        .content {
+            flex: 1;
+            padding: 20px;
+        }
+    </style>
+    {% block extra_header %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation Sidebar -->
+        <nav class="sidebar">
+            <ul class="nav">
+                {% include "example/navbar_links.html" %}
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content">
+            <div>
+                {% block content %}
+                <p>Welcome to the Django Tom Select Demo!</p>
+                {% endblock %}
+            </div>
+        </main>
+    </div>
+</body>
+</html>

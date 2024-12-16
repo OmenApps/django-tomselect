@@ -1,0 +1,45 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    <style>
+        .success-container {
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        .tag-badge {
+            font-size: 0.9rem;
+            margin: 0.25rem;
+            padding: 0.5rem 0.75rem;
+            background-color: #e9ecef;
+            border-radius: 20px;
+            display: inline-block;
+        }
+        .tag-count {
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Tags Saved Successfully</h2>
+    </div>
+    <div class="card-body">
+        <div class="success-container">
+            <h4>Selected Tags <span class="tag-count">({{ tags|length }})</span></h4>
+            <div class="mt-3">
+                {% for tag in tags %}
+                    <span class="tag-badge">{{ tag.name }}</span>
+                {% endfor %}
+            </div>
+
+            <div class="mt-4">
+                <a href="{% url 'tagging' %}" class="btn btn-primary">Add More Tags</a>
+                <a href="{% url 'index' %}" class="btn btn-outline-secondary ms-2">Return to Home</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

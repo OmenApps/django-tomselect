@@ -1,0 +1,29 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Exclude-By Primary Author Demo</h2>
+        </div>
+        <div class="card-body">
+            <div class="pb-5">
+                This page demonstrates how to exclude available options based on the selected value of another field.
+                In this case, the options for Contributing Author include all except the selected Primary Author.
+            </div>
+            <form>
+                {% csrf_token %}
+                {{ form.as_div }}
+            </form>
+        </div>
+    </div>
+{% endblock %}

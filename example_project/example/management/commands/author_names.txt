@@ -60,7 +60,6 @@ Ken Thompson
 Linus Torvalds
 Margaret Hamilton
 Niklaus Wirth
-Richard Stallman
 Tim Berners-Lee
 Vint Cerf
 Yukihiro Matsumoto

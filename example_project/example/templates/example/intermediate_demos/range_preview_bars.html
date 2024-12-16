@@ -1,0 +1,25 @@
+{% load chart_tags %}
+
+<div class="mb-3">
+    {% if is_detail_view %}
+        <h5>Distribution for {{ selected_range }} words ({{ total_articles }} articles)</h5>
+    {% else %}
+        <h5>Overall Distribution ({{ total_articles }} articles)</h5>
+    {% endif %}
+</div>
+
+{% for item in data %}
+    <div class="position-relative bar-container">
+        <div class="bar {% if item.range == selected_range %}selected{% endif %}"
+             style="width: {{ item.count|percentage_of_max:max_count }}%">
+        </div>
+        <span class="bar-label">{{ item.range }} words</span>
+        <span class="bar-value">{{ item.count }} article{{ item.count|pluralize }}</span>
+    </div>
+{% endfor %}
+
+{% if not is_detail_view %}
+    <div class="text-muted small mt-3">
+        Select a range to see detailed distribution
+    </div>
+{% endif %}

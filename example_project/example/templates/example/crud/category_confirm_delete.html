@@ -1,0 +1,34 @@
+{% extends "example/base_with_bootstrap5.html" %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Delete Category</h2>
+        </div>
+        <div class="card-body">
+            {% if category.children.exists %}
+                <div class="alert alert-warning">
+                    <h4 class="alert-heading">Warning!</h4>
+                    <p>This category has subcategories. You must delete or reassign all subcategories before deleting this category.</p>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'category-list' %}" class="btn btn-secondary">Back to Categories</a>
+                </div>
+            {% else %}
+                <p>Are you sure you want to delete the category "{{ category.name }}"?</p>
+                {% if category.parent %}
+                    <p class="text-muted">This is a subcategory of "{{ category.parent.name }}".</p>
+                {% else %}
+                    <p class="text-muted">This is a root category.</p>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                        <a href="{% url 'category-list' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

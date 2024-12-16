@@ -1,0 +1,88 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .tier-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .tier-1 { background-color: #ffd700; color: #000; }
+        .tier-2 { background-color: #c0c0c0; color: #000; }
+        .tier-3 { background-color: #cd7f32; color: #fff; }
+        .tier-4 { background-color: #000; color: #fff; }
+        .tier-5 { background-color: #ff69b4; color: #fff; }
+        .tier-6 { background-color: #00f; color: #fff; }
+        .tier-7 { background-color: #008000; color: #fff; }
+        .tier-8 { background-color: #9400d3; color: #fff; }
+        .restrictions-note {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Content Embargo Management</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>
+                This example demonstrates implement cascading selects with rich metadata, displaying custom information
+                via JavaScript based on selected options, and the use of both model- and iterator-based form fields in
+                a single form.
+            </p>
+            <hr>
+            <p>
+                Configure content embargo periods for different publishing regions. Each region has specific
+                market requirements and typical embargo periods based on their tier and local regulations.
+            </p>
+        </div>
+
+        <form method="post" class="col-md-8 mx-auto">
+            {% csrf_token %}
+
+            <div class="mb-4">
+                <label class="form-label">{{ form.region.label }}</label>
+                {{ form.region }}
+                <div class="restrictions-note" id="regionInfo"></div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">{{ form.timeframe.label }}</label>
+                {{ form.timeframe }}
+            </div>
+
+            <button type="submit" class="btn btn-primary">Set Embargo Period</button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const regionSelect = document.querySelector('#id_region').tomselect;
+    const infoDiv = document.querySelector('#regionInfo');
+
+    regionSelect.on('change', function(value) {
+        const option = regionSelect.options[value];
+        if (option) {
+            infoDiv.innerHTML = `
+                <span class="tier-badge tier-${option.market_tier.slice(-1)}">
+                    ${option.market_tier}
+                </span>
+                <div class="mt-2">
+                    <strong>Typical embargo:</strong> ${option.typical_embargo_days} days<br>
+                    <strong>Restrictions:</strong> ${option.content_restrictions}
+                </div>
+            `;
+        }
+    });
+});
+</script>
+{% endblock %}

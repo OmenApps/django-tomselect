@@ -1,0 +1,19 @@
+{% extends "example/base_with_bootstrap5.html" %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Delete Author</h2>
+        </div>
+        <div class="card-body">
+            <p>Are you sure you want to delete the author "{{ author.name }}"?</p>
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                    <a href="{% url 'author-list' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

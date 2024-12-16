@@ -1,6 +1,10 @@
 """Models for the example project."""
 
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Count, F, Q, Value
+from django.db.models.functions import Concat
 
 
 class SearchQueryset(models.QuerySet):
@@ -11,6 +15,181 @@ class SearchQueryset(models.QuerySet):
         return self.filter(name__icontains=q)
 
 
+class ArticleStatus(models.TextChoices):
+    """Choices for the status field of the Article model.
+
+    Used to demonstrate the AutocompleteIterablesView.
+    """
+
+    DRAFT = "draft", "Draft"
+    ACTIVE = "active", "Active"
+    ARCHIVED = "archived", "Archived"
+    PUBLISHED = "published", "Published"
+    PENDING = "pending", "Pending"
+    LOCKED = "locked", "Locked"
+    ON_HOLD = "on_hold", "On Hold"
+    ON_REVIEW = "on_review", "On Review"
+    MODIFIED = "modified", "Modified"
+    MODERATED = "moderated", "Moderated"
+    NEW = "new", "New"
+    NEEDS_REVIEW = "needs_review", "Needs Review"
+    BLOCKED = "blocked", "Blocked"
+    BANNED = "banned", "Banned"
+    VERIFIED = "verified", "Verified"
+    CONFIRMED = "confirmed", "Confirmed"
+    CANCELED = "canceled", "Canceled"
+    APPROVED = "approved", "Approved"
+    ACCEPTED = "accepted", "Accepted"
+    SUBMITTED = "submitted", "Submitted"
+    SAVED = "saved", "Saved"
+    DELETED = "deleted", "Deleted"
+    DENIED = "denied", "Denied"
+    FLAGGED = "flagged", "Flagged"
+    GRANTED = "granted", "Granted"
+    GOOD = "good", "Good"
+    HIDDEN = "hidden", "Hidden"
+    HIGHLIGHTED = "highlighted", "Highlighted"
+    HOLD = "hold", "Hold"
+    JUNK = "junk", "Junk"
+    KICKED = "kicked", "Kicked"
+    KILLED = "killed", "Killed"
+    INACTIVE = "inactive", "Inactive"
+    IN_PROGRESS = "in_progress", "In Progress"
+    UNPUBLISHED = "unpublished", "Unpublished"
+    UNVERIFIED = "unverified", "Unverified"
+    YES = "yes", "Yes"
+    YET_TO_BE_PUBLISHED = "yet_to_be_published", "Yet to be Published"
+    TO_BE_REVIEWED = "to_be_reviewed", "To Be Reviewed"
+    TRASHED = "trashed", "Trashed"
+    TROUBLED = "troubled", "Troubled"
+    REJECTED = "rejected", "Rejected"
+    REMOVED = "removed", "Removed"
+    EDITED = "edited", "Edited"
+    ERROR = "error", "Error"
+    WAITING = "waiting", "Waiting"
+    WORKING = "working", "Working"
+    QUEUED = "queued", "Queued"
+    QUESTIONABLE = "questionable", "Questionable"
+    UNCONFIRMED = "unconfirmed", "Unconfirmed"
+    REVERTED = "reverted", "Reverted"
+    REVIEWED = "reviewed", "Reviewed"
+    EXPIRED = "expired", "Expired"
+    WIP = "wip", "WIP"
+    BETA = "beta", "Beta"
+
+
+class ArticlePriority(models.IntegerChoices):
+    """Choices for the priority field of the Article model.
+
+    Used to demonstrate the AutocompleteIterablesView.
+    """
+
+    LOW = 1, "Low"
+    MEDIUM = 2, "Medium"
+    HIGH = 3, "High"
+    CRITICAL = 4, "Critical"
+    URGENT = 5, "Urgent"
+    IMMEDIATE = 6, "Immediate"
+    NONE = 7, "None"
+    IMMENSE = 8, "Immense"
+    EXTREME = 9, "Extreme"
+    MAXIMUM = 10, "Maximum"
+    TOTAL = 11, "Total"
+    ABSOLUTE = 12, "Absolute"
+    ALPHA = 13, "Alpha"
+    GAMMA = 14, "Gamma"
+    MASTER = 15, "Master"
+    MAJOR = 16, "Major"
+    MINOR = 17, "Minor"
+    NORMAL = 18, "Normal"
+    CRUCIAL = 19, "Crucial"
+    NADA = 20, "Nada"
+    MINISCULE = 21, "Miniscule"
+    MICRO = 22, "Micro"
+    EXCESSIVE = 23, "Excessive"
+    OVERWHELMING = 24, "Overwhelming"
+    IMMENSELY_HIGH = 25, "Immensely High"
+    OVERLY_HIGH = 26, "Overly High"
+    ENORMOUS = 27, "Enormous"
+    GIGANTIC = 28, "Gigantic"
+    TOMORROW = 29, "Tomorrow"
+    LATER = 30, "Later"
+    CANT_BE_BOTHERED = 31, "Can't Be Bothered"
+    NOT_IMPORTANT = 32, "Not Important"
+    WHO_CARES = 33, "Who Cares"
+    NON_EUCLEDIAN = 34, "Non-Eucledian"
+
+
+class EmbargoTimeframe(models.TextChoices):
+    """Choices for the embargo_timeframe field of the Article model."""
+
+    PRE_RELEASE = "pre", "Pre-Release (2 weeks)"
+    STANDARD = "std", "Standard (1 month)"
+    EXTENDED = "extd", "Extended (3 months)"
+    EXTREME = "extr", "Extreme (6 months)"
+
+
+# A list of years for the Edition model
+# Used to demonstrate the AutocompleteIterablesView
+edition_year = [
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+]
+
+# A list of word count ranges for the Edition model
+# Used to demonstrate the AutocompleteIterablesView
+word_count_range = (
+    (0, 100),
+    (100, 200),
+    (200, 300),
+    (300, 400),
+    (400, 500),
+    (500, 600),
+    (600, 700),
+    (700, 800),
+    (800, 900),
+    (900, 1000),
+    (1000, 1100),
+    (1100, 1200),
+    (1200, 1300),
+    (1300, 1400),
+    (1400, 1500),
+    (1500, 1600),
+    (1600, 1700),
+    (1700, 1800),
+    (1800, 1900),
+    (1900, 2000),
+)
+
+
+market_tier_choices = [
+    (1, "Tier 1"),
+    (2, "Tier 2"),
+    (3, "Tier 3"),
+]
+
+
+class EmbargoRegion(models.Model):
+    """A model representing a region with embargo information."""
+
+    name = models.CharField(max_length=100)
+    market_tier = models.IntegerField(choices=market_tier_choices)
+    content_restrictions = models.TextField(help_text="Special content restrictions for this region")
+    typical_embargo_days = models.IntegerField(
+        validators=[MinValueValidator(1)],
+        help_text="Typical embargo period in days for this region",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} (Tier {self.market_tier})"
+
+
 class Edition(models.Model):
     """A model representing an edition of a magazine."""
 
@@ -19,7 +198,14 @@ class Edition(models.Model):
     pages = models.CharField("Pages", max_length=50)
     pub_num = models.CharField("Publication Number", max_length=50)
 
-    magazine = models.ForeignKey("Magazine", on_delete=models.SET_NULL, blank=True, null=True)
+    magazine = models.ForeignKey(
+        "Magazine",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     objects = SearchQueryset.as_manager()
 
@@ -56,6 +242,8 @@ class Magazine(models.Model):
         choices=AcceptsNewArticles.choices,
         default=AcceptsNewArticles.YES,
     )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:  # pylint: disable=R0903
         """Meta options for the model."""
@@ -72,52 +260,41 @@ class Magazine(models.Model):
         return str(self.name)
 
 
-class ModelFormTestModel(models.Model):
-    """A model for testing the TomSelectField in a model form."""
+class CategoryQuerySet(models.QuerySet):
+    """Queryset for the Category model."""
 
-    name = models.CharField("Name", max_length=50)
-
-    tomselect = models.ForeignKey(
-        Edition,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        related_name="tomselect_test_model_instances",
-    )
-    tomselect_tabular = models.ForeignKey(
-        Edition,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        related_name="tomselect_tabular_test_model_instances",
-    )
-    tomselect_multiple = models.ManyToManyField(
-        Edition,
-        blank=True,
-        related_name="tomselect_multiple_test_model_instances",
-    )
-    tomselect_tabular_multiple_with_value_field = models.ManyToManyField(
-        Edition,
-        blank=True,
-        related_name="tomselect_tabular_multiple_with_value_field_test_model_instances",
-    )
-
-    class Meta:  # pylint: disable=R0903
-        """Meta options for the model."""
-
-        verbose_name = "Model Form Test Model"
-        verbose_name_plural = "Model Form Test Models"
-
-    def __str__(self) -> str:
-        """Return the name of the model instance."""
-        return str(self.name)
+    def with_header_data(self):
+        """Annotate the queryset with parent information and article counts."""
+        return self.annotate(
+            parent_name=F("parent__name"),
+            full_path=Concat(
+                "parent__name",
+                Value(" → "),
+                "name",
+            ),
+            direct_articles=Count("article"),
+            total_articles=Count(
+                "article",
+                filter=Q(article__categories=F("id")) | Q(article__categories__parent=F("id")),
+            ),
+        ).select_related("parent")
 
 
 class Category(models.Model):
     """A model representing an article category."""
 
     name = models.CharField(max_length=100)
-    parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="children")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = models.Manager.from_queryset(CategoryQuerySet)()
 
     class Meta:
         """Meta options for the model."""
@@ -133,11 +310,26 @@ class Category(models.Model):
         return self.name
 
 
+class AuthorQuerySet(models.QuerySet):
+    """Queryset for the Author model."""
+
+    def with_details(self):
+        """Return a queryset of authors with article count annotations."""
+        return self.annotate(
+            article_count=Count("article"),
+            active_articles=Count("article", filter=Q(article__status="active")),
+        ).distinct()
+
+
 class Author(models.Model):
     """A model representing an article author."""
 
     name = models.CharField(max_length=100)
     bio = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = models.Manager.from_queryset(AuthorQuerySet)()
 
     class Meta:
         """Meta options for the model."""
@@ -156,23 +348,30 @@ class Author(models.Model):
 class Article(models.Model):
     """A model representing an article in a magazine."""
 
-    class Status(models.TextChoices):
-        """Choices for the status field."""
-
-        DRAFT = "draft", "Draft"
-        ACTIVE = "active", "Active"
-        ARCHIVED = "archived", "Archived"
-
     title = models.CharField(max_length=200)
+    word_count = models.PositiveSmallIntegerField()
     authors = models.ManyToManyField("Author")
     categories = models.ManyToManyField("Category")
     magazine = models.ForeignKey("Magazine", on_delete=models.CASCADE)
-    edition = models.ForeignKey("Edition", on_delete=models.CASCADE)
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.DRAFT,
+    edition = models.ForeignKey(
+        "Edition",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
     )
+    status = models.CharField(
+        max_length=30,
+        choices=ArticleStatus.choices,
+        default=ArticleStatus.DRAFT,
+    )
+    priority = models.IntegerField(
+        choices=ArticlePriority.choices,
+        default=ArticlePriority.NORMAL,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Normally we would use auto_now=True, but setting manually for the example
+    updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         """Meta options for the model."""
@@ -186,3 +385,76 @@ class Article(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class PublishingMarket(models.Model):
+    """Represents geographic markets for publishing operations.
+
+    Creates a three-level hierarchy: Region -> Country -> City/Market
+    """
+
+    name = models.CharField(
+        max_length=100,
+        help_text="Name of the market. Either a region, country, or city/market.",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    market_size = models.IntegerField(
+        default=0,
+        help_text="Market size in millions of potential readers",
+    )
+    active_publications = models.IntegerField(
+        default=0,
+        help_text="Number of active publications in this market",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        """Meta options for the model."""
+
+        ordering = ["name"]
+        verbose_name = "Publishing Market"
+        verbose_name_plural = "Publishing Markets"
+
+    def __str__(self):
+        return self.name
+
+
+class PublicationTag(models.Model):
+    """Represents a tag/keyword for publications with validation rules."""
+
+    name = models.CharField(max_length=50, unique=True)
+    usage_count = models.IntegerField(default=0)
+    is_approved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        """Validate the tag name follows our rules."""
+        # Convert to lowercase for consistency
+        self.name = self.name.lower().strip()
+
+        # Check length (min 2 chars, max 50)
+        if len(self.name) < 2:
+            raise ValidationError("Tag must be at least 2 characters long")
+
+        # No special characters except hyphen and underscore
+        if not all(c.isalnum() or c in "-_" for c in self.name):
+            raise ValidationError("Tags can only contain letters, numbers, hyphens, and underscores")
+
+        # No consecutive special characters
+        if "--" in self.name or "__" in self.name:
+            raise ValidationError("Tags cannot contain consecutive special characters")
+
+        # Must start and end with alphanumeric
+        if not self.name[0].isalnum() or not self.name[-1].isalnum():
+            raise ValidationError("Tags must start and end with a letter or number")
+
+    def __str__(self):
+        return self.name

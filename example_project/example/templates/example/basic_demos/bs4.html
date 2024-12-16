@@ -1,0 +1,31 @@
+{% extends 'example/base_with_bootstrap4.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+
+        /* Override the default form label color to white */
+        .form-label {
+            color: #FFF;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Bootstrap 4 Styling Demo</h2>
+        </div>
+        <div class="card-body">
+            <div class="pb-5">This page demonstrates four different configurations for the django_tomselect form fields using Bootstrap 4 styling.</div>
+            <form>
+                {% csrf_token %}
+                {{ form.as_div }}
+            </form>
+        </div>
+    </div>
+{% endblock %}

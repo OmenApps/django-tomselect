@@ -1,0 +1,189 @@
+{% extends "example/base_with_bootstrap5.html" %}
+
+{% load static %}
+
+{% block extra_header %}
+{{ form.media }}
+<style>
+    .helptext {
+        font-size: 10px;
+        color: #757575;
+    }
+    body {
+        padding-bottom: 500px;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>{% if form.instance.pk %}Edit Article{% else %}Create Article{% endif %}</h2>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="row mb-4">
+                    <div class="col">
+                        <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="alert alert-danger">
+                                {{ form.title.errors }}
+                            </div>
+                        {% endif %}
+                        <span class="helptext">{{ form.title.help_text }}</span>
+                    </div>
+                    <div class="col">
+                        <label for="{{ form.word_count.id_for_label }}" class="form-label">{{ form.word_count.label }}</label>
+                        {{ form.word_count }}
+                        {% if form.word_count.errors %}
+                            <div class="alert alert-danger">
+                                {{ form.word_count.errors }}
+                            </div>
+                        {% endif %}
+                        <span class="helptext">{{ form.word_count.help_text }}</span>
+                    </div>
+                </div>
+
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="h5 mb-0">Status and Priority</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col">
+                                <label for="{{ form.priority.id_for_label }}" class="form-label">{{ form.priority.label }}</label>
+                                {{ form.priority }}
+                                {% if form.priority.errors %}
+                                    <div class="alert alert-danger">
+                                        {{ form.priority.errors }}
+                                    </div>
+                                {% endif %}
+                                <span class="helptext">{{ form.priority.help_text }}</span>
+                            </div>
+
+                            <div class="col">
+                                <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
+                                {{ form.status }}
+                                {% if form.status.errors %}
+                                    <div class="alert alert-danger">
+                                        {{ form.status.errors }}
+                                    </div>
+                                {% endif %}
+                                <span class="helptext">{{ form.status.help_text }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="h5 mb-0">Magazine and Edition</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="{{ form.magazine.id_for_label }}" class="form-label">{{ form.magazine.label }}</label>
+                            {{ form.magazine }}
+                            {% if form.magazine.errors %}
+                                <div class="alert alert-danger">
+                                    {{ form.magazine.errors }}
+                                </div>
+                            {% endif %}
+                            <span class="helptext">{{ form.magazine.help_text }}</span>
+                        </div>
+
+                        {% if form.edition %}
+                            <div class="mb-3">
+                                <label for="{{ form.edition.id_for_label }}" class="form-label">{{ form.edition.label }}</label>
+                                {{ form.edition }}
+                                {% if form.edition.errors %}
+                                    <div class="alert alert-danger">
+                                        {{ form.edition.errors }}
+                                    </div>
+                                {% endif %}
+                                <span class="helptext">{{ form.edition.help_text }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="h5 mb-0">Authors</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="{{ form.primary_author.id_for_label }}" class="form-label">{{ form.primary_author.label }}</label>
+                            {{ form.primary_author }}
+                            {% if form.primary_author.errors %}
+                                <div class="alert alert-danger">
+                                    {{ form.primary_author.errors }}
+                                </div>
+                            {% endif %}
+                            <span class="helptext">{{ form.primary_author.help_text }}</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.contributing_authors.id_for_label }}" class="form-label">{{ form.contributing_authors.label }}</label>
+                            {{ form.contributing_authors }}
+                            {% if form.contributing_authors.errors %}
+                                <div class="alert alert-danger">
+                                    {{ form.contributing_authors.errors }}
+                                </div>
+                            {% endif %}
+                            <span class="helptext">{{ form.contributing_authors.help_text }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="h5 mb-0">Categories</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="{{ form.main_category.id_for_label }}" class="form-label">{{ form.main_category.label }}</label>
+                            {{ form.main_category }}
+                            {% if form.main_category.errors %}
+                                <div class="alert alert-danger">
+                                    {{ form.main_category.errors }}
+                                </div>
+                            {% endif %}
+                            <span class="helptext">{{ form.main_category.help_text }}</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.subcategories.id_for_label }}" class="form-label">{{ form.subcategories.label }}</label>
+                            {{ form.subcategories }}
+                            {% if form.subcategories.errors %}
+                                <div class="alert alert-danger">
+                                    {{ form.subcategories.errors }}
+                                </div>
+                            {% endif %}
+                            <span class="helptext">{{ form.subcategories.help_text }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary">
+                        {% if form.instance.pk %}Save Changes{% else %}Create Article{% endif %}
+                    </button>
+                    <a href="{% url 'article-list' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

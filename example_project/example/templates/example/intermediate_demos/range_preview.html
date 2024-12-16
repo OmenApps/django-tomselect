@@ -1,0 +1,95 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .preview-container {
+            min-height: 300px;
+        }
+        .bar-container {
+            height: 2rem;
+            background-color: #e9ecef;
+            margin-bottom: 0.5rem;
+            border-radius: 0.25rem;
+            position: relative;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+        }
+        .bar {
+            height: 100%;
+            background-color: #0d6efd;
+            transition: width 0.3s ease;
+            position: absolute;
+            top: 0;
+            left: 0;
+            border-radius: 0.25rem;
+        }
+        .bar.selected {
+            background-color: #0a58ca;
+        }
+        .bar-label {
+            position: relative;
+            flex-shrink: 0;
+            color: #212529;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            z-index: 1;
+        }
+        .bar-value {
+            position: relative;
+            margin-left: auto;
+            color: #212529;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            z-index: 1;
+        }
+        .helptext {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Range Selection with Preview</h2>
+        </div>
+        <div class="card-body">
+            <div class="pb-3">
+                This example demonstrates how to create an interactive range selector with a live preview
+                visualization.
+                <hr>
+
+                Select a range to see detailed distribution in 10-word bins.
+            </div>
+
+            <form>
+                {% csrf_token %}
+                <div class="mb-4">
+                    {{ form.word_count }}
+                    {% if form.word_count.help_text %}
+                        <div class="helptext">{{ form.word_count.help_text }}</div>
+                    {% endif %}
+                </div>
+            </form>
+
+            <div class="preview-container mt-4"
+                 id="preview-container"
+                 hx-get="{% url 'update-range-preview' %}"
+                 hx-trigger="change from:#id_word_count"
+                 hx-target="#preview-container"
+                 hx-include="#id_word_count"
+                 hx-swap="innerHTML">
+                 {% comment %} {% include "example/advanced_demos/range_preview_bars.html" %} {% endcomment %}
+            </div>
+            <div hx-get="{% url 'update-range-preview' %}"
+                 hx-trigger="load"
+                 hx-target="#preview-container"
+                 hx-swap="innerHTML">
+            </div>
+        </div>
+    </div>
+{% endblock %}

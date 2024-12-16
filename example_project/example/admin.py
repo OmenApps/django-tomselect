@@ -1,20 +1,21 @@
 """Admin configuration for the example app."""
 
+from django.apps import apps
 from django.contrib import admin
 
-from .models import Edition, Magazine, ModelFormTestModel
+
+# Autoregister any models not already registered
+class ListAdminMixin:
+    """Mixin to automatically set list_display to all fields."""
+
+    def __init__(self, model, admin_site):
+        self.list_display = [field.name for field in model._meta.fields]
+        super().__init__(model, admin_site)
 
 
-@admin.register(Edition)
-class EditionAdmin(admin.ModelAdmin):
-    """Admin configuration for the Edition model."""
-
-
-@admin.register(Magazine)
-class MagazineAdmin(admin.ModelAdmin):
-    """Admin configuration for the Magazine model."""
-
-
-@admin.register(ModelFormTestModel)
-class ModelFormTestModelAdmin(admin.ModelAdmin):
-    """Admin configuration for the ModelFormTestModel model."""
+for model in apps.get_app_config("example").get_models():
+    admin_class = type("AdminClass", (ListAdminMixin, admin.ModelAdmin), {})
+    try:
+        admin.site.register(model, admin_class)
+    except admin.sites.AlreadyRegistered:
+        pass

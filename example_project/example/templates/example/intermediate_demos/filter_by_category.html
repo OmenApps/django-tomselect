@@ -1,0 +1,30 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Filter-By Category Demo</h2>
+        </div>
+        <div class="card-body">
+            <div class="pb-5">
+                This page demonstrates how to filter available options based on the selected value of another, related field.
+                In this case, the options for Subcategory are limited to those associated with the selected Category.
+                Unless a 'parent' type Category is selected, the Subcategory field will be empty of options.
+            </div>
+            <form>
+                {% csrf_token %}
+                {{ form.as_div }}
+            </form>
+        </div>
+    </div>
+{% endblock %}

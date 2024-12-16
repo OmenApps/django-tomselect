@@ -1,0 +1,79 @@
+{% extends "example/base_with_bootstrap5.html" %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+        .search-container {
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        .score-explanation {
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .score-component {
+            margin: 10px 0;
+            padding: 8px;
+            border-left: 3px solid #0d6efd;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Weighted Author Search</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>
+                This example demonstrates sophisticated search result ordering using weighted relevance scoring.
+                Start by typing one or more letters into the tom select to begin searching. Results are ordered based on:
+            </p>
+            <div class="score-explanation">
+                <div class="score-component">
+                    <strong>Name Match (up to 100 points)</strong>
+                    <ul>
+                        <li>Exact match: 100 points</li>
+                        <li>Starts with: 50 points</li>
+                        <li>Contains: 25 points</li>
+                    </ul>
+                </div>
+                <div class="score-component">
+                    <strong>Article Count (up to 25 points)</strong>
+                    <ul>
+                        <li>0.25 points per article</li>
+                    </ul>
+                </div>
+                <div class="score-component">
+                    <strong>Recent Activity (up to 25 points)</strong>
+                    <ul>
+                        <li>Active in last 30 days: 25 points</li>
+                        <li>Has any activity: 10 points</li>
+                        <li>No activity: 0 points</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-container">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.author }}
+                    {% if form.author.help_text %}
+                        <div class="helptext">{{ form.author.help_text }}</div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,8 +1,22 @@
+"""Command to generate example data for the example app."""
+
+import datetime
 import random
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
-from example_project.example.models import Article, Author, Category, Edition, Magazine
+from example_project.example.models import (
+    Article,
+    ArticlePriority,
+    ArticleStatus,
+    Author,
+    Category,
+    Edition,
+    EmbargoRegion,
+    Magazine,
+    PublishingMarket,
+)
 
 
 class Command(BaseCommand):
@@ -21,16 +35,177 @@ class Command(BaseCommand):
         Category.objects.all().delete()
         Author.objects.all().delete()
         Article.objects.all().delete()
+        PublishingMarket.objects.all().delete()
+        EmbargoRegion.objects.all().delete()
+
+        # Create Publishing Markets
+        self.stdout.write("Creating publishing markets...")
+
+        # Create regions
+        regions = {
+            "North America": {
+                "United States": [
+                    "New York",
+                    "Los Angeles",
+                    "Chicago",
+                    "San Francisco",
+                    "Boston",
+                    "Seattle",
+                ],
+                "Canada": ["Toronto", "Vancouver", "Montreal"],
+                "Mexico": ["Mexico City", "Guadalajara", "Monterrey"],
+            },
+            "Europe": {
+                "United Kingdom": [
+                    "London",
+                    "Manchester",
+                    "Edinburgh",
+                    "Birmingham",
+                    "Bristol",
+                    "Glasgow",
+                ],
+                "Germany": ["Berlin", "Munich", "Frankfurt", "Hamburg"],
+                "France": ["Paris", "Lyon", "Marseille"],
+                "Spain": ["Madrid", "Barcelona", "Valencia"],
+                "Italy": ["Rome", "Milan", "Florence"],
+                "Netherlands": ["Amsterdam", "Rotterdam", "Utrecht", "Eindhoven"],
+                "Switzerland": ["Zurich", "Geneva", "Bern"],
+                "Sweden": ["Stockholm", "Gothenburg"],
+                "Norway": ["Oslo", "Bergen"],
+            },
+            "Asia Pacific": {
+                "Japan": ["Tokyo", "Osaka", "Kyoto"],
+                "China": ["Beijing", "Shanghai", "Guangzhou", "Hong Kong"],
+                "South Korea": ["Seoul", "Busan"],
+                "Australia": ["Sydney", "Melbourne", "Brisbane"],
+                "India": ["Mumbai", "New Delhi", "Bangalore", "Hyderabad", "Chennai"],
+                "Singapore": ["Singapore City"],
+                "Malaysia": ["Kuala Lumpur", "Penang", "Johor Bahru"],
+                "Thailand": ["Bangkok", "Chiang Mai"],
+                "Vietnam": ["Ho Chi Minh City", "Hanoi"],
+                "Philippines": [
+                    "Manila",
+                    "Cebu",
+                    "Davao",
+                    "Quezon",
+                    "Makati",
+                    "Pasig",
+                    "Malaybalay",
+                    "Taguig",
+                ],
+            },
+            "Middle East": {
+                "United Arab Emirates": ["Dubai", "Abu Dhabi", "Sharjah"],
+                "Saudi Arabia": ["Riyadh", "Jeddah", "Mecca"],
+                "Turkey": ["Istanbul", "Ankara", "Izmir"],
+            },
+            "Antarctica": {
+                "Antarctica": ["McMurdo Station", "Amundsen-Scott South Pole Station"],
+            },
+        }
+
+        # Create the hierarchy with realistic market sizes and publication counts
+        for region_name, countries in regions.items():
+            # Create region
+            region = PublishingMarket.objects.create(
+                name=region_name,
+                market_size=0,  # Will be updated with sum of children
+                active_publications=0,  # Will be updated with sum of children
+            )
+            self.stdout.write(f"Created region: {region_name}")
+
+            for country_name, cities in countries.items():
+                # Create country with randomized base metrics
+                country_market_size = random.randint(20, 100)  # Millions of potential readers
+                country_publications = random.randint(50, 200)
+
+                country = PublishingMarket.objects.create(
+                    name=country_name,
+                    parent=region,
+                    market_size=country_market_size,
+                    active_publications=country_publications,
+                )
+                self.stdout.write(f"Created country: {country_name}")
+
+                for city in cities:
+                    # Create city/market with portion of country's metrics
+                    city_market_size = int(country_market_size * random.uniform(0.1, 0.4))
+                    city_publications = int(country_publications * random.uniform(0.1, 0.4))
+
+                    PublishingMarket.objects.create(
+                        name=city,
+                        parent=country,
+                        market_size=city_market_size,
+                        active_publications=city_publications,
+                    )
+                    self.stdout.write(f"Created local market: {city}")
+
+        # Create EmbargoRegions
+        embargo_regions_data = [
+            ("European Embargo", 1, "Digital-only embargo restrictions apply", 3),
+            (
+                "Asia-Pacific Embargo",
+                2,
+                "Limited content access before full embargo lift",
+                7,
+            ),
+            (
+                "North American Embargo",
+                3,
+                "Restrict all publications until the embargo period ends",
+                10,
+            ),
+            (
+                "South American Embargo",
+                4,
+                "Limited access to digital content during embargo",
+                5,
+            ),
+            (
+                "African Embargo",
+                5,
+                "No access to digital or print content during embargo",
+                14,
+            ),
+            (
+                "Middle East Embargo",
+                6,
+                "No access to digital or print content during embargo",
+                14,
+            ),
+            (
+                "Oceania Embargo",
+                7,
+                "Limited access to digital content during embargo",
+                7,
+            ),
+            (
+                "Antarctic Embargo",
+                8,
+                "No access to digital or print content during embargo",
+                30,
+            ),
+        ]
+
+        for name, tier, restrictions, days in embargo_regions_data:
+            EmbargoRegion.objects.create(
+                name=name,
+                market_tier=tier,
+                content_restrictions=restrictions,
+                typical_embargo_days=days,
+            )
 
         # Create magazines
         self.stdout.write("Creating magazines...")
         magazines = []
         magazine_names = [
             "Tech Today",
+            "Awesome Django",
             "Science Monthly",
             "Digital Digest",
             "Code Review",
             "Data World",
+            "Top Notch Django",
             "AI Insights",
             "Web Weekly",
             "Python Programming",
@@ -49,6 +224,7 @@ class Command(BaseCommand):
             "Linux Journal",
             "Windows Tech",
             "Mac Developer Monthly",
+            "Django Digest",
             "Cross-Platform Quarterly",
             "Gaming Technology",
             "Virtual Reality World",
@@ -59,6 +235,7 @@ class Command(BaseCommand):
             "Future Tech",
             "Hardware Review",
             "System Architecture Digest",
+            "Django Today",
             "Testing Times",
             "Agile Monthly",
             "Project Management Today",
@@ -75,6 +252,11 @@ class Command(BaseCommand):
             "UX Research Quarterly",
             "Color Theory Today",
             "Typography Trends",
+            "Interaction Design Insights",
+            "Responsive Design Review",
+            "User Testing Journal",
+            "Spaghetti Code Weekly",
+            "Boring Code Monthly",
         ]
         for name in magazine_names:
             magazine = Magazine.objects.create(
@@ -105,8 +287,6 @@ class Command(BaseCommand):
                 "Code Quality",
                 "Testing",
                 "Performance",
-                "API Design",
-                "Microservices",
                 "Serverless",
                 "Containers",
             ],
@@ -137,33 +317,50 @@ class Command(BaseCommand):
                 "Regression",
             ],
             "Infrastructure": [
-                "Cloud Services",
-                "Security",
-                "Networking",
-                "Storage Solutions",
-                "Containerization",
-                "Virtualization",
-                "Kubernetes",
-                "CI/CD",
-                "Monitoring",
-                "Load Balancing",
-                "Databases",
-                "Server Management",
+                "Access Control",
+                "API Design",
                 "Automation",
+                "Caching",
+                "CI/CD",
+                "Clean Architecture",
+                "Cloud Services",
+                "Compliance",
+                "Consistency",
+                "Containerization",
+                "Cost Optimization",
+                "CQRS",
+                "Data Partitioning",
+                "Databases",
                 "DevOps Tools",
-                "Infrastructure as Code",
                 "Disaster Recovery",
+                "Distributed Systems",
+                "Domain-Driven",
+                "Event Sourcing",
+                "Event-Driven",
+                "Fault Tolerance",
+                "Firewalls",
+                "Governance",
                 "High Availability",
-                "Scalability",
+                "Infrastructure as Code",
+                "Integration Patterns",
+                "Intrusion Detection",
+                "Kubernetes",
+                "Latency",
+                "Load Balancing",
+                "Microservices",
+                "Monitoring",
+                "Networking",
                 "Performance",
                 "Reliability",
-                "Cost Optimization",
-                "Compliance",
-                "Governance",
-                "Identity Management",
-                "Access Control",
-                "Firewalls",
-                "Intrusion Detection",
+                "Resilience",
+                "Scalability",
+                "Security",
+                "Server Management",
+                "Service Mesh",
+                "SOA",
+                "Storage Solutions",
+                "Throughput",
+                "Virtualization",
             ],
             "Design": [
                 "UI Design",
@@ -186,31 +383,31 @@ class Command(BaseCommand):
                 "Information Architecture",
                 "User Flows",
             ],
-            "Architecture": [
-                "Microservices",
-                "Serverless",
-                "Event-Driven",
-                "Domain-Driven",
-                "Clean Architecture",
-                "CQRS",
-                "Event Sourcing",
-                "SOA",
-                "API Design",
-                "Integration Patterns",
-                "Service Mesh",
-                "Distributed Systems",
-                "Scalability",
-                "Performance",
-                "Reliability",
-                "Security",
-                "Resilience",
-                "Fault Tolerance",
-                "High Availability",
-                "Consistency",
-                "Latency",
-                "Throughput",
-                "Data Partitioning",
-                "Caching",
+            "Web Frameworks": [
+                "Django",
+                "Flask",
+                "FastAPI",
+                "Tornado",
+                "Falcon",
+                "Sanic",
+                "Bottle",
+                "Pyramid",
+                "CherryPy",
+                "TurboGears",
+                "Web2py",
+                "Quart",
+                "Starlette",
+                "React",
+                "Angular",
+                "Vue.js",
+                "Svelte",
+                "Ember.js",
+                "Backbone.js",
+                "Meteor",
+                "Polymer",
+                "Aurelia",
+                "Mithril",
+                "Knockout",
             ],
             "Management": [
                 "Agile",
@@ -248,7 +445,6 @@ class Command(BaseCommand):
                 "Threat Analysis",
                 "Security Operations",
                 "Incident Response",
-                "Compliance",
                 "Penetration Testing",
                 "Security Architecture",
                 "Security Policies",
@@ -259,6 +455,11 @@ class Command(BaseCommand):
                 "Security Automation",
                 "Security Monitoring",
                 "Security Tools",
+                "Compliance Standards",
+                "Data Protection",
+                "Privacy Regulations",
+                "Cybersecurity Threats",
+                "Security Best Practices",
             ],
             "Emerging Tech": [
                 "Artificial Intelligence",
@@ -269,13 +470,70 @@ class Command(BaseCommand):
                 "AR/VR",
                 "5G Technology",
                 "Robotics",
-                "Computer Vision",
-                "Natural Language Processing",
                 "Biometrics",
                 "Digital Twins",
                 "Smart Cities",
                 "Smart Homes",
                 "Smart Grid",
+                "Autonomous Vehicles",
+                "Drones",
+                "Wearables",
+                "Voice Assistants",
+                "Chatbots",
+                "Digital Health",
+                "Fintech",
+            ],
+            "Miscellaneous": [
+                "General Programming",
+                "Software Development",
+                "Technology Trends",
+                "Industry Insights",
+                "Tutorials",
+                "Opinion Pieces",
+                "Interviews",
+                "Book Reviews",
+                "Podcast Transcripts",
+                "Conference Reports",
+                "Event Summaries",
+                "Product Reviews",
+                "Tool Reviews",
+                "Framework Comparisons",
+                "Language Comparisons",
+                "Platform Comparisons",
+                "Technology Reviews",
+                "Vendor Comparisons",
+                "Market Analysis",
+                "Career Advice",
+                "Job Postings",
+                "Salary Reports",
+                "Certification Guides",
+                "Training Programs",
+                "Research Papers",
+                "Whitepapers",
+                "Case Studies",
+                "Use Cases",
+                "Success Stories",
+                "Failure Stories",
+                "Lessons Learned",
+                "Worst Practices",
+                "Common Mistakes",
+                "Avoiding Pitfalls",
+                "Troubleshooting",
+                "Debugging",
+                "Performance Tuning",
+                "Scaling",
+                "Refactoring",
+                "Rewriting",
+                "Pair Programming",
+                "Mob Programming",
+                "Test-Driven Development",
+                "Behavior-Driven Development",
+                "Continuous Integration",
+                "Continuous Deployment",
+                "Continuous Testing",
+                "Continuous Monitoring",
+                "Feature Flags",
+                "A/B Testing",
             ],
         }
 
@@ -293,7 +551,10 @@ class Command(BaseCommand):
         # Create authors
         self.stdout.write("Creating authors...")
         authors = []
-        with open("example_project/example/management/commands/author_names.txt", "r", encoding="utf-8") as f:
+        with open(
+            "example_project/example/management/commands/author_names.txt",
+            encoding="utf-8",
+        ) as f:
             author_names = [line.strip() for line in f.readlines()]
 
         bios = [
@@ -385,13 +646,25 @@ class Command(BaseCommand):
 
         # Create articles
         self.stdout.write("Creating articles...")
-        with open("example_project/example/management/commands/article_titles.txt", "r", encoding="utf-8") as f:
+
+        with open("example_project/example/management/commands/article_titles.txt", encoding="utf-8") as f:
             title_templates = [line.strip() for line in f.readlines()]
 
-        with open("example_project/example/management/commands/topics.txt", "r", encoding="utf-8") as f:
+        with open("example_project/example/management/commands/topics.txt", encoding="utf-8") as f:
             topics = [line.strip() for line in f.readlines()]
 
-        status_weights = [(Article.Status.ACTIVE, 0.6), (Article.Status.DRAFT, 0.25), (Article.Status.ARCHIVED, 0.15)]
+        status_weights = [
+            (ArticleStatus.PUBLISHED, 0.6),
+            (ArticleStatus.DRAFT, 0.2),
+            (ArticleStatus.ARCHIVED, 0.15),
+            (ArticleStatus.CANCELED, 0.05),
+        ]
+        priorities = [priority[0] for priority in ArticlePriority.choices]
+
+        now = timezone.now()
+        # Use a 2000-day window
+        past_2000_days = now - datetime.timedelta(days=2000)
+        total_seconds_2000_days = int((now - past_2000_days).total_seconds())
 
         for magazine in magazines:
             for year in range(2020, 2025):
@@ -407,45 +680,85 @@ class Command(BaseCommand):
                     self.stdout.write(f"Created edition: {name}")
 
             for _ in range(random.randint(50, 80)):
-                # Select random authors (1-4)
                 article_authors = random.sample(authors, random.randint(1, 4))
-
-                # Select a random Edition that belongs to this magazine
                 edition = Edition.objects.filter(magazine=magazine).order_by("?").first()
 
-                # Select random categories (1-3)
+                # Select categories as before
                 main_cat = random.choice(list(main_categories.keys()))
                 sub_cats = main_categories[main_cat]
                 selected_cats = [categories[main_cat]]
-
-                # Add 1-2 subcategories
                 num_sub_cats = random.randint(1, 2)
                 selected_sub_cats = random.sample(sub_cats, num_sub_cats)
                 for sub_cat in selected_sub_cats:
                     selected_cats.append(categories[sub_cat])
 
-                # Create article
+                # Build title
                 title_template = random.choice(title_templates)
                 topic = random.choice(topics)
                 year = random.randint(2020, 2024)
-
-                # Sometimes combine topics
-                if random.random() < 0.2:  # 20% chance to combine topics
+                if random.random() < 0.2:
                     topic = f"{topic} and {random.choice(topics)}"
 
                 title = title_template.format(
-                    topic=topic, year=year, tech=random.choice(topics), domain=random.choice(topics)
+                    topic=topic,
+                    year=year,
+                    tech=random.choice(topics),
+                    domain=random.choice(topics),
                 )
 
-                status = random.choices([s[0] for s in status_weights], weights=[s[1] for s in status_weights])[0]
+                status = random.choices(
+                    [s[0] for s in status_weights],
+                    weights=[s[1] for s in status_weights],
+                )[0]
+                priority = random.choice(priorities)
+                word_count = random.randint(50, 2000)
 
-                article = Article.objects.create(title=title, magazine=magazine, edition=edition, status=status)
+                article = Article.objects.create(
+                    title=title,
+                    magazine=magazine,
+                    edition=edition,
+                    status=status,
+                    priority=priority,
+                    word_count=word_count,
+                )
 
-                # Add relationships
                 article.authors.set(article_authors)
                 article.categories.set(selected_cats)
 
-                self.stdout.write(f"Created article: {title}")
+                # Set random created_at and updated_at within last 2000 days
+                created_at_offset = random.randint(0, total_seconds_2000_days)
+                created_at = past_2000_days + datetime.timedelta(seconds=created_at_offset)
+
+                # updated_at should be after created_at, but still within now
+                # so we pick a random offset from created_at to now
+                total_seconds_since_created = int((now - created_at).total_seconds())
+                updated_at_offset = random.randint(0, total_seconds_since_created)
+                updated_at = created_at + datetime.timedelta(seconds=updated_at_offset)
+
+                article.created_at = created_at
+                article.updated_at = updated_at
+                article.save(update_fields=["created_at", "updated_at"])
+
+                self.stdout.write(f"Created article: {title} (created_at={created_at}, updated_at={updated_at})")
+
+        # After all articles are created, ensure each author's most recent article is unique
+        # Get a list of all authors
+        authors_list = list(Author.objects.all())
+        # Sort authors by their name to have a deterministic order
+        authors_list.sort(key=lambda a: a.name)
+
+        # Nudge each author's most recent articles by a small delta to ensure uniqueness
+        i = 0
+        for _ in range(0, 5):
+            for author in authors_list:
+                most_recent_article = author.article_set.order_by("-updated_at").first()
+                if most_recent_article:
+                    # Subtract offset per author to ensure uniqueness
+                    most_recent_article.created_at = most_recent_article.created_at - datetime.timedelta(days=i)
+                    most_recent_article.updated_at = most_recent_article.updated_at - datetime.timedelta(days=i)
+
+                    most_recent_article.save(update_fields=["created_at", "updated_at"])
+                    i += 27  # increment by 27 days for each author
 
         self.stdout.write(self.style.SUCCESS("Successfully generated example data"))
 
@@ -456,3 +769,5 @@ class Command(BaseCommand):
         self.stdout.write(f"Categories: {Category.objects.count()}")
         self.stdout.write(f"Authors: {Author.objects.count()}")
         self.stdout.write(f"Articles: {Article.objects.count()}")
+        self.stdout.write(f"Embargo Regions: {EmbargoRegion.objects.count()}")
+        self.stdout.write(f"Publishing Markets: {PublishingMarket.objects.count()}")

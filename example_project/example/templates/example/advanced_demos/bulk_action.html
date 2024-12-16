@@ -1,0 +1,220 @@
+{% extends "example/base_with_bootstrap5.html" %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .filters-container {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .bulk-actions-container {
+            background-color: #e9ecef;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .action-specific-fields {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+        }
+        .articles-container {
+            margin-top: 20px;
+        }
+        .status-badge {
+            font-size: 0.875rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+        }
+        .article-count {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="mb-0">Bulk Article Management</h2>
+        <span class="article-count" id="article-count">{{ paginator.count }} articles</span>
+    </div>
+    <div class="card-body">
+        <!-- Filters -->
+        <div class="filters-container">
+            <h3 class="h5 mb-3">Filters</h3>
+            <form id="filter-form"
+                  class="row g-3"
+                  hx-get="{% url 'article-filtered-table' %}"
+                  hx-target="#articles-table"
+                  hx-trigger="change from:select"
+                  hx-push-url="true">
+                <div class="col-md-4">
+                    <label for="{{ form.date_range.id_for_label }}" class="form-label">{{ form.date_range.label }}</label>
+                    {{ form.date_range }}
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.main_category.id_for_label }}" class="form-label">{{ form.main_category.label }}</label>
+                    {{ form.main_category }}
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
+                    {{ form.status }}
+                </div>
+            </form>
+        </div>
+
+        <!-- Hidden form for tracking filter state -->
+        <form id="active-filters" style="display: none;">
+            <input type="hidden" name="date_range" value="{{ current_filters.date_range|default:'all' }}">
+            <input type="hidden" name="main_category" value="{{ current_filters.main_category|default:'' }}">
+            <input type="hidden" name="status" value="{{ current_filters.status|default:'' }}">
+        </form>
+
+        <!-- Bulk Actions -->
+        <div class="bulk-actions-container">
+            <h3 class="h5 mb-3">Bulk Actions</h3>
+            <form method="post" action="{% url 'article-bulk-action' %}">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="{{ form.selected_articles.id_for_label }}" class="form-label">{{ form.selected_articles.label }}</label>
+                    {{ form.selected_articles }}
+                    {% if form.selected_articles.errors %}
+                        <div class="alert alert-danger mt-2">
+                            {{ form.selected_articles.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="{{ form.action.id_for_label }}" class="form-label">{{ form.action.label }}</label>
+                        {{ form.action }}
+                        {% if form.action.errors %}
+                            <div class="alert alert-danger mt-2">
+                                {{ form.action.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="action-specific-fields">
+                    <div class="mb-3">
+                        <label for="{{ form.target_category.id_for_label }}" class="form-label">{{ form.target_category.label }}</label>
+                        {{ form.target_category }}
+                        {% if form.target_category.errors %}
+                            <div class="alert alert-danger mt-2">
+                                {{ form.target_category.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.target_author.id_for_label }}" class="form-label">{{ form.target_author.label }}</label>
+                        {{ form.target_author }}
+                        {% if form.target_author.errors %}
+                            <div class="alert alert-danger mt-2">
+                                {{ form.target_author.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">Apply Action</button>
+                </div>
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger mt-3">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Articles List -->
+        {% block articles_table %}
+            <div class="articles-container"
+                id="articles-table"
+                hx-target="this"
+                hx-trigger="filtersChanged from:body"
+                hx-get="{% url 'article-filtered-table' %}?{{ request.GET.urlencode }}"
+                hx-include="#active-filters">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="h5 mb-0">Filtered Articles</h3>
+                    <span class="article-count">{{ paginator.count }} articles</span>
+                </div>
+                <div class="table-responsive">
+                    {% include "example/advanced_demos/articles_table.html" %}
+                </div>
+            </div>
+        {% endblock %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle action selection visibility
+        const actionSelect = document.getElementById('id_action');
+        const targetCategoryField = document.getElementById('id_target_category').closest('.mb-3');
+        const targetAuthorField = document.getElementById('id_target_author').closest('.mb-3');
+
+        function updateActionFields() {
+            const selectedAction = actionSelect.value;
+            targetCategoryField.style.display = 'none';
+            targetAuthorField.style.display = 'none';
+
+            if (selectedAction === 'change_category') {
+                targetCategoryField.style.display = 'block';
+            } else if (selectedAction === 'assign_author') {
+                targetAuthorField.style.display = 'block';
+            }
+        }
+
+        actionSelect.addEventListener('change', updateActionFields);
+        updateActionFields();
+
+        // Handle TomSelect URL construction and filter changes
+        document.querySelectorAll('.tomselect-with-filters').forEach(select => {
+            if (select.tomselect) {
+                const originalFirstUrl = select.tomselect.settings.firstUrl;
+                select.tomselect.settings.firstUrl = function(query) {
+                    let url = originalFirstUrl(query);
+                    const formData = new FormData(document.getElementById('filter-form'));
+                    const params = new URLSearchParams();
+
+                    for (let [key, value] of formData.entries()) {
+                        if (value && value !== 'all') {
+                            params.append(key, value);
+                        }
+                    }
+
+                    const existingParams = new URLSearchParams(url.split('?')[1] || '');
+                    for (let [key, value] of params) {
+                        existingParams.append(key, value);
+                    }
+
+                    return `${url.split('?')[0]}?${existingParams.toString()}`;
+                };
+            }
+        });
+
+        // Add event listener for filter changes to reset TomSelect
+        document.querySelectorAll('#filter-form select').forEach(filterSelect => {
+            filterSelect.addEventListener('change', () => {
+                const selectedArticlesField = document.getElementById('id_selected_articles');
+                if (selectedArticlesField && selectedArticlesField.tomselect) {
+                    selectedArticlesField.tomselect.clear();
+                    selectedArticlesField.tomselect.clearOptions();
+                    selectedArticlesField.tomselect.clearCache();
+                    selectedArticlesField.tomselect.clearPagination();
+                    selectedArticlesField.tomselect.load('');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .market-container {
+            max-width: 600px;
+            margin: 20px auto;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Publishing Market Selection</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>This example demonstrates a three-level geographic market hierarchy for international publishing operations:</p>
+            <ul>
+                <li>Regions show total market size and publication counts across all countries</li>
+                <li>Countries display number of local markets and aggregated market metrics</li>
+                <li>Local markets show specific market size and active publication counts</li>
+                <li>Each level provides relevant publishing metrics in the header for market analysis</li>
+            </ul>
+        </div>
+
+        <div class="market-container">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="{{ form.region.id_for_label }}" class="form-label">Publishing Region</label>
+                    {{ form.region }}
+                    <div class="helptext">Major geographic regions (e.g., North America, Europe, Asia Pacific)</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.country.id_for_label }}" class="form-label">Country</label>
+                    {{ form.country }}
+                    <div class="helptext">Countries within the selected region</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.local_market.id_for_label }}" class="form-label">Local Market</label>
+                    {{ form.local_market }}
+                    <div class="helptext">Specific city or market area with active publishing operations</div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

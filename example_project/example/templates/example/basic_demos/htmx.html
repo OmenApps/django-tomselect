@@ -1,0 +1,16 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+{% load django_tomselect %}
+
+{% block extra_header %}
+    {% tomselect_media css_framework="bootstrap5" %}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card" hx-get="{%  url 'demo-htmx-form-fragment' %}" hx-trigger="load" hx-swap="innerHTML">
+{% endblock %}

@@ -1,0 +1,16 @@
+{% load static %}
+
+{{ form.media }}
+
+<div class="card">
+    <div class="card-header">
+        <h2>Loading content via htmx Demo</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-5">This page demonstrates loading the form using htmx.</div>
+        <form>
+            {% csrf_token %}
+            {{ form.as_div }}
+        </form>
+    </div>
+</div>
