@@ -2,133 +2,225 @@
 
 ## Example Overview
 
-- **Objective**: This example showcases how to customize the display of content in dropdown options and selected items using `django_tomselect`. It leverages custom rendering to present rich information, such as icons, metadata, and descriptions, making dropdowns more intuitive and visually engaging.
-  - **Problem Solved**: Traditional dropdowns with plain text options can be limiting for complex applications. Custom content display enables a richer user experience by showing additional context for each option.
+- **Objective**: This example showcases how to customize the display of content in the page based on selected items using `django_tomselect`.
   - **Features Highlighted**:
-    - Custom rendering of dropdown options and selected items.
-    - Enhanced display with metadata, icons, and structured layouts.
+    - Custom rendering of page content based on selected dropdown items.
 
-- **Use Case**:
-  - Applications that need dropdowns with detailed context, such as product selectors, user roles, or hierarchical data.
-  - Scenarios requiring visual differentiation of options, like tags with usage counts or categories with icons.
+**Visual Examples**
 
-- **Visual Elements**:
-  *(Placeholders for images or GIFs)*:
-  - `![Screenshot: Custom Option Display](path-to-image)`
-  - `![GIF: Enhanced Dropdown Interaction](path-to-gif)`
+![Screenshot: Custom Option Display](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/custom-content.png)
 
 ## Key Code Segments
 
 ### Forms
-Custom rendering is achieved using the `TomSelectConfig` attributes, such as `data_template_option` and `data_template_item`, to define how options and selected items should appear.
+The form for selecting embargo regions and timeframes uses `TomSelectModelChoiceField` and `TomSelectChoiceField` to render the dropdowns.
+
+:::{admonition} Form Definition
+:class: dropdown
 
 ```python
-class CustomContentForm(forms.Form):
-    enriched_field = TomSelectModelChoiceField(
+class EmbargoForm(forms.Form):
+    """Form for selecting embargo regions and timeframes."""
+
+    region = TomSelectModelChoiceField(
         config=TomSelectConfig(
-            url="autocomplete-enriched-content",
+            url="autocomplete-embargo-region",
             value_field="id",
             label_field="name",
-            css_framework="bootstrap5",
-            data_template_option="""
-                <div class="custom-option">
-                    <span class="option-icon" style="background-color: {{ color }};">●</span>
-                    <span class="option-name">{{ name }}</span>
-                    <span class="option-metadata">{{ metadata }}</span>
-                </div>
-            """,
-            data_template_item="""
-                <div class="custom-item">
-                    <span class="item-icon" style="background-color: {{ color }};">●</span>
-                    <span class="item-name">{{ name }}</span>
-                </div>
-            """,
+            placeholder="Select region...",
             highlight=True,
-        ),
-        attrs={"class": "form-control mb-3"},
+            preload="focus",
+            plugin_dropdown_header=PluginDropdownHeader(
+                title="Publishing Regions",
+                extra_columns={
+                    "market_tier": "Market Tier",
+                    "typical_embargo_days": "Typical Days",
+                },
+            ),
+        )
+    )
+
+    timeframe = TomSelectChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-embargo-timeframe",
+            value_field="value",
+            label_field="label",
+            placeholder="Select timeframe...",
+            highlight=True,
+        )
     )
 ```
-
-**Explanation**:
-- `data_template_option`: Defines how each dropdown option is rendered. For instance, it can include an icon and metadata.
-- `data_template_item`: Defines how selected items are displayed after selection.
-- Inline styling can be dynamically populated with values (e.g., `color`, `metadata`).
-
-**Repository Link**: [View CustomContentForm Code](#)
+:::
 
 ### Templates
-The dropdown rendering is handled seamlessly by the form widget, requiring no custom template changes.
+The template for the content embargo management page uses custom CSS classes to style additional information based on the selected region.
 
-For added styling, CSS classes and inline styles can be defined in the main template:
+:::{admonition} Template Code
+:class: dropdown
 
 ```html
-<style>
-    .custom-option {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .option-icon, .item-icon {
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-    }
-    .option-metadata {
-        font-size: 0.875rem;
-        color: #6c757d;
-    }
-</style>
+{% extends 'example/base_with_bootstrap5.html' %}
 
-<form>
-    {% csrf_token %}
-    <div class="mb-3">
-        {{ form.enriched_field }}
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .tier-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .tier-1 { background-color: #ffd700; color: #000; }
+        .tier-2 { background-color: #c0c0c0; color: #000; }
+        .tier-3 { background-color: #cd7f32; color: #fff; }
+        .tier-4 { background-color: #000; color: #fff; }
+        .tier-5 { background-color: #ff69b4; color: #fff; }
+        .tier-6 { background-color: #00f; color: #fff; }
+        .tier-7 { background-color: #008000; color: #fff; }
+        .tier-8 { background-color: #9400d3; color: #fff; }
+        .restrictions-note {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Content Embargo Management</h2>
     </div>
-    <button type="submit" class="btn btn-primary">Submit</button>
-</form>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>
+                This example demonstrates implement cascading selects with rich metadata, displaying custom information
+                via JavaScript based on selected options, and the use of both model- and iterator-based form fields in
+                a single form.
+            </p>
+            <hr>
+            <p>
+                Configure content embargo periods for different publishing regions. Each region has specific
+                market requirements and typical embargo periods based on their tier and local regulations.
+            </p>
+        </div>
+
+        <form method="post" class="col-md-8 mx-auto">
+            {% csrf_token %}
+
+            <div class="mb-4">
+                <label class="form-label">{{ form.region.label }}</label>
+                {{ form.region }}
+                <div class="restrictions-note" id="regionInfo"></div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">{{ form.timeframe.label }}</label>
+                {{ form.timeframe }}
+            </div>
+
+            <button type="submit" class="btn btn-primary">Set Embargo Period</button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const regionSelect = document.querySelector('#id_region').tomselect;
+    const infoDiv = document.querySelector('#regionInfo');
+
+    regionSelect.on('change', function(value) {
+        const option = regionSelect.options[value];
+        if (option) {
+            infoDiv.innerHTML = `
+                <span class="tier-badge tier-${option.market_tier.slice(-1)}">
+                    ${option.market_tier}
+                </span>
+                <div class="mt-2">
+                    <strong>Typical embargo:</strong> ${option.typical_embargo_days} days<br>
+                    <strong>Restrictions:</strong> ${option.content_restrictions}
+                </div>
+            `;
+        }
+    });
+});
+</script>
+{% endblock %}
 ```
-
-**Key Elements**:
-- CSS classes like `.custom-option` are used to structure and style the dropdown options.
-- Inline styles for dynamic customization, such as coloring icons based on `color` values from the backend.
-
-**Repository Link**: [View Template Code](#)
+:::
 
 ### Autocomplete Views
-The `autocomplete-enriched-content` endpoint provides the necessary data for the custom display.
+The `autocomplete-enriched-content` endpoint provides the necessary data for the display. Here we override the `hook_prepare_results` method to format the response with additional fields.
+
+:::{admonition} Autocomplete View
+:class: dropdown
 
 ```python
-class AutocompleteEnrichedContent(AutocompleteModelView):
-    model = EnrichedItem
+class EmbargoRegionAutocompleteView(AutocompleteModelView):
+    """Autocomplete view for embargo regions."""
+
+    model = EmbargoRegion
     search_lookups = ["name__icontains"]
-    value_fields = ["id", "name", "color", "metadata"]
+    value_fields = [
+        "id",
+        "name",
+        "market_tier",
+        "typical_embargo_days",
+        "content_restrictions",
+    ]
+
+    skip_authorization = True
+
+    def hook_prepare_results(self, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Format results with tier information and restrictions."""
+        formatted_results = []
+        for region in results:
+            formatted_results.append(
+                {
+                    "id": region["id"],
+                    "name": str(region["name"]),
+                    "market_tier": f"Tier {region['market_tier']}",
+                    "typical_embargo_days": region["typical_embargo_days"],
+                    "content_restrictions": region["content_restrictions"],
+                }
+            )
+        return formatted_results
 ```
+:::
 
-**Explanation**:
-- The `value_fields` attribute ensures that additional data (e.g., `color` and `metadata`) is included in the response for custom rendering.
-- The endpoint dynamically generates JSON objects that populate the dropdown.
+## Views
 
-**Repository Link**: [View Autocomplete Code](#)
+The view for managing embargoes processes the form data and displays a success message with the selected region and timeframe.
 
-### Dependencies
-- Models: An `EnrichedItem` model with fields like `name`, `color`, and `metadata`.
-- Autocomplete URLs: Ensure `autocomplete-enriched-content` is correctly set up in your Django project.
+:::{admonition} View Code
+:class: dropdown
 
-## Design and Implementation Notes
+```python
+def embargo_management_view(request):
+    """View for managing embargoes."""
+    template = "example/intermediate_demos/embargo_management.html"
+    context = {}
 
-- **Key Features**:
-  - Flexible customization of dropdowns with metadata and icons.
-  - Separation of concerns by defining rendering logic directly in the `TomSelectConfig`.
+    form = EmbargoForm()
 
-- **Design Decisions**:
-  - Custom templates for options and items ensure a better user experience for complex data types.
-  - Metadata like `color` and `metadata` enriches the visual presentation without impacting functionality.
+    if request.method == "POST":
+        form = EmbargoForm(request.POST)
+        if form.is_valid():
+            region = form.cleaned_data["region"]
+            timeframe = form.cleaned_data["timeframe"]
 
-- **Alternative Approaches**:
-  - Use custom JavaScript templates for rendering (adds complexity but allows for greater control).
-  - Implement static dropdowns with predefined options (less dynamic).
+            def get_timeframe_display(timeframe):
+                """Get the display value for the timeframe."""
+                return dict(EmbargoTimeframe.choices)[timeframe]
 
-- **Potential Extensions**:
-  - Add group headers to the dropdown using the `optgroup` feature in `TomSelect`.
-  - Enable filtering based on metadata (e.g., only show items with a specific `metadata` value).
+            messages.success(
+                request,
+                f"Embargo for {region} set to {get_timeframe_display(timeframe)}.",
+            )
+            return redirect("custom-content")
+
+    context["form"] = form
+    return TemplateResponse(request, template, context)
+```
+:::
