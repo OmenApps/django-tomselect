@@ -33,9 +33,7 @@ api/widgets.md
 :hidden:
 
 example_app/introduction
-example_app/default
-example_app/bs4
-example_app/bs5
+example_app/styling
 example_app/htmx
 example_app/filter_by_magazine
 example_app/filter_by_category
