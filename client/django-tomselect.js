@@ -1,5 +1,4 @@
-import TomSelect from 'tom-select/base';
-
+import TomSelect from 'tom-select';  // Use the full package instead of base
 /* eslint-disable camelcase */
 import TomSelect_checkbox_options from 'tom-select/plugins/checkbox_options/plugin.js'
 import TomSelect_clear_button from 'tom-select/plugins/clear_button/plugin.js'
@@ -10,6 +9,7 @@ import TomSelect_virtual_scroll from 'tom-select/plugins/virtual_scroll/plugin.j
 import TomSelect_dropdown_footer from './plugins/dropdown_footer/plugin.js'
 /* eslint-enable camelcase */
 
+// Define plugins
 TomSelect.define('checkbox_options', TomSelect_checkbox_options)
 TomSelect.define('clear_button', TomSelect_clear_button)
 TomSelect.define('dropdown_header', TomSelect_dropdown_header)
@@ -18,4 +18,9 @@ TomSelect.define('remove_button', TomSelect_remove_button)
 TomSelect.define('virtual_scroll', TomSelect_virtual_scroll)
 TomSelect.define('dropdown_footer', TomSelect_dropdown_footer)
 
-window.TomSelect = require('tom-select/base')
+// Export to window with constructor check
+if (typeof TomSelect === 'function') {
+    window.TomSelect = TomSelect;
+} else {
+    window.TomSelect = TomSelect.default || TomSelect;
+}
