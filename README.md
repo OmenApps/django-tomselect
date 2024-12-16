@@ -4,7 +4,7 @@
 
 A powerful, lightweight Django package for dynamic select inputs with autocomplete, tagging, and more.
 
-[![PyPI version](https://badge.fury.io/py/django-tomselect.png)](https://badge.fury.io/py/django-tomselect)
+[![PyPI version](https://badge.fury.io/py/django-tomselect.png)](https://badge.fury.io/py/django-tomselect.png)
 [![License](https://img.shields.io/pypi/l/django-tomselect.png)](https://github.com/OmenApps/django-tomselect/blob/main/LICENSE)
 
 Django TomSelect integrates [Tom Select](https://tom-select.js.org/) into your Django projects, providing beautiful and intuitive select inputs with features like:
@@ -118,9 +118,9 @@ class MyForm(forms.Form):
 
 ## Documentation
 
-- [Complete Usage Guide](https://django-tomselect.readthedocs.io/en/latest/usage/)
-- [Configuration Reference](https://django-tomselect.readthedocs.io/en/latest/api/config/)
-- [API Reference](https://django-tomselect.readthedocs.io/en/latest/api/)
+- [Complete Usage Guide](https://django-tomselect.readthedocs.io/en/latest/usage.html)
+- [Configuration Reference](https://django-tomselect.readthedocs.io/en/latest/api/config.html)
+- [Example Project](https://django-tomselect.readthedocs.io/en/latest/example_app/introduction.html)
 
 ## Contributing
 
