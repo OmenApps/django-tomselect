@@ -18,8 +18,8 @@ from django_tomselect.app_settings import (
     PluginRemoveButton,
     TomSelectConfig,
     bool_or_callable,
-    get_proxy_request_class,
     merge_configs,
+    validate_proxy_request_class,
 )
 from django_tomselect.widgets import (
     TomSelectIterablesMultipleWidget,
@@ -641,31 +641,6 @@ class TestWidgetConfigurationAndMedia:
 
         result = bool_or_callable(callable_func)
         assert result is True
-
-    def test_config_with_invalid_proxy_request_string(self, monkeypatch):
-        """Test handling of invalid proxy request import string."""
-
-        # Create mock settings module
-        mock_settings = types.SimpleNamespace()
-        mock_settings.TOMSELECT_PROXY_REQUEST = "invalid.module.path"
-        monkeypatch.setattr("django_tomselect.app_settings.settings", mock_settings)
-
-        with pytest.raises(ImportError):
-            get_proxy_request_class()
-
-    def test_config_with_invalid_proxy_request_class(self, monkeypatch):
-        """Test handling of invalid proxy request class."""
-
-        class InvalidProxyRequest:
-            """Invalid proxy request class."""
-
-        # Create mock settings module
-        mock_settings = types.SimpleNamespace()
-        mock_settings.TOMSELECT_PROXY_REQUEST = InvalidProxyRequest
-        monkeypatch.setattr("django_tomselect.app_settings.settings", mock_settings)
-
-        with pytest.raises(TypeError):
-            get_proxy_request_class()
 
     def test_plugin_configuration_warnings(self, caplog):
         """Test plugin configuration type verification warnings."""

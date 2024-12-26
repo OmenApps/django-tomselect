@@ -30,45 +30,6 @@ def bool_or_callable(value):
     return bool(value)
 
 
-def get_proxy_request_class():
-    """Retrieve and validate the ProxyRequest class based on settings.
-
-    Returns:
-        A subclass of DefaultProxyRequest.
-    """
-    proxy_request_setting = getattr(settings, "TOMSELECT_PROXY_REQUEST", None)
-
-    if proxy_request_setting is None:
-        return DefaultProxyRequest
-
-    if isinstance(proxy_request_setting, str):
-        try:
-            proxy_request_class = import_string(proxy_request_setting)
-        except ImportError as e:
-            logger.exception(
-                "Could not import %s. Please check your TOMSELECT_PROXY_REQUEST setting. %s",
-                proxy_request_setting,
-                e,
-            )
-            raise ImportError(f"Failed to import TOMSELECT_PROXY_REQUEST: {e}") from e
-
-    elif issubclass(proxy_request_setting, DefaultProxyRequest):
-        proxy_request_class = proxy_request_setting
-    else:
-        raise TypeError(
-            "TOMSELECT_PROXY_REQUEST must be a subclass of DefaultProxyRequest "
-            "or an importable string pointing to such a subclass."
-        )
-
-    if not issubclass(proxy_request_class, DefaultProxyRequest):
-        raise TypeError("The TOMSELECT_PROXY_REQUEST must be a subclass of DefaultProxyRequest.")
-
-    return proxy_request_class
-
-
-ProxyRequest = get_proxy_request_class()
-
-
 def currently_in_production_mode():
     """Default method to determine whether to use minified files or not by checking the DEBUG setting."""
     return settings.DEBUG is False
@@ -195,6 +156,44 @@ PERMISSION_CACHE = getattr(settings, "PERMISSION_CACHE", {})
 PERMISSION_CACHE_TIMEOUT = PERMISSION_CACHE.get("TIMEOUT", None)
 PERMISSION_CACHE_KEY_PREFIX = PERMISSION_CACHE.get("KEY_PREFIX", "")
 PERMISSION_CACHE_NAMESPACE = PERMISSION_CACHE.get("NAMESPACE", "")
+
+PROXY_REQUEST_CLASS = PROJECT_TOMSELECT.get("PROXY_REQUEST_CLASS", DefaultProxyRequest)
+
+def validate_proxy_request_class():
+    """Validate the ProxyRequest class based on settings.
+
+    Returns:
+        A subclass of DefaultProxyRequest.
+    """
+    if PROXY_REQUEST_CLASS is None:
+        return DefaultProxyRequest
+
+    if isinstance(PROXY_REQUEST_CLASS, str):
+        try:
+            proxy_request_class = import_string(PROXY_REQUEST_CLASS)
+        except ImportError as e:
+            logger.exception(
+                "Could not import %s. Please check your PROXY_REQUEST_CLASS setting. %s",
+                PROXY_REQUEST_CLASS,
+                e,
+            )
+            raise ImportError(f"Failed to import PROXY_REQUEST_CLASS: {e}") from e
+
+    elif issubclass(PROXY_REQUEST_CLASS, DefaultProxyRequest):
+        proxy_request_class = PROXY_REQUEST_CLASS
+    else:
+        raise TypeError(
+            "PROXY_REQUEST_CLASS must be a subclass of DefaultProxyRequest "
+            "or an importable string pointing to such a subclass."
+        )
+
+    if not issubclass(proxy_request_class, DefaultProxyRequest):
+        raise TypeError("The PROXY_REQUEST_CLASS must be a subclass of DefaultProxyRequest.")
+
+    return proxy_request_class
+
+
+ProxyRequest = validate_proxy_request_class()
 
 
 @dataclass(frozen=True)

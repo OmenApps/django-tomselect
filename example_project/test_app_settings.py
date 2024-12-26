@@ -137,7 +137,7 @@ class TestProxyRequestClass:
 
     def test_invalid_proxy_request_string(self, settings):
         """Test handling of invalid proxy request class string."""
-        settings.TOMSELECT_PROXY_REQUEST = "invalid.module.path"
+        settings.PROJECT_TOMSELECT = {"PROXY_REQUEST_CLASS": "invalid.module.path"}
         # Since ProxyRequest is resolved at import time, we must ensure
         # that test doesn't rely on reload. Instead, we skip this test
         # or ensure that ProxyRequest reading is done dynamically.
@@ -150,7 +150,7 @@ class TestProxyRequestClass:
         class InvalidProxyRequest:
             """Invalid proxy request class."""
 
-        settings.TOMSELECT_PROXY_REQUEST = InvalidProxyRequest
+        settings.PROJECT_TOMSELECT = {"PROXY_REQUEST_CLASS": InvalidProxyRequest}
         pytest.skip("This test requires refactoring to avoid reload.")
 
 

@@ -285,6 +285,30 @@ config = TomSelectConfig(
 )
 ```
 
+### Proxy Request
+
+To automate the interaction between a widget and its associated autocomplete view, we must pass a request. Normally this is very straightforward, but in some cases, you may need to pass a request that has been modified to include additional information. In these cases, you can subclass `django_tomselect.request.DefaultProxyRequest` and override the `__init__` method to add the necessary data.
+
+```python
+from django_tomselect.request import DefaultProxyRequest
+
+class CustomProxyRequest(DefaultProxyRequest):
+    def __init__(self, request, extra_data):
+        super().__init__(request)
+        self.extra_data = extra_data
+```
+
+Then, use the custom proxy request in your configuration:
+
+```python
+TOMSELECT = {
+    # Other settings...
+
+    # Custom proxy request
+    'PROXY_REQUEST_CLASS': 'path.to.CustomProxyRequest',
+}
+```
+
 ### Custom Validation
 
 Add custom validation to configuration:
