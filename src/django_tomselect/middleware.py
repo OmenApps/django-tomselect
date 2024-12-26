@@ -5,9 +5,9 @@ try:
 except ImportError:
     from threading import local
 
-from typing import Optional
-
 from django.http import HttpRequest
+
+from django_tomselect.logging import package_logger
 
 # Create a single local instance for storing request
 _request_local = local()
@@ -33,6 +33,7 @@ class TomSelectMiddleware:
 
         try:
             response = self.get_response(request)
+            package_logger.debug("Request object stored in local storage.")
             return response
         finally:
             # Always clean up the local storage
@@ -46,6 +47,7 @@ class TomSelectMiddleware:
 
         try:
             response = await self.get_response(request)
+            package_logger.debug("Request object stored in local storage.")
             return response
         finally:
             # Always clean up the local storage

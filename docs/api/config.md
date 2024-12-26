@@ -285,6 +285,41 @@ config = TomSelectConfig(
 )
 ```
 
+### Logging
+
+`django_tomselect` uses a custom weapper with the built-in Python logging module to make it easier to turn logging on and off. By default, logging is enabled, and the package emits many debug-level logging entries. In rare cases, you may wish to disable logging completely. To do so, add the following to your Django settings:
+
+```python
+TOMSELECT = {
+    # Other settings...
+
+    # Disable logging
+    "ENABLE_LOGGING": False
+}
+```
+
+Better, you can customize the logging level configuration by updating your Django settings to skip debug messages, but still see more important messages:
+
+```python
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django_tomselect': {
+            'handlers': ['console'],
+            'level': 'INFO',  # <-- Change to 'DEBUG' to see *all* messages
+            'propagate': True,
+        },
+    },
+}
+```
+
 ### Proxy Request
 
 To automate the interaction between a widget and its associated autocomplete view, we must pass a request. Normally this is very straightforward, but in some cases, you may need to pass a request that has been modified to include additional information. In these cases, you can subclass `django_tomselect.request.DefaultProxyRequest` and override the `__init__` method to add the necessary data.

@@ -1,7 +1,5 @@
 """Form fields for the django-tomselect package."""
 
-import logging
-
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -10,6 +8,7 @@ from django_tomselect.app_settings import (
     TomSelectConfig,
     merge_configs,
 )
+from django_tomselect.logging import package_logger
 from django_tomselect.models import EmptyModel
 from django_tomselect.widgets import (
     TomSelectIterablesMultipleWidget,
@@ -17,8 +16,6 @@ from django_tomselect.widgets import (
     TomSelectModelMultipleWidget,
     TomSelectModelWidget,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class BaseTomSelectMixin:
@@ -32,7 +29,7 @@ class BaseTomSelectMixin:
 
     def __init__(self, *args, choices=None, config: TomSelectConfig = None, **kwargs):
         if choices is not None:
-            logger.warning("There is no need to pass choices to a TomSelectField. It will be ignored.")
+            package_logger.warning("There is no need to pass choices to a TomSelectField. It will be ignored.")
         self.instance = kwargs.get("instance")
 
         # Extract widget-specific arguments for TomSelectConfig
@@ -51,10 +48,14 @@ class BaseTomSelectMixin:
         final_config = merge_configs(base_config, config)
         self.config = final_config
 
+        package_logger.debug(f"Final config to be passed to widget: {final_config}")
+
         # Get attrs from either the config or kwargs, with kwargs taking precedence
         attrs = kwargs.pop("attrs", {})
         if self.config.attrs:
             attrs = {**self.config.attrs, **attrs}
+
+        package_logger.debug(f"Final attrs to be passed to widget: {attrs}")
 
         # Initialize the widget with config and attrs
         self.widget = self.widget_class(config=self.config)
@@ -74,7 +75,7 @@ class BaseTomSelectModelMixin:
 
     def __init__(self, *args, queryset=None, config: TomSelectConfig = None, **kwargs):
         if queryset is not None:
-            logger.warning("There is no need to pass a queryset to a TomSelectModelField. It will be ignored.")
+            package_logger.warning("There is no need to pass a queryset to a TomSelectModelField. It will be ignored.")
         self.instance = kwargs.get("instance")
 
         # Extract widget-specific arguments for TomSelectConfig
@@ -93,10 +94,14 @@ class BaseTomSelectModelMixin:
         final_config = merge_configs(base_config, config)
         self.config = final_config
 
+        package_logger.debug(f"Final config to be passed to widget: {final_config}")
+
         # Get attrs from either the config or kwargs, with kwargs taking precedence
         attrs = kwargs.pop("attrs", {})
         if self.config.attrs:
             attrs = {**self.config.attrs, **attrs}
+
+        package_logger.debug(f"Final attrs to be passed to widget: {attrs}")
 
         # Initialize the widget with config and attrs
         self.widget = self.widget_class(config=self.config)

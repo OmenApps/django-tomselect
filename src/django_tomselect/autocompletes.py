@@ -1,7 +1,6 @@
 """Views for handling queries from django-tomselect widgets."""
 
-import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 from urllib.parse import unquote
 
 from django.contrib.auth.views import redirect_to_login
@@ -14,9 +13,8 @@ from django.views.generic import View
 
 from django_tomselect.cache import cache_permission, permission_cache
 from django_tomselect.constants import EXCLUDEBY_VAR, FILTERBY_VAR, PAGE_VAR, SEARCH_VAR
+from django_tomselect.logging import package_logger
 from django_tomselect.models import EmptyModel
-
-logger = logging.getLogger(__name__)
 
 
 class AutocompleteModelView(View):
@@ -55,11 +53,11 @@ class AutocompleteModelView(View):
             self.model = kwargs.get("model")
 
             if not self.model or isinstance(self.model, EmptyModel):
-                logger.error("Model must be specified")
+                package_logger.error("Model must be specified")
                 raise ValueError("Model must be specified")
 
             if not (isinstance(self.model, type) and issubclass(self.model, Model)):
-                logger.error("Unknown model type specified in AutocompleteModelView")
+                package_logger.error("Unknown model type specified in AutocompleteModelView")
                 raise ValueError("Unknown model type specified in AutocompleteModelView")
 
             kwargs.pop("model", None)
@@ -79,6 +77,8 @@ class AutocompleteModelView(View):
                 self.page_size = requested_page_size
         except (ValueError, TypeError):
             pass  # Keep default page_size for invalid values
+
+        package_logger.debug("AutocompleteModelView setup complete")
 
     def hook_queryset(self, queryset: QuerySet) -> QuerySet:
         """Hook to allow for additional queryset manipulation before filtering, searching, and ordering.
@@ -118,29 +118,32 @@ class AutocompleteModelView(View):
                 lookup, value = unquote(self.filter_by).replace("'", "").split("=")
                 dependent_field, dependent_field_lookup = lookup.split("__")
                 if not value or not dependent_field or not dependent_field_lookup:
-                    logger.warning("Invalid filter_by value (%s)", self.filter_by)
+                    package_logger.warning("Invalid filter_by value (%s)", self.filter_by)
                     return queryset.none()
 
                 filter_dict = {dependent_field_lookup: value}
-                return queryset.filter(**filter_dict)
+                package_logger.debug("Applying filter_by %s", filter_dict)
+                queryset = queryset.filter(**filter_dict)
 
             if self.exclude_by:
                 lookup, value = unquote(self.exclude_by).replace("'", "").split("=")
                 exclude_field, exclude_field_lookup = lookup.split("__")
                 if not value or not exclude_field or not exclude_field_lookup:
-                    logger.warning("Invalid exclude_by value (%s)", self.exclude_by)
+                    package_logger.warning("Invalid exclude_by value (%s)", self.exclude_by)
                     return queryset.none()
 
                 exclude_dict = {exclude_field_lookup: value}
-                return queryset.exclude(**exclude_dict)
+                package_logger.debug("Applying exclude_by %s", exclude_dict)
+                queryset = queryset.exclude(**exclude_dict)
+            return queryset
         except ValueError:
-            logger.warning(
+            package_logger.warning(
                 "Invalid filter_by (%s) or exclude_by (%s) value",
                 self.filter_by,
                 self.exclude_by,
             )
         except FieldError:
-            logger.warning(
+            package_logger.warning(
                 "Invalid lookup field in filter_by (%s) or exclude_by (%s)",
                 self.filter_by,
                 self.exclude_by,
@@ -155,6 +158,7 @@ class AutocompleteModelView(View):
         q_objects = Q()
         for lookup in self.search_lookups:
             q_objects |= Q(**{lookup: query})
+        package_logger.debug("Applying search query %s", q_objects)
         return queryset.filter(q_objects)
 
     def order_queryset(self, queryset: QuerySet) -> QuerySet:
@@ -180,6 +184,7 @@ class AutocompleteModelView(View):
         if not ordering:
             return queryset
 
+        package_logger.debug("Applying ordering %s", ordering)
         return queryset.order_by(*ordering)
 
     def paginate_queryset(self, queryset) -> dict[str, Any]:
@@ -206,6 +211,7 @@ class AutocompleteModelView(View):
             "total_pages": paginator.num_pages,
         }
 
+        package_logger.debug("Paginating queryset with page %s of %s", page.number, paginator.num_pages)
         return pagination_context
 
     def get_value_fields(self) -> list[str]:
@@ -220,7 +226,9 @@ class AutocompleteModelView(View):
                 if field.name in ["name", "title", "label"]:
                     fields.append(field.name)
 
-        return list(dict.fromkeys(fields))
+        value_fields = list(dict.fromkeys(fields))
+        package_logger.debug("Getting value fields %s", value_fields)
+        return value_fields
 
     def prepare_results(self, results: QuerySet) -> list[dict[str, Any]]:
         """Prepare the results for JSON serialization.
@@ -255,19 +263,19 @@ class AutocompleteModelView(View):
                 try:
                     item["detail_url"] = reverse(self.detail_url, args=[item["id"]])
                 except NoReverseMatch:
-                    logger.warning("Could not reverse detail_url %s", self.detail_url)
+                    package_logger.warning("Could not reverse detail_url %s", self.detail_url)
 
             if self.update_url and item["can_update"]:
                 try:
                     item["update_url"] = reverse(self.update_url, args=[item["id"]])
                 except NoReverseMatch:
-                    logger.warning("Could not reverse update_url %s", self.update_url)
+                    package_logger.warning("Could not reverse update_url %s", self.update_url)
 
             if self.delete_url and item["can_delete"]:
                 try:
                     item["delete_url"] = reverse(self.delete_url, args=[item["id"]])
                 except NoReverseMatch:
-                    logger.warning("Could not reverse delete_url %s", self.delete_url)
+                    package_logger.warning("Could not reverse delete_url %s", self.delete_url)
 
         return self.hook_prepare_results(values)
 
@@ -303,7 +311,9 @@ class AutocompleteModelView(View):
                         f"{opts.app_label}.search_{opts.model_name}",  # Optional custom search permission
                     ]
                 )
+                package_logger.debug("Default permissions %s", perms)
             return perms
+        package_logger.debug("Custom permissions %s", self.permission_required)
         return self.permission_required
 
     @cache_permission
@@ -346,7 +356,9 @@ class AutocompleteModelView(View):
             perms.append(f"{opts.app_label}.delete_{opts.model_name}")
 
         # Check permissions using auth backend
-        return self.user.has_perms(perms)
+        has_perms = self.user.has_perms(perms)
+        package_logger.debug("Checking permissions %s", has_perms)
+        return has_perms
 
     def has_object_permission(self, request, obj, action="view"):
         """Check object-level permissions.
@@ -356,7 +368,9 @@ class AutocompleteModelView(View):
         # Look for custom object-level permission methods
         handler = getattr(self, f"has_{action}_permission", None)
         if handler:
+            package_logger.debug("Using custom object-level permission handler %s", handler)
             return handler(request, obj)
+        package_logger.debug("Using default object-level permission handler")
         return True
 
     def has_add_permission(self, request) -> bool:
@@ -378,6 +392,7 @@ class AutocompleteModelView(View):
             permission_cache.invalidate_user(user.id)
         else:
             permission_cache.invalidate_all()
+        package_logger.debug("Invalidated permissions cache")
 
     def dispatch(self, request, *args, **kwargs):
         """Check permissions before dispatching request."""
@@ -392,11 +407,13 @@ class AutocompleteModelView(View):
         Can be overridden to customize behavior.
         """
         if not self.user.is_authenticated:
+            package_logger.warning("User is not authenticated. Redirecting to login.")
             return redirect_to_login(request.get_full_path())
         raise PermissionDenied
 
     def get(self, request, *args, **kwargs) -> JsonResponse:
         """Handle GET requests."""
+        package_logger.debug("Handling GET request")
         try:
             queryset = self.get_queryset()
             if self.query:
@@ -417,6 +434,7 @@ class AutocompleteModelView(View):
 
     def post(self, request, *args, **kwargs) -> JsonResponse:
         """Handle POST requests."""
+        package_logger.debug("Handling POST request")
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
@@ -445,38 +463,49 @@ class AutocompleteIterablesView(View):
     def get_iterable(self) -> list[dict[str, str | int]]:
         """Get the choices from the iterable or choices class."""
         if not self.iterable:
+            package_logger.warning("No iterable provided")
             return []
 
-        # Handle TextChoices and IntegerChoices
-        if isinstance(self.iterable, type) and hasattr(self.iterable, "choices"):
-            return [
-                {
-                    "value": str(choice[0]),  # Convert to string to ensure consistency
-                    "label": choice[1],  # Use the display label
-                }
-                for choice in self.iterable.choices
-            ]
+        try:
 
-        # Handle tuple iterables
-        if isinstance(self.iterable, (tuple, list)) and self.iterable and isinstance(self.iterable[0], (tuple)):
-            return [
-                {
-                    "value": str(item),  # Store the full tuple as a string for value
-                    "label": f"{item[0]:,} - {item[1]:,} words",  # Format with commas for readability
-                }
-                for item in self.iterable
-            ]
+            # Handle TextChoices and IntegerChoices
+            if isinstance(self.iterable, type) and hasattr(self.iterable, "choices"):
+                return [
+                    {
+                        "value": str(choice[0]),  # Convert to string to ensure consistency
+                        "label": choice[1],  # Use the display label
+                    }
+                    for choice in self.iterable.choices
+                ]
 
-        # Handle simple iterables
-        return [{"value": str(item), "label": str(item)} for item in self.iterable]
+            # Handle tuple iterables
+            if isinstance(self.iterable, (tuple, list)) and self.iterable and isinstance(self.iterable[0], (tuple)):
+                return [
+                    {
+                        "value": str(item),  # Store the full tuple as a string for value
+                        "label": f"{item[0]:,} - {item[1]:,} words",  # Format with commas for readability
+                    }
+                    for item in self.iterable
+                ]
+
+            # Handle simple iterables
+            return [{"value": str(item), "label": str(item)} for item in self.iterable]
+        except Exception as e:
+            package_logger.error("Error getting iterable: %s", e)
+            return []
 
     def search(self, items: list[dict[str, str]]) -> list[dict[str, str]]:
         """Apply search filtering to the items."""
         if not self.query:
+            package_logger.debug("No query provided")
             return items
 
         query_lower = self.query.lower()
-        return [item for item in items if query_lower in item["label"].lower() or query_lower in item["value"].lower()]
+        search_results = [
+            item for item in items if query_lower in item["label"].lower() or query_lower in item["value"].lower()
+        ]
+        package_logger.debug("Search results %s", search_results)
+        return search_results
 
     def paginate_iterable(self, results: list[dict[str, str]]) -> dict[str, Any]:
         """Paginate the filtered results."""
@@ -492,6 +521,8 @@ class AutocompleteIterablesView(View):
         page_results = results[start_idx:end_idx]
         has_more = len(results) > end_idx
 
+        package_logger.debug("Paginating iterable with page %s of %s", page_number, len(results))
+
         return {
             "results": page_results,
             "page": page_number,  # Return the corrected page number
@@ -501,6 +532,7 @@ class AutocompleteIterablesView(View):
 
     def get(self, request, *args, **kwargs) -> JsonResponse:
         """Handle GET requests."""
+        package_logger.debug("Handling GET request")
         if self.iterable is None:
             return JsonResponse({"results": [], "page": 1, "has_more": False})
 
@@ -511,4 +543,5 @@ class AutocompleteIterablesView(View):
 
     def post(self, request, *args, **kwargs) -> JsonResponse:
         """Handle POST requests."""
+        package_logger.debug("Handling POST request")
         return JsonResponse({"error": "Method not allowed"}, status=405)

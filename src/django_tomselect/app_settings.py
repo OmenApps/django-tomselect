@@ -157,7 +157,10 @@ PERMISSION_CACHE_TIMEOUT = PERMISSION_CACHE.get("TIMEOUT", None)
 PERMISSION_CACHE_KEY_PREFIX = PERMISSION_CACHE.get("KEY_PREFIX", "")
 PERMISSION_CACHE_NAMESPACE = PERMISSION_CACHE.get("NAMESPACE", "")
 
+LOGGING_ENABLED = PROJECT_TOMSELECT.get("ENABLE_LOGGING", True)
+
 PROXY_REQUEST_CLASS = PROJECT_TOMSELECT.get("PROXY_REQUEST_CLASS", DefaultProxyRequest)
+
 
 def validate_proxy_request_class():
     """Validate the ProxyRequest class based on settings.
@@ -171,7 +174,7 @@ def validate_proxy_request_class():
     if isinstance(PROXY_REQUEST_CLASS, str):
         try:
             proxy_request_class = import_string(PROXY_REQUEST_CLASS)
-        except ImportError as e:
+        except (ModuleNotFoundError, ImportError) as e:
             logger.exception(
                 "Could not import %s. Please check your PROXY_REQUEST_CLASS setting. %s",
                 PROXY_REQUEST_CLASS,
