@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-tomselect"
-version = "2024.12.3"
+version = "2024.12.4"
 description = "Django autocomplete widgets and views using Tom Select"
 authors = [{ name = "Jack Linke", email = "jacklinke@gmail.com" }]
 license = { text = "MIT" }
