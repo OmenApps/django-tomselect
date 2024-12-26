@@ -1,7 +1,6 @@
 """Tests for TomSelectModelWidget and TomSelectModelMultipleWidget."""
 
 import logging
-import types
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -19,7 +18,6 @@ from django_tomselect.app_settings import (
     TomSelectConfig,
     bool_or_callable,
     merge_configs,
-    validate_proxy_request_class,
 )
 from django_tomselect.widgets import (
     TomSelectIterablesMultipleWidget,
@@ -1233,7 +1231,7 @@ class TestWidgetValidationAndPermissions:
                 return True
 
         urls = widget.get_instance_url_context(sample_edition, MockView())
-        assert urls == {}
+        assert not urls
 
     @pytest.mark.parametrize("has_get_full_path", [True, False])
     def test_validate_request_get_full_path(self, has_get_full_path):

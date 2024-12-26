@@ -7,7 +7,12 @@ from django.db.models import IntegerChoices, TextChoices
 from django.http import JsonResponse
 
 from django_tomselect.autocompletes import AutocompleteIterablesView
-from example_project.example.models import ArticlePriority, ArticleStatus, Edition, word_count_range
+from example_project.example.models import (
+    ArticlePriority,
+    ArticleStatus,
+    Edition,
+    word_count_range,
+)
 
 
 @pytest.fixture

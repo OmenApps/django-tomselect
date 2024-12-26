@@ -93,7 +93,7 @@ class TestTomSelectTemplateTags:
 
     def test_template_tag_in_template(self):
         """Test using the template tags in an actual template."""
-        template = Template("{% load django_tomselect %}" "{% tomselect_media %}")
+        template = Template("{% load django_tomselect %}\n{% tomselect_media %}")
         html = template.render(Context({}))
 
         # Verify both CSS and JS are included

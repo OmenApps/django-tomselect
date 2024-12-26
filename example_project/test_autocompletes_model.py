@@ -90,11 +90,11 @@ class TestAutocompleteModelViewQueryset:
                 qs = super().get_queryset()
                 return qs.annotate(full_text=Concat("name", Value(" "), "year", output_field=models.CharField()))
 
-            def search(self, queryset, q):
+            def search(self, queryset, query):
                 """Custom search implementation."""
-                if not q:
+                if not query:
                     return queryset
-                return queryset.filter(name__icontains=q) | queryset.filter(year__icontains=q)
+                return queryset.filter(name__icontains=query) | queryset.filter(year__icontains=query)
 
         view = CustomAutocompleteModelView()
         view.model = Edition
@@ -502,7 +502,7 @@ class TestAutocompleteModelViewFiltering:
 
         request_exclude = rf.get("", {"e": "magazine__magazine_id=2"})
         view.setup(request_exclude)
-        exclude_qs = view.apply_filters(Edition.objects.all())
+        _ = view.apply_filters(Edition.objects.all())
 
         # Now test both together
         request_both = rf.get("", {"f": "magazine__magazine_id=1", "e": "magazine__magazine_id=2"})

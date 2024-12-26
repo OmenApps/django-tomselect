@@ -4,7 +4,11 @@ import pytest
 from django.http import HttpResponse
 
 from django_tomselect.context_processors import tomselect
-from django_tomselect.middleware import TomSelectMiddleware, _request_local, get_current_request
+from django_tomselect.middleware import (
+    TomSelectMiddleware,
+    _request_local,
+    get_current_request,
+)
 
 
 class TestContextProcessors:
