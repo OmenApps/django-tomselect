@@ -1,5 +1,7 @@
 """Test the setup and configuration of the example project."""
 
+import importlib
+
 import pytest
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -7,6 +9,7 @@ from django.core.exceptions import ValidationError
 import django_tomselect.app_settings as app_settings
 from django_tomselect.app_settings import (
     AllowedCSSFrameworks,
+    DefaultProxyRequest,
     PluginCheckboxOptions,
     PluginClearButton,
     PluginDropdownFooter,
@@ -16,6 +19,7 @@ from django_tomselect.app_settings import (
     TomSelectConfig,
     bool_or_callable,
     get_plugin_config,
+    validate_proxy_request_class,
 )
 from example_project.example.models import Edition, Magazine
 
@@ -131,18 +135,32 @@ class TestBoolOrCallable:
 class TestProxyRequestClass:
     """Test the proxy request class configuration."""
 
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self, settings):
+        """Setup and teardown for each test."""
+        # Store original settings
+        self.original_tomselect = getattr(settings, "TOMSELECT", {})
+
+        yield
+
+        # Restore original settings
+        settings.TOMSELECT = self.original_tomselect
+        # Reload app_settings module to reset state
+        importlib.reload(app_settings)
+
     def test_default_proxy_request(self):
         """Test that default proxy request class is used when not configured."""
-        assert issubclass(app_settings.ProxyRequest, app_settings.DefaultProxyRequest)
+        proxy_request_class = validate_proxy_request_class()
+        assert issubclass(proxy_request_class, DefaultProxyRequest)
+        assert proxy_request_class == DefaultProxyRequest
 
     def test_invalid_proxy_request_string(self, settings):
         """Test handling of invalid proxy request class string."""
-        settings.PROJECT_TOMSELECT = {"PROXY_REQUEST_CLASS": "invalid.module.path"}
-        # Since ProxyRequest is resolved at import time, we must ensure
-        # that test doesn't rely on reload. Instead, we skip this test
-        # or ensure that ProxyRequest reading is done dynamically.
-        # For simplicity, we skip since the original test logic required reload.
-        pytest.skip("This test requires refactoring to avoid reload.")
+        settings.TOMSELECT = {"PROXY_REQUEST_CLASS": "invalid.module.path"}
+        with pytest.raises(ImportError) as exc_info:
+            importlib.reload(app_settings)  # Reload to pick up new settings
+            # validate_proxy_request_class gets called during import
+        assert "Failed to import PROXY_REQUEST_CLASS" in str(exc_info.value)
 
     def test_invalid_proxy_request_type(self, settings):
         """Test handling of invalid proxy request class type."""
@@ -150,8 +168,24 @@ class TestProxyRequestClass:
         class InvalidProxyRequest:
             """Invalid proxy request class."""
 
-        settings.PROJECT_TOMSELECT = {"PROXY_REQUEST_CLASS": InvalidProxyRequest}
-        pytest.skip("This test requires refactoring to avoid reload.")
+        settings.TOMSELECT = {"PROXY_REQUEST_CLASS": InvalidProxyRequest}
+        with pytest.raises(TypeError) as exc_info:
+            importlib.reload(app_settings)  # Reload to pick up new settings
+            # validate_proxy_request_class gets called during import
+        assert "must be a subclass of DefaultProxyRequest" in str(exc_info.value)
+
+    def test_valid_proxy_request_class(self, settings):
+        """Test handling of valid proxy request class."""
+
+        class ValidProxyRequest(DefaultProxyRequest):
+            """Valid proxy request class."""
+
+        settings.TOMSELECT = {"PROXY_REQUEST_CLASS": ValidProxyRequest}
+        importlib.reload(app_settings)  # Reload to pick up new settings
+
+        proxy_request_class = validate_proxy_request_class()
+        assert issubclass(proxy_request_class, DefaultProxyRequest)
+        assert proxy_request_class is ValidProxyRequest  # Use 'is' to check identity
 
 
 class TestBaseConfigValidation:
