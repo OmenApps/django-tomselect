@@ -76,35 +76,47 @@ class PluginClearButton(BaseConfig):
 
 
 @dataclass(frozen=True)
-class PluginDropdownHeader(BaseConfig):  # pylint: disable=R0902
-    """Plugin configuration for the dropdown_header plugin.
-
-    Args:
-        title: title for the dropdown header.
-        header_class: CSS class for the header container.
-        title_row_class: CSS class for the title row.
-        label_class: CSS class for the label.
-        value_field_label: table header label for the value field column.
-          Defaults to value_field.title().
-        label_field_label: table header label for the label field column.
-          Defaults to the verbose_name of the model.
-        label_col_class: CSS class for the label column.
-        show_value_field: if True, show the value field column in the table.
-        extra_columns: a mapping of <model field names> to <column labels>
-          for additional columns. The field name tells Tom Select what
-          values to look up on a model object result for a given column.
-          The label is the table header label for a given column.
-    """
-
+class PluginDropdownHeader(BaseConfig):
+    """Plugin configuration for the dropdown_header plugin."""
     title: str = "Autocomplete"
     header_class: str = "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header"
     title_row_class: str = "row"
     label_class: str = "form-label"
     value_field_label: str = "Value"
     label_field_label: str = "Label"
-    label_col_class: str = "col-6"  # ToDo: Not currently used
+    label_col_class: str = "col-6"
     show_value_field: bool = False
     extra_columns: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def _title(self):
+        """Return the title with translations."""
+        return str(self.title)
+
+    @property
+    def _value_field_label(self):
+        """Return the value field label with translations."""
+        return str(self.value_field_label)
+
+    @property
+    def _label_field_label(self):
+        """Return the label field label with translations."""
+        return str(self.label_field_label)
+
+    @property
+    def _extra_columns(self):
+        """Return the extra columns with translations."""
+        return {k: str(v) for k, v in self.extra_columns.items()}
+
+    def as_dict(self):
+        """Return the configuration as a dictionary with evaluated translations."""
+        base_dict = super().as_dict()
+        # Replace _private fields with their property values
+        base_dict['title'] = self._title
+        base_dict['value_field_label'] = self._value_field_label
+        base_dict['label_field_label'] = self._label_field_label
+        base_dict['extra_columns'] = self._extra_columns
+        return base_dict
 
     def validate(self) -> None:
         """Validate dropdown header config."""
@@ -381,5 +393,12 @@ def merge_configs(base: TomSelectConfig, override: TomSelectConfig | None = None
     for field_name in override.__dataclass_fields__:
         val = getattr(override, field_name)
         if val is not None:
-            combined[field_name] = val
+            if field_name == 'plugin_dropdown_header' and val:
+                # Special handling for dropdown header to preserve translations
+                header_dict = val.__dict__.copy()
+                if 'extra_columns' in header_dict:
+                    header_dict['extra_columns'] = header_dict.pop('extra_columns')
+                combined[field_name] = PluginDropdownHeader(**header_dict)
+            else:
+                combined[field_name] = val
     return TomSelectConfig(**combined)

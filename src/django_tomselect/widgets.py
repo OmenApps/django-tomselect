@@ -109,11 +109,19 @@ class TomSelectWidgetMixin:
             plugins["remove_button"] = self.plugin_remove_button.as_dict()
 
         if self.plugin_dropdown_header:
-            header_dict = self.plugin_dropdown_header.as_dict()
-            if isinstance(self.plugin_dropdown_header.extra_columns, dict):
-                header_dict["extra_headers"] = list(self.plugin_dropdown_header.extra_columns.values())
-                header_dict["extra_values"] = list(self.plugin_dropdown_header.extra_columns.keys())
-            plugins["dropdown_header"] = header_dict
+            header = self.plugin_dropdown_header
+            plugins['dropdown_header'] = {
+                'title': str(header.title),
+                'header_class': header.header_class,
+                'title_row_class': header.title_row_class,
+                'label_class': header.label_class,
+                'value_field_label': str(header.value_field_label),
+                'label_field_label': str(header.label_field_label),
+                'label_col_class': header.label_col_class,
+                'show_value_field': header.show_value_field,
+                'extra_headers': list(header.extra_columns.values()),
+                'extra_values': list(header.extra_columns.keys())
+            }
 
         if self.plugin_dropdown_footer:
             plugins["dropdown_footer"] = self.plugin_dropdown_footer.as_dict()
