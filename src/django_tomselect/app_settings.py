@@ -171,8 +171,6 @@ PERMISSION_CACHE_NAMESPACE = PERMISSION_CACHE.get("NAMESPACE", "")
 
 LOGGING_ENABLED = PROJECT_TOMSELECT.get("ENABLE_LOGGING", True)
 
-PROXY_REQUEST_CLASS = PROJECT_TOMSELECT.get("PROXY_REQUEST_CLASS", DefaultProxyRequest)
-
 
 def validate_proxy_request_class():
     """Validate the ProxyRequest class based on settings.
@@ -180,35 +178,31 @@ def validate_proxy_request_class():
     Returns:
         A subclass of DefaultProxyRequest.
     """
-    if PROXY_REQUEST_CLASS is None:
+    proxy_request_class = PROJECT_TOMSELECT.get("PROXY_REQUEST_CLASS", DefaultProxyRequest)
+    if proxy_request_class is None:
         return DefaultProxyRequest
 
-    if isinstance(PROXY_REQUEST_CLASS, str):
+    if isinstance(proxy_request_class, str):
         try:
-            proxy_request_class = import_string(PROXY_REQUEST_CLASS)
+            proxy_request_class = import_string(proxy_request_class)
         except (ModuleNotFoundError, ImportError) as e:
             logger.exception(
                 "Could not import %s. Please check your PROXY_REQUEST_CLASS setting. %s",
-                PROXY_REQUEST_CLASS,
+                proxy_request_class,
                 e,
             )
             raise ImportError(f"Failed to import PROXY_REQUEST_CLASS: {e}") from e
 
-    elif issubclass(PROXY_REQUEST_CLASS, DefaultProxyRequest):
-        proxy_request_class = PROXY_REQUEST_CLASS
-    else:
+    if not issubclass(proxy_request_class, DefaultProxyRequest):
         raise TypeError(
             "PROXY_REQUEST_CLASS must be a subclass of DefaultProxyRequest "
             "or an importable string pointing to such a subclass."
         )
 
-    if not issubclass(proxy_request_class, DefaultProxyRequest):
-        raise TypeError("The PROXY_REQUEST_CLASS must be a subclass of DefaultProxyRequest.")
-
     return proxy_request_class
 
 
-ProxyRequest = validate_proxy_request_class()
+PROXY_REQUEST_CLASS = validate_proxy_request_class()
 
 
 @dataclass(frozen=True)

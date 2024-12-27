@@ -7,8 +7,8 @@ from django.urls import NoReverseMatch, resolve, reverse, reverse_lazy
 
 from django_tomselect.app_settings import (
     GLOBAL_DEFAULT_CONFIG,
+    PROXY_REQUEST_CLASS,
     AllowedCSSFrameworks,
-    ProxyRequest,
     TomSelectConfig,
     merge_configs,
 )
@@ -536,7 +536,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 "Invalid or missing request object when creating proxy request. " "Permissions will be restricted."
             )
 
-        proxy_request = ProxyRequest(model=self.model, user=user)
+        proxy_request = PROXY_REQUEST_CLASS(model=self.model, user=user)
 
         autocomplete_view = resolve(self.get_autocomplete_url()).func.view_class()
         if not issubclass(autocomplete_view.__class__, AutocompleteModelView):
@@ -677,7 +677,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
 
     def get_autocomplete_view(self):
         """Get instance of autocomplete view for accessing iterable."""
-        proxy_request = ProxyRequest()
+        proxy_request = PROXY_REQUEST_CLASS()
 
         try:
             autocomplete_view = resolve(self.get_autocomplete_url()).func.view_class()
