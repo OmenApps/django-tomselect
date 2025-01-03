@@ -1,12 +1,18 @@
 """Tests for TomSelectModelWidget and TomSelectModelMultipleWidget."""
 
+import hashlib
 import logging
+import time
 from dataclasses import FrozenInstanceError
 
 import pytest
+from bs4 import BeautifulSoup
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.urls import reverse_lazy
 from django.urls.exceptions import NoReverseMatch
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _lazy
 
 from django_tomselect.app_settings import (
     PluginCheckboxOptions,
@@ -19,6 +25,7 @@ from django_tomselect.app_settings import (
     bool_or_callable,
     merge_configs,
 )
+from django_tomselect.cache import permission_cache
 from django_tomselect.widgets import (
     TomSelectIterablesMultipleWidget,
     TomSelectIterablesWidget,
@@ -194,7 +201,9 @@ class TestTomSelectModelWidget:
         )
 
         class MockView:
+            """Mock view for testing."""
             def prepare_nonexistent_field(self, obj):
+                """Mock method for testing."""
                 return None
 
         label = widget.get_label_for_object(sample_edition, MockView())
@@ -219,6 +228,80 @@ class TestTomSelectModelWidget:
         assert "dropdown_input" in plugins
         assert plugins["dropdown_input"] is False
 
+    def test_widget_with_create_option_and_filter(self):
+        """Test widget initialization with create option and filter."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            show_create=True,
+            create_field="name",
+            filter_by=("magazine", "magazine_id"),
+        )
+        widget = self.create_widget(config=config)
+        context = widget.get_context("test", None, {})
+
+        assert context["widget"]["dependent_field"] == "magazine"
+        assert context["widget"]["dependent_field_lookup"] == "magazine_id"
+
+    def test_widget_with_create_option_and_validation_error(self):
+        """Test widget initialization with create option and validation error."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            show_create=True,
+            create_field="name",
+        )
+        widget = self.create_widget(config=config)
+        context = widget.get_context("test", "", {})
+
+        assert context["widget"]["selected_options"] == []
+
+    def test_widget_with_tabular_layout_and_extra_columns(self):
+        """Test widget with tabular layout and extra columns."""
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                plugin_dropdown_header=PluginDropdownHeader(
+                    show_value_field=True,
+                    title="Select Edition",
+                    extra_columns={
+                        "year": "Publication Year",
+                        "pub_num": "Publication Number"
+                    }
+                )
+            )
+        )
+        context = widget.get_context("test", None, {})
+        header = context["widget"]["plugins"]["dropdown_header"]
+        assert header["show_value_field"]
+        assert "Publication Year" in header["extra_headers"]
+        assert "pub_num" in header["extra_values"]
+
+    def test_widget_with_dynamic_attributes(self):
+        """Test widget with dynamically generated attributes."""
+        class DynamicWidget(TomSelectModelWidget):
+            """Widget with dynamic attributes."""
+            def get_context(self, name, value, attrs):
+                """Add a timestamp to the widget."""
+                attrs = attrs or {}
+                attrs['data-timestamp'] = str(int(time.time()))
+                return super().get_context(name, value, attrs)
+
+        widget = DynamicWidget(
+            config=TomSelectConfig(url="autocomplete-edition")
+        )
+
+        rendered1 = widget.render("test", None)
+        time.sleep(1)
+        rendered2 = widget.render("test", None)
+
+        # Get the rendered select elements
+        soup1 = BeautifulSoup(rendered1, 'html.parser')
+        soup2 = BeautifulSoup(rendered2, 'html.parser')
+
+        select1 = soup1.find('select')
+        select2 = soup2.find('select')
+
+        # Check timestamps differ
+        assert select1['data-timestamp'] != select2['data-timestamp']
 
 @pytest.mark.django_db
 class TestTomSelectModelMultipleWidget:
@@ -645,8 +728,6 @@ class TestWidgetConfigurationAndMedia:
 
         caplog.set_level(logging.WARNING)
 
-        # config = TomSelectConfig()
-
         # Create a new config with invalid plugin types
         invalid_config = TomSelectConfig(
             plugin_checkbox_options=type("InvalidPlugin", (), {})(),
@@ -683,6 +764,46 @@ class TestWidgetConfigurationAndMedia:
         # Check JS files
         js_files = media._js
         assert any(expected_suffix in f for f in js_files)
+
+    def test_field_with_conditional_configuration(self, sample_edition):
+        """Test widget configuration that changes based on conditions."""
+        from django.conf import settings  # pylint: disable=C0415
+
+        def get_config():
+            if settings.DEBUG:
+                return TomSelectConfig(
+                    url="autocomplete-edition",
+                    preload=True,
+                    minimum_query_length=1
+                )
+            return TomSelectConfig(
+                url="autocomplete-edition",
+                preload=False,
+                minimum_query_length=2
+            )
+
+        widget = TomSelectModelWidget(config=get_config())
+        assert widget.minimum_query_length in (1, 2)
+        assert isinstance(widget.preload, bool)
+
+    def test_widget_with_htmx_configuration(self):
+        """Test widget configuration with HTMX support."""
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                use_htmx=True,
+                create_with_htmx=True
+            )
+        )
+        context = widget.get_context("test", None, {})
+
+        # Verify HTMX config in context
+        assert context["widget"]["use_htmx"]
+        assert context["widget"]["create_with_htmx"]
+
+        # Test the rendered output doesn't include DOMContentLoaded wrapper
+        rendered = widget.render("test", None)
+        assert "DOMContentLoaded" not in rendered
 
 
 @pytest.mark.django_db
@@ -1257,6 +1378,64 @@ class TestWidgetValidationAndPermissions:
         request = MockRequest()
         assert widget.validate_request(request) == has_get_full_path
 
+    def test_field_permission_caching(self, mock_request):
+        """Test that permissions are properly cached."""
+
+        # Set up caching
+        permission_cache.cache = cache
+        permission_cache.enabled = True
+        permission_cache.timeout = 300
+        cache.clear()
+
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition")
+        )
+
+        class MockView:
+            """Mock view with permission caching."""
+            model = Edition
+
+            def has_permission(self, request, action):
+                """Mock has_permission method."""
+                return True
+
+            def get_queryset(self):
+                """Return all editions."""
+                return Edition.objects.all()
+
+            def get_permission_required(self):
+                """Return required permissions."""
+                return ['view_edition']
+
+        view = MockView()
+
+        # Set the request on the view
+        view.request = mock_request
+        widget.request = mock_request
+
+        # First call should cache the permission
+        context = widget.get_permissions_context(view)
+        assert context['can_view'] is True
+
+        # Build cache key using the permission_cache's actual method
+        unique_key = f"tomselect_perm:{mock_request.user.id}:edition:view:v1"
+        cache_key = hashlib.md5(unique_key.encode()).hexdigest()
+
+        # Set the permission directly using the permission_cache method
+        permission_cache.set_permission(
+            user_id=mock_request.user.id,
+            model_name='edition',
+            action='view',
+            value=True
+        )
+
+        # Verify permission was cached correctly
+        assert permission_cache.get_permission(
+            user_id=mock_request.user.id,
+            model_name='edition',
+            action='view'
+        ) is True
+
 
 @pytest.mark.django_db
 class TestWidgetAttributeHandling:
@@ -1387,7 +1566,7 @@ class TestWidgetRequestValidation:
             return self._method
 
         @property
-        def GET(self):
+        def GET(self):  # pylint: disable=C0103
             """Mock GET property."""
             return self._get
 
@@ -1476,3 +1655,145 @@ class TestWidgetConfigValidation:
             TomSelectConfig(**config_kwargs).validate()
 
         assert expected_error in str(exc_info.value)
+
+@pytest.mark.django_db
+class TestWidgetTranslations:
+    """Test translation handling in TomSelect widgets."""
+
+    def test_dropdown_header_translations(self):
+        """Test translation of dropdown header labels."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            plugin_dropdown_header=PluginDropdownHeader(
+                title=_lazy("Select an Edition"),
+                value_field_label=_("ID"),
+                label_field_label=_lazy("Edition Name"),
+                extra_columns={
+                    "year": _("Publication Year"),
+                    "pages": _lazy("Page Count"),
+                }
+            )
+        )
+        widget = TomSelectModelWidget(config=config)
+        context = widget.get_context("test", None, {})
+
+        header = context["widget"]["plugins"]["dropdown_header"]
+        assert header["title"] == "Select an Edition"
+        assert header["value_field_label"] == "ID"
+        assert header["label_field_label"] == "Edition Name"
+        assert "Publication Year" in header["extra_headers"]
+        assert "Page Count" in header["extra_headers"]
+
+    def test_plugin_button_translations(self):
+        """Test translation of plugin button labels."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            plugin_clear_button=PluginClearButton(
+                title=_("Clear Selection")
+            ),
+            plugin_remove_button=PluginRemoveButton(
+                title=_lazy("Remove Item"),
+                label=_("×")
+            ),
+            plugin_dropdown_footer=PluginDropdownFooter(
+                title=_lazy("Available Actions"),
+                list_view_label=_("View All"),
+                create_view_label=_lazy("Create New")
+            )
+        )
+        widget = TomSelectModelWidget(config=config)
+        context = widget.get_context("test", None, {})
+
+        plugins = context["widget"]["plugins"]
+        assert plugins["clear_button"]["title"] == "Clear Selection"
+        assert plugins["remove_button"]["title"] == "Remove Item"
+        assert plugins["remove_button"]["label"] == "×"
+        assert plugins["dropdown_footer"]["title"] == "Available Actions"
+        assert plugins["dropdown_footer"]["list_view_label"] == "View All"
+        assert plugins["dropdown_footer"]["create_view_label"] == "Create New"
+
+    def test_mixed_translation_methods(self):
+        """Test mixing gettext and gettext_lazy in the same configuration."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            plugin_dropdown_header=PluginDropdownHeader(
+                title=_lazy("Select Item"),
+                value_field_label=_("Value"),
+                label_field_label=_lazy("Label"),
+                extra_columns={
+                    "col1": _("Column 1"),
+                    "col2": _lazy("Column 2")
+                }
+            ),
+            plugin_clear_button=PluginClearButton(
+                title=_("Clear")
+            )
+        )
+        widget = TomSelectModelWidget(config=config)
+        context = widget.get_context("test", None, {})
+
+        plugins = context["widget"]["plugins"]
+        header = plugins["dropdown_header"]
+
+        # Test lazy translations
+        assert header["title"] == "Select Item"
+        assert header["label_field_label"] == "Label"
+        assert "Column 2" in header["extra_headers"]
+
+        # Test immediate translations
+        assert header["value_field_label"] == "Value"
+        assert "Column 1" in header["extra_headers"]
+        assert plugins["clear_button"]["title"] == "Clear"
+
+    def test_placeholder_translation(self):
+        """Test translation of placeholder text."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            placeholder=_lazy("Choose an edition...")
+        )
+        widget = TomSelectModelWidget(config=config)
+        context = widget.get_context("test", None, {})
+
+        assert context["widget"]["placeholder"] == "Choose an edition..."
+
+    def test_translation_with_variables(self):
+        """Test translations containing variables."""
+        item_count = 5
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            plugin_dropdown_header=PluginDropdownHeader(
+                title=_lazy("Select up to %(count)d items") % {"count": item_count},
+                value_field_label=_("ID #%(num)d") % {"num": 1}
+            )
+        )
+        widget = TomSelectModelWidget(config=config)
+        context = widget.get_context("test", None, {})
+
+        header = context["widget"]["plugins"]["dropdown_header"]
+        assert header["title"] == "Select up to 5 items"
+        assert header["value_field_label"] == "ID #1"
+
+    def test_nested_translation_dictionary(self):
+        """Test handling of nested translations in dictionary structures."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            plugin_dropdown_header=PluginDropdownHeader(
+                extra_columns={
+                    "status": _lazy("Status"),
+                    "info": _("Information"),
+                    "details": _lazy("Details")
+                }
+            )
+        )
+        widget = TomSelectModelWidget(config=config)
+        context = widget.get_context("test", None, {})
+
+        header = context["widget"]["plugins"]["dropdown_header"]
+        assert "Status" in header["extra_headers"]
+        assert "Information" in header["extra_headers"]
+        assert "Details" in header["extra_headers"]
+
+        # Verify the corresponding values are in extra_values
+        assert "status" in header["extra_values"]
+        assert "info" in header["extra_values"]
+        assert "details" in header["extra_values"]

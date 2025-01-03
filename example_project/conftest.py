@@ -102,3 +102,28 @@ def editions(magazines):
 def autocomplete_url():
     """Return the URL for the edition autocomplete view."""
     return reverse("autocomplete-edition")
+
+
+@pytest.fixture
+def mock_request():
+    """Create a mock request with authentication."""
+    class MockUser:
+        """Mock user class with authentication and permissions."""
+        id = 1
+        is_authenticated = True
+
+        def has_perms(self, perms):
+            """Mock has_perms method."""
+            return True
+
+    class MockRequest:
+        """Mock request class with user and method attributes."""
+        user = MockUser()
+        method = "GET"
+        GET = {}
+
+        def get_full_path(self):
+            """Mock get_full_path method."""
+            return "/test/"
+
+    return MockRequest()

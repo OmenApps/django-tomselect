@@ -66,6 +66,167 @@ class TestAppSettings:
         # No reload needed since currently_in_production_mode reads settings.DEBUG directly
         assert app_settings.currently_in_production_mode() == expected
 
+    def test_merge_configs_with_nested_plugins(self):
+        """Test merging configs with nested plugin structures."""
+        base = TomSelectConfig(
+            plugin_dropdown_header=PluginDropdownHeader(
+                title="Base",
+                extra_columns={"key1": "Value1"}
+            ),
+            plugin_dropdown_footer=PluginDropdownFooter(
+                title="Base Footer"
+            )
+        )
+        override = TomSelectConfig(
+            plugin_dropdown_header=PluginDropdownHeader(
+                title="Override",
+                extra_columns={"key2": "Value2"}
+            )
+        )
+        result = app_settings.merge_configs(base, override)
+        assert result.plugin_dropdown_header.title == "Override"
+        assert result.plugin_dropdown_header.extra_columns == {"key2": "Value2"}
+        assert result.plugin_dropdown_footer.title == "Base Footer"
+
+    def test_filter_exclude_validation(self):
+        """Test validation of filter_by and exclude_by combinations."""
+        # Test that exactly same field and value raises error
+        with pytest.raises(ValidationError):
+            TomSelectConfig(
+                filter_by=("field", "value"),
+                exclude_by=("field", "value")
+            )
+
+        # However, different fields should be allowed
+        config = TomSelectConfig(
+            filter_by=("field1", "value1"),
+            exclude_by=("field2", "value2")
+        )
+        assert config.filter_by == ("field1", "value1")
+        assert config.exclude_by == ("field2", "value2")
+
+    def test_tom_select_config_max_options_validation(self):
+        """Test validation of max_options parameter."""
+        with pytest.raises(ValidationError):
+            TomSelectConfig(max_options=0)
+
+        config = TomSelectConfig(max_options=10)
+        assert config.max_options == 10
+
+    def test_css_framework_validation(self):
+        """Test CSS framework validation with valid and invalid values."""
+        # Test valid frameworks
+        for framework in AllowedCSSFrameworks:
+            config = TomSelectConfig(css_framework=framework.value)
+            assert config.css_framework == framework.value
+
+        # Test invalid framework - currently accepts any string
+        config = TomSelectConfig(css_framework="invalid_framework")
+        assert config.css_framework == "invalid_framework"  # Current behavior
+
+        # Test default value when css_framework is not provided
+        config = TomSelectConfig()  # Don't specify css_framework at all
+        assert config.css_framework == app_settings.DEFAULT_CSS_FRAMEWORK
+
+        # Test that None is passed through
+        config = TomSelectConfig(css_framework=None)
+        assert config.css_framework is None
+
+    def test_plugin_dropdown_header_extra_columns_empty(self):
+        """Test PluginDropdownHeader with empty extra columns."""
+        config = PluginDropdownHeader(extra_columns={})
+        assert not config.extra_columns
+        assert config.as_dict()["extra_columns"] == {}
+
+    def test_merge_configs_with_none_values(self):
+        """Test merging configs when override contains None values."""
+        base = TomSelectConfig(
+            url="base-url",
+            highlight=True,
+            plugin_dropdown_header=PluginDropdownHeader(title="Base Title")
+        )
+        override = TomSelectConfig(
+            url=None,  # Should not override
+            highlight=False,  # Should override
+            plugin_dropdown_header=None  # Should not override
+        )
+        result = app_settings.merge_configs(base, override)
+        assert result.url == "base-url"  # Maintained from base
+        assert result.highlight is False  # Updated from override
+        assert result.plugin_dropdown_header.title == "Base Title"  # Maintained from base
+
+    @pytest.mark.parametrize(
+        "preload_value,expected",
+        [
+            ("focus", "focus"),
+            (True, True),
+            (False, False),
+            (None, None),  # Current behavior - None is passed through
+            ("invalid", "invalid")  # Current behavior - no validation
+        ]
+    )
+    def test_preload_validation(self, preload_value, expected):
+        """Test preload parameter behavior with various values."""
+        config = TomSelectConfig(preload=preload_value)
+        assert config.preload == expected
+
+    def test_preload_default_value(self):
+        """Test default value for preload when not specified."""
+        config = TomSelectConfig()
+        assert config.preload == "focus"  # Default value from class definition
+
+    def test_plugin_configuration_inheritance(self):
+        """Test that plugin configurations properly inherit and override."""
+        base_config = TomSelectConfig(
+            plugin_clear_button=PluginClearButton(
+                title="Base Clear",
+                class_name="base-clear"
+            )
+        )
+
+        # Create new config inheriting from base
+        merged = app_settings.merge_configs(
+            base_config,
+            TomSelectConfig(
+                plugin_clear_button=PluginClearButton(
+                    title="New Clear",  # Override title
+                    class_name="base-clear"  # Keep same class
+                )
+            )
+        )
+
+        assert merged.plugin_clear_button.title == "New Clear"
+        assert merged.plugin_clear_button.class_name == "base-clear"
+
+    def test_complex_plugin_configuration(self):
+        """Test configuration with multiple plugins and complex settings."""
+        config = TomSelectConfig(
+            url="test-url",
+            value_field="custom_id",
+            label_field="custom_name",
+            filter_by=("category", "type"),
+            plugin_dropdown_header=PluginDropdownHeader(
+                title="Header",
+                show_value_field=True,
+                extra_columns={"status": "Status"}
+            ),
+            plugin_clear_button=PluginClearButton(
+                title="Clear All"
+            ),
+            plugin_checkbox_options=PluginCheckboxOptions(),
+            use_htmx=True
+        )
+
+        assert config.url == "test-url"
+        assert config.value_field == "custom_id"
+        assert config.label_field == "custom_name"
+        assert config.filter_by == ("category", "type")
+        assert config.plugin_dropdown_header.show_value_field is True
+        assert config.plugin_dropdown_header.extra_columns == {"status": "Status"}
+        assert config.plugin_clear_button.title == "Clear All"
+        assert isinstance(config.plugin_checkbox_options, PluginCheckboxOptions)
+        assert config.use_htmx is True
+
 
 @pytest.mark.django_db
 class TestBasicModelOperations:
@@ -232,6 +393,25 @@ class TestPluginConfiguration:
         assert isinstance(plugin_config, PluginClearButton)
         assert plugin_config.title == "Default"
 
+    def test_get_plugin_config_with_dict(self, monkeypatch):
+        """Test get_plugin_config with dictionary configuration."""
+        plugin_dict = {"title": "Custom Title", "class_name": "custom-class"}
+        monkeypatch.setattr(app_settings, "PROJECT_PLUGINS", {"clear_button": plugin_dict})
+
+        result = get_plugin_config(PluginClearButton, "clear_button", PluginClearButton())
+        assert isinstance(result, PluginClearButton)
+        assert result.title == "Custom Title"
+        assert result.class_name == "custom-class"
+
+    def test_get_plugin_config_with_invalid_type(self, monkeypatch):
+        """Test get_plugin_config with invalid configuration type."""
+        invalid_config = 123  # Not a dict or proper instance
+        monkeypatch.setattr(app_settings, "PROJECT_PLUGINS", {"clear_button": invalid_config})
+
+        default = PluginClearButton(title="Default")
+        result = get_plugin_config(PluginClearButton, "clear_button", default)
+        assert result == default
+
 
 @pytest.mark.django_db
 class TestTomSelectConfig:
@@ -331,6 +511,72 @@ class TestTomSelectConfig:
         assert isinstance(config.plugin_dropdown_footer, PluginDropdownFooter)
         assert isinstance(config.plugin_dropdown_input, PluginDropdownInput)
         assert isinstance(config.plugin_remove_button, PluginRemoveButton)
+
+    def test_update_method(self):
+        """Test updating TomSelectConfig values.
+
+        Since TomSelectConfig is a frozen dataclass, we have to create a new instance
+        with updated values rather than modifying an existing one.
+        """
+        base_config = TomSelectConfig()
+        new_config = TomSelectConfig(
+            **{**base_config.__dict__, "url": "new-url", "highlight": False}
+        )
+        assert new_config.url == "new-url"
+        assert new_config.highlight is False
+        # Verify original config remains unchanged
+        assert base_config.url == "autocomplete"
+        assert base_config.highlight is True
+
+    def test_merge_configs_with_none(self):
+        """Test merging configs when override is None."""
+        base = TomSelectConfig(url="test-url", highlight=True)
+        result = app_settings.merge_configs(base, None)
+        assert result == base
+        assert result.url == "test-url"
+        assert result.highlight is True
+
+    def test_load_throttle_validation(self):
+        """Test validation of load_throttle parameter."""
+        with pytest.raises(ValidationError):
+            TomSelectConfig(load_throttle=-1)
+
+    def test_max_items_validation(self):
+        """Test validation of max_items parameter."""
+        with pytest.raises(ValidationError):
+            TomSelectConfig(max_items=0)
+
+    def test_minimum_query_length_validation(self):
+        """Test validation of minimum_query_length parameter."""
+        with pytest.raises(ValidationError):
+            TomSelectConfig(minimum_query_length=-1)
+
+    def test_merge_configs_with_dropdown_header(self):
+        """Test merging configs with dropdown header plugin."""
+        base = TomSelectConfig(
+            plugin_dropdown_header=PluginDropdownHeader(
+                title="Base Title",
+                extra_columns={"base": "Base Column"}
+            )
+        )
+        override = TomSelectConfig(
+            plugin_dropdown_header=PluginDropdownHeader(
+                title="Override Title",
+                extra_columns={"override": "Override Column"}
+            )
+        )
+        result = app_settings.merge_configs(base, override)
+        assert result.plugin_dropdown_header.title == "Override Title"
+        assert result.plugin_dropdown_header.extra_columns == {"override": "Override Column"}
+
+    def test_merge_configs_partial_override(self):
+        """Test merging configs with partial override."""
+        base = TomSelectConfig(url="base-url", highlight=True, create=False)
+        override = TomSelectConfig(url="override-url")
+        result = app_settings.merge_configs(base, override)
+        assert result.url == "override-url"
+        assert result.highlight is True  # Maintained from base
+        assert result.create is False  # Maintained from base
 
 
 class TestPluginIntegration:
@@ -449,6 +695,33 @@ class TestPluginDropdownHeader:
         assert config.label_col_class == "col-4"
         assert config.show_value_field is True
         assert config.extra_columns == {"field1": "Label 1", "field2": "Label 2"}
+
+    def test_property_methods(self):
+        """Test the property methods for translations."""
+        config = PluginDropdownHeader(
+            title="Test Title",
+            value_field_label="Test Value",
+            label_field_label="Test Label",
+            extra_columns={"key": "Test Column"}
+        )
+        assert config._title == "Test Title"
+        assert config._value_field_label == "Test Value"
+        assert config._label_field_label == "Test Label"
+        assert config._extra_columns == {"key": "Test Column"}
+
+    def test_as_dict_method(self):
+        """Test the as_dict method with translations."""
+        config = PluginDropdownHeader(
+            title="Test Title",
+            value_field_label="Test Value",
+            label_field_label="Test Label",
+            extra_columns={"key": "Test Column"}
+        )
+        result = config.as_dict()
+        assert result["title"] == "Test Title"
+        assert result["value_field_label"] == "Test Value"
+        assert result["label_field_label"] == "Test Label"
+        assert result["extra_columns"] == {"key": "Test Column"}
 
 
 @pytest.mark.django_db

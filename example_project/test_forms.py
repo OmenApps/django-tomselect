@@ -634,6 +634,202 @@ class TestFormIntegration:
         assert not form.is_valid()
         assert "Priority is required for active status" in str(form.errors["__all__"])
 
+    def test_create_article_with_relations(self, magazines, editions):
+        """Test creating an article with related models using TomSelect fields."""
+        from example_project.example.models import Article  # pylint: disable=C0415
+
+        class ArticleForm(forms.Form):
+            """Form for creating Article with TomSelect fields."""
+            title = forms.CharField()
+            word_count = forms.IntegerField()
+            magazine = TomSelectModelChoiceField(
+                config=TomSelectConfig(url="autocomplete-magazine")
+            )
+            edition = TomSelectModelChoiceField(  # Changed to single select
+                config=TomSelectConfig(url="autocomplete-edition")
+            )
+            status = TomSelectChoiceField(
+                config=TomSelectConfig(url="autocomplete-article-status")
+            )
+            priority = TomSelectChoiceField(
+                config=TomSelectConfig(url="autocomplete-article-priority")
+            )
+
+        form_data = {
+            'title': 'Test Article',
+            'word_count': 1000,
+            'magazine': magazines[0].pk,
+            'edition': editions[0].pk,  # Single edition
+            'status': ArticleStatus.ACTIVE,
+            'priority': str(ArticlePriority.NORMAL)
+        }
+
+        form = ArticleForm(data=form_data)
+        assert form.is_valid()
+        cleaned_data = form.cleaned_data
+
+        # Create Article instance
+        article = Article.objects.create(
+            title=cleaned_data['title'],
+            word_count=cleaned_data['word_count'],
+            magazine=cleaned_data['magazine'],
+            edition=cleaned_data['edition'],  # Set edition directly
+            status=cleaned_data['status'],
+            priority=int(cleaned_data['priority'])
+        )
+
+        # Verify created instance
+        assert article.pk is not None
+        assert article.title == 'Test Article'
+        assert article.magazine == magazines[0]
+        assert article.edition == editions[0]
+        assert article.status == ArticleStatus.ACTIVE
+        assert article.priority == ArticlePriority.NORMAL
+
+    def test_model_form_create_with_tomselect(self, magazines):
+        """Test creating model instance using ModelForm with TomSelect fields."""
+        class EditionModelForm(forms.ModelForm):
+            """ModelForm for creating Edition with TomSelect fields."""
+            magazine = TomSelectModelChoiceField(
+                config=TomSelectConfig(url="autocomplete-magazine")
+            )
+
+            class Meta:
+                """Meta class for EditionModelForm."""
+                model = Edition
+                fields = ['name', 'year', 'pages', 'pub_num', 'magazine']
+
+        form_data = {
+            'name': 'New Edition',
+            'year': '2025',
+            'pages': '100',
+            'pub_num': 'TEST-002',
+            'magazine': magazines[0].pk
+        }
+
+        form = EditionModelForm(data=form_data)
+        assert form.is_valid()
+        edition = form.save()
+
+        # Verify created instance
+        assert edition.pk is not None
+        assert edition.name == 'New Edition'
+        assert edition.magazine == magazines[0]
+
+    def test_update_model_with_tomselect(self, editions, magazines):
+        """Test updating model instance using form with TomSelect fields."""
+        edition = editions[0]
+        new_magazine = magazines[1]  # Different magazine for update
+
+        class EditionUpdateForm(forms.ModelForm):
+            """ModelForm for updating Edition with TomSelect fields."""
+            magazine = TomSelectModelChoiceField(
+                config=TomSelectConfig(url="autocomplete-magazine")
+            )
+
+            class Meta:
+                """Meta class for EditionUpdateForm."""
+                model = Edition
+                fields = ['name', 'magazine']
+
+        form_data = {
+            'name': 'Updated Edition',
+            'magazine': new_magazine.pk
+        }
+
+        form = EditionUpdateForm(instance=edition, data=form_data)
+        assert form.is_valid()
+        updated_edition = form.save()
+
+        # Verify updates
+        assert updated_edition.pk == edition.pk  # Same instance
+        assert updated_edition.name == 'Updated Edition'
+        assert updated_edition.magazine == new_magazine
+
+    def test_form_with_initial_instance(self, editions):
+        """Test form initialization with instance and TomSelect fields."""
+        edition = editions[0]
+
+        class EditionForm(forms.ModelForm):
+            """ModelForm for Edition with TomSelect fields."""
+            magazine = TomSelectModelChoiceField(
+                config=TomSelectConfig(url="autocomplete-magazine")
+            )
+
+            class Meta:
+                """Meta class for EditionForm."""
+                model = Edition
+                fields = ['name', 'magazine']
+
+        form = EditionForm(instance=edition)
+
+        # Verify initial data is correctly set
+        assert form.initial['name'] == edition.name
+        assert form.initial['magazine'] == edition.magazine.pk
+
+        # Verify widget has selected option
+        rendered = form.as_p()
+        assert str(edition.magazine.pk) in rendered
+
+    def test_form_with_create_option_and_validation_error(self):
+        """Test form submission with create option and validation error."""
+        class TestForm(forms.Form):
+            """Test form with create option and validation error."""
+            edition = TomSelectModelChoiceField(
+                config=TomSelectConfig(
+                    url="autocomplete-edition",
+                    show_create=True,
+                    create_field="name",
+                ),
+                required=True,
+            )
+
+        # Simulate form submission with invalid data
+        form = TestForm(data={"edition": ""})
+        assert not form.is_valid()
+        assert "edition" in form.errors
+
+    def test_create_with_dependent_fields_validation(self, magazines, editions):
+        """Test validation rules between dependent fields."""
+        from example_project.example.models import Article  # pylint: disable=C0415
+
+        class ArticleForm(forms.ModelForm):
+            """ModelForm for Article with dependent fields."""
+            magazine = TomSelectModelChoiceField(
+                config=TomSelectConfig(url="autocomplete-magazine")
+            )
+            edition = TomSelectModelChoiceField(
+                config=TomSelectConfig(
+                    url="autocomplete-edition",
+                    filter_by=("magazine", "magazine_id")
+                )
+            )
+
+            def clean(self):
+                cleaned_data = super().clean()
+                edition = cleaned_data.get('edition')
+                magazine = cleaned_data.get('magazine')
+
+                if edition and magazine and edition.magazine != magazine:
+                    raise ValidationError("Edition must belong to selected magazine")
+                return cleaned_data
+
+            class Meta:
+                """Meta class for ArticleForm."""
+                model = Article
+                fields = ['title', 'magazine', 'edition']
+
+        # Test with mismatched magazine/edition
+        form_data = {
+            'title': 'Test Article',
+            'magazine': magazines[0].pk,
+            'edition': editions[1].pk,  # Edition from different magazine
+        }
+
+        form = ArticleForm(data=form_data)
+        assert not form.is_valid()
+        assert "Edition must belong to selected magazine" in str(form.errors)
+
 
 @pytest.mark.django_db
 class TestFieldConfiguration:
