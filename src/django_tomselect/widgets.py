@@ -163,6 +163,9 @@ class TomSelectWidgetMixin:
         if self.placeholder is not None:
             attrs["placeholder"] = self.placeholder
 
+        attrs['data-template-option'] = attrs.get('data-template-option', '').replace('"', '\\"')
+        attrs['data-template-item'] = attrs.get('data-template-item', '').replace('"', '\\"')
+
         return {**attrs, **(extra_attrs or {})}
 
     @staticmethod
@@ -346,6 +349,10 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         request = self.get_current_request()
         urls = {}
 
+        # If obj is a dictionary, it's likely a cleaned_data object
+        if isinstance(obj, dict) or not hasattr(obj, 'pk') or obj.pk is None:
+            return {}
+
         if self.show_detail and autocomplete_view.detail_url and autocomplete_view.has_permission(request, "view"):
             try:
                 urls["detail_url"] = reverse(autocomplete_view.detail_url, args=[obj.pk])
@@ -455,11 +462,19 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
             selected = []
             for obj in selected_objects:
-                opt = {
-                    "value": str(obj.pk),
-                    "label": self.get_label_for_object(obj, autocomplete_view),
-                    **self.get_instance_url_context(obj, autocomplete_view),
-                }
+                # Handle the case where obj is a dictionary (e.g., cleaned_data)
+                if isinstance(obj, dict):
+                    opt = {
+                        "value": str(obj.get('pk', '')),
+                        "label": self.get_label_for_object(obj, autocomplete_view),
+                        **self.get_instance_url_context(obj, autocomplete_view),
+                    }
+                else:
+                    opt = {
+                        "value": str(obj.pk),
+                        "label": self.get_label_for_object(obj, autocomplete_view),
+                        **self.get_instance_url_context(obj, autocomplete_view),
+                    }
                 selected.append(opt)
 
             context["widget"]["selected_options"] = selected
