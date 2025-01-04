@@ -82,7 +82,6 @@ from django_tomselect.forms import TomSelectModelChoiceField, TomSelectConfig
 
 class MyForm(forms.Form):
     person = TomSelectModelChoiceField(
-        queryset=Person.objects.all(),
         TomSelectConfig(
             url="person_autocomplete",
             value_field="id",
