@@ -78,13 +78,15 @@ urlpatterns = [
 
 5. **Use in your forms:**
 ```python
-from django_tomselect.forms import TomSelectModelChoiceField
+from django_tomselect.forms import TomSelectModelChoiceField, TomSelectConfig
 
 class MyForm(forms.Form):
     person = TomSelectModelChoiceField(
-        url="person_autocomplete",
-        value_field="id",
-        label_field="full_name",
+        TomSelectConfig(
+            url="person_autocomplete",
+            value_field="id",
+            label_field="full_name",
+        )
     )
 ```
 
