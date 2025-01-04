@@ -65,7 +65,6 @@ from django_tomselect.app_settings import TomSelectConfig
 
 class BookForm(forms.ModelForm):
     author = forms.ModelChoiceField(
-        queryset=Author.objects.all(),
         widget=TomSelectModelWidget(
             config=TomSelectConfig(
                 url='author-autocomplete',
@@ -90,7 +89,6 @@ class BookForm(forms.ModelForm):
 ```python
 class BookForm(forms.ModelForm):
     categories = forms.ModelMultipleChoiceField(
-        queryset=Category.objects.all(),
         widget=TomSelectModelMultipleWidget(
             config=TomSelectConfig(
                 url='category-autocomplete',

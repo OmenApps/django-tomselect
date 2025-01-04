@@ -627,18 +627,15 @@ from django_tomselect.configs import TomSelectConfig
 
 class ArticleForm(forms.ModelForm):
     magazine = TomSelectModelChoiceField(
-        queryset=Magazine.objects.all(),
         config=TomSelectConfig(url="magazine-autocomplete")
     )
     edition = TomSelectModelChoiceField(
-        queryset=Edition.objects.all(),
         config=TomSelectConfig(
             url="edition-autocomplete",
             filter_by=("magazine", "magazine_id")  # Dynamically filter editions by the selected magazine
         )
     )
     authors = TomSelectModelMultipleChoiceField(
-        queryset=Author.objects.all(),
         config=TomSelectConfig(url="author-autocomplete")
     )
 

@@ -21,7 +21,6 @@ from django_tomselect.app_settings import TomSelectConfig
 
 class AuthorForm(forms.Form):
     author = TomSelectModelChoiceField(
-        queryset=Author.objects.all(),
         config=TomSelectConfig(
             url='author-autocomplete',
             placeholder='Select an author...',
@@ -44,7 +43,6 @@ class AuthorForm(forms.Form):
 ```python
 class BookForm(forms.Form):
     authors = TomSelectModelMultipleChoiceField(
-        queryset=Author.objects.all(),
         config=TomSelectConfig(
             url='author-autocomplete',
             placeholder='Select authors...',
@@ -141,7 +139,6 @@ from django_tomselect.app_settings import TomSelectConfig
 
 class MyForm(forms.Form):
     user = TomSelectModelChoiceField(
-        queryset=User.objects.all(),
         config=TomSelectConfig(
             url='user-autocomplete',
             show_detail=True,
