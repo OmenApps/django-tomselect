@@ -535,6 +535,11 @@ class Command(BaseCommand):
                 "Feature Flags",
                 "A/B Testing",
             ],
+            "Office Life (empty category)": [],
+            "Personal Development (empty category)": [],
+            "Health & Wellness (empty category)": [],
+            "Travel & Leisure (empty category)": [],
+            "Food & Drink (empty category)": [],
         }
 
         categories = {}
