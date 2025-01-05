@@ -393,7 +393,10 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         base_context = {
             "widget": {
                 "name": name,
+                "is_hidden": self.is_hidden,
+                "required": self.is_required,
                 "value": value,
+                "template_name": self.template_name,
                 "minimum_query_length": self.minimum_query_length,
                 "preload": self.preload,
                 "highlight": self.highlight,
@@ -624,7 +627,10 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
         context = {
             "widget": {
                 "name": name,
+                "is_hidden": self.is_hidden,
+                "required": self.is_required,
                 "value": value,
+                "template_name": self.template_name,
                 "minimum_query_length": self.minimum_query_length,
                 "preload": self.preload,
                 "highlight": self.highlight,
