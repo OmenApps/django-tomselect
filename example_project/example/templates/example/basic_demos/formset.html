@@ -1,0 +1,163 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ formset.media }}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+        .edition-form {
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .delete-row {
+            color: #dc3545;
+            cursor: pointer;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Formset Demo with TomSelect</h2>
+        </div>
+        <div class="card-body">
+            <div class="pb-5">
+                This page demonstrates using django-tomselect within a formset for managing multiple editions.
+                You can add or remove forms dynamically and each form includes a TomSelect field for selecting the magazine.
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                {{ formset.management_form }}
+
+                <div id="form-container">
+                    {% for form in formset %}
+                        <div class="edition-form">
+                            <div class="row align-items-center">
+                                <div class="col-11">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Name</label>
+                                            {{ form.name }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Year</label>
+                                            {{ form.year }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Magazine</label>
+                                            {{ form.magazine }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-1">
+                                    <div class="form-check">
+                                        {{ form.DELETE }}
+                                        <label class="delete-row">
+                                            <i class="bi bi-trash"></i>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col">
+                        <button type="button" class="btn btn-secondary" id="add-form">Add Another Edition</button>
+                        <button type="submit" class="btn btn-primary">Save All</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const addButton = document.getElementById('add-form');
+            const formContainer = document.getElementById('form-container');
+            const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+
+            // Store the initial TomSelect config from the first form
+            const initialSelect = document.querySelector('select[data-tomselect]');
+            const initialConfig = window.djangoTomSelect.configs.get(initialSelect.id);
+
+            addButton.addEventListener('click', function() {
+                const formCount = formContainer.children.length;
+                const firstForm = formContainer.children[0];
+
+                // Create a new div to hold our cloned form
+                const container = document.createElement('div');
+                container.classList.add('edition-form');
+
+                // Clone only the form structure, excluding scripts
+                const formStructure = firstForm.querySelector('.row').cloneNode(true);
+                container.appendChild(formStructure);
+
+                // Update form indices
+                container.innerHTML = container.innerHTML
+                    .replace(/form-(\d+)/g, `form-${formCount}`)
+                    .replace(/id_form-(\d+)/g, `id_form-${formCount}`);
+
+                // Clear values
+                container.querySelectorAll('input[type="text"]').forEach(input => input.value = '');
+
+                // Clean up any TomSelect-related elements and prepare the select
+                const selectElement = container.querySelector('select[data-tomselect]');
+                if (selectElement) {
+                    // Remove any ts-wrapper divs that might have been cloned
+                    const parentElement = selectElement.parentElement;
+                    while (parentElement.querySelector('.ts-wrapper')) {
+                        parentElement.querySelector('.ts-wrapper').remove();
+                    }
+
+                    // Clean the select element
+                    selectElement.className = selectElement.className
+                        .replace(/\btomselected\b/g, '')
+                        .replace(/\bts-hidden-accessible\b/g, '');
+                    selectElement.style.display = '';
+                    selectElement.removeAttribute('tabindex');
+                    selectElement.removeAttribute('data-ts-hidden');
+
+                    // Initialize TomSelect with cloned config
+                    if (initialConfig) {
+                        const newConfig = window.djangoTomSelect.cloneConfig(initialConfig);
+                        delete newConfig.items;
+                        delete newConfig.renderCache;
+
+                        // Remove any existing script tags
+                        container.querySelectorAll('script').forEach(script => script.remove());
+
+                        // Append the clean container first, then initialize TomSelect
+                        formContainer.appendChild(container);
+                        window.djangoTomSelect.initialize(selectElement, newConfig);
+                        return; // Exit early since we've already appended the container
+                    }
+                }
+
+                formContainer.appendChild(template);
+                totalForms.value = formCount + 1;
+            });
+
+            // Handle delete checkboxes
+            formContainer.addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox' && e.target.name.includes('-DELETE')) {
+                    const formDiv = e.target.closest('.edition-form');
+                    if (formDiv) {
+                        if (e.target.checked) {
+                            formDiv.style.opacity = '0.5';
+                        } else {
+                            formDiv.style.opacity = '1';
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+{% endblock %}

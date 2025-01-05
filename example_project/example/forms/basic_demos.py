@@ -1,6 +1,7 @@
 """Forms for the example project demonstrating TomSelectConfig usage."""
 
 from django import forms
+from django.forms import formset_factory, modelformset_factory
 from django.utils.translation import gettext_lazy as _
 
 from django_tomselect.app_settings import (
@@ -11,10 +12,8 @@ from django_tomselect.app_settings import (
     PluginRemoveButton,
     TomSelectConfig,
 )
-from django_tomselect.forms import (
-    TomSelectModelChoiceField,
-    TomSelectModelMultipleChoiceField,
-)
+from django_tomselect.forms import TomSelectModelChoiceField, TomSelectModelMultipleChoiceField
+from example_project.example.models import Category
 
 
 class DefaultStylingForm(forms.Form):
@@ -508,3 +507,82 @@ class Bootstrap5StylingHTMXForm(Bootstrap5StylingForm):
             "remove, clear, and highlighting"
         ),
     )
+
+
+class EditionFormsetForm(forms.Form):
+    """Form for managing multiple editions with their magazines using TomSelect."""
+
+    name = forms.CharField(max_length=50, required=True, widget=forms.TextInput(attrs={"class": "form-control mb-3"}))
+
+    year = forms.CharField(max_length=50, required=True, widget=forms.TextInput(attrs={"class": "form-control mb-3"}))
+
+    magazine = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-magazine",
+            show_list=True,
+            show_create=True,
+            value_field="id",
+            label_field="name",
+            css_framework="bootstrap5",
+            highlight=True,
+            open_on_focus=True,
+            preload="focus",
+            placeholder="Select a magazine",
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(title="Clear Selection"),
+        ),
+        attrs={"class": "form-control mb-3"},
+        label="Magazine",
+        help_text="Select the magazine for this edition",
+    )
+
+
+# A basic formset factory based on the EditionFormsetForm
+EditionFormset = formset_factory(EditionFormsetForm, extra=1, can_delete=True)
+
+
+class CategoryModelForm(forms.ModelForm):
+    """ModelForm for managing categories with their parent categories using TomSelect."""
+
+    # Override the parent field to use TomSelect with tabular display
+    parent = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-category",
+            show_list=True,
+            value_field="id",
+            label_field="name",
+            css_framework="bootstrap5",
+            highlight=True,
+            open_on_focus=True,
+            preload="focus",
+            placeholder="Select a parent category (optional)",
+            plugin_dropdown_header=PluginDropdownHeader(
+                show_value_field=False,
+                label_field_label="Category",
+                extra_columns={
+                    "direct_articles": "Direct Articles",
+                    "total_articles": "Total Articles",
+                },
+            ),
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(title="Clear Selection"),
+        ),
+        queryset=None,  # Queryset is set by the widget's autocomplete view
+        required=False,
+        attrs={"class": "form-control mb-3"},
+        label="Parent Category",
+        help_text="Select a parent category (optional)",
+    )
+
+    class Meta:
+        """Meta options for the CategoryModelForm."""
+
+        model = Category
+        fields = ["name", "parent"]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-control mb-3", "placeholder": "Enter category name"}),
+        }
+
+
+# A model formset factory based on the CategoryModelForm
+CategoryModelFormset = modelformset_factory(Category, form=CategoryModelForm, extra=1, can_delete=True)
