@@ -9,11 +9,7 @@ from django.core.cache import cache
 from django.core.cache.backends.memcached import BaseMemcachedCache
 from django.core.cache.backends.redis import RedisCache
 
-from django_tomselect.constants import (
-    PERMISSION_CACHE_KEY_PREFIX,
-    PERMISSION_CACHE_NAMESPACE,
-    PERMISSION_CACHE_TIMEOUT,
-)
+from django_tomselect.constants import PERMISSION_CACHE_KEY_PREFIX, PERMISSION_CACHE_NAMESPACE, PERMISSION_CACHE_TIMEOUT
 from django_tomselect.logging import package_logger
 
 

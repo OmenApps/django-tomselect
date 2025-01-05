@@ -18,12 +18,7 @@ from example_project.example.forms import (
     TaggingForm,
     WeightedAuthorSearchForm,
 )
-from example_project.example.models import (
-    Article,
-    EmbargoTimeframe,
-    PublicationTag,
-    word_count_range,
-)
+from example_project.example.models import Article, EmbargoTimeframe, PublicationTag, word_count_range
 
 logger = logging.getLogger(__name__)
 

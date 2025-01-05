@@ -202,6 +202,7 @@ class TestTomSelectModelWidget:
 
         class MockView:
             """Mock view for testing."""
+
             def prepare_nonexistent_field(self, obj):
                 """Mock method for testing."""
                 return None
@@ -262,11 +263,8 @@ class TestTomSelectModelWidget:
                 plugin_dropdown_header=PluginDropdownHeader(
                     show_value_field=True,
                     title="Select Edition",
-                    extra_columns={
-                        "year": "Publication Year",
-                        "pub_num": "Publication Number"
-                    }
-                )
+                    extra_columns={"year": "Publication Year", "pub_num": "Publication Number"},
+                ),
             )
         )
         context = widget.get_context("test", None, {})
@@ -277,31 +275,32 @@ class TestTomSelectModelWidget:
 
     def test_widget_with_dynamic_attributes(self):
         """Test widget with dynamically generated attributes."""
+
         class DynamicWidget(TomSelectModelWidget):
             """Widget with dynamic attributes."""
+
             def get_context(self, name, value, attrs):
                 """Add a timestamp to the widget."""
                 attrs = attrs or {}
-                attrs['data-timestamp'] = str(int(time.time()))
+                attrs["data-timestamp"] = str(int(time.time()))
                 return super().get_context(name, value, attrs)
 
-        widget = DynamicWidget(
-            config=TomSelectConfig(url="autocomplete-edition")
-        )
+        widget = DynamicWidget(config=TomSelectConfig(url="autocomplete-edition"))
 
         rendered1 = widget.render("test", None)
         time.sleep(1)
         rendered2 = widget.render("test", None)
 
         # Get the rendered select elements
-        soup1 = BeautifulSoup(rendered1, 'html.parser')
-        soup2 = BeautifulSoup(rendered2, 'html.parser')
+        soup1 = BeautifulSoup(rendered1, "html.parser")
+        soup2 = BeautifulSoup(rendered2, "html.parser")
 
-        select1 = soup1.find('select')
-        select2 = soup2.find('select')
+        select1 = soup1.find("select")
+        select2 = soup2.find("select")
 
         # Check timestamps differ
-        assert select1['data-timestamp'] != select2['data-timestamp']
+        assert select1["data-timestamp"] != select2["data-timestamp"]
+
 
 @pytest.mark.django_db
 class TestTomSelectModelMultipleWidget:
@@ -771,16 +770,8 @@ class TestWidgetConfigurationAndMedia:
 
         def get_config():
             if settings.DEBUG:
-                return TomSelectConfig(
-                    url="autocomplete-edition",
-                    preload=True,
-                    minimum_query_length=1
-                )
-            return TomSelectConfig(
-                url="autocomplete-edition",
-                preload=False,
-                minimum_query_length=2
-            )
+                return TomSelectConfig(url="autocomplete-edition", preload=True, minimum_query_length=1)
+            return TomSelectConfig(url="autocomplete-edition", preload=False, minimum_query_length=2)
 
         widget = TomSelectModelWidget(config=get_config())
         assert widget.minimum_query_length in (1, 2)
@@ -789,11 +780,7 @@ class TestWidgetConfigurationAndMedia:
     def test_widget_with_htmx_configuration(self):
         """Test widget configuration with HTMX support."""
         widget = TomSelectModelWidget(
-            config=TomSelectConfig(
-                url="autocomplete-edition",
-                use_htmx=True,
-                create_with_htmx=True
-            )
+            config=TomSelectConfig(url="autocomplete-edition", use_htmx=True, create_with_htmx=True)
         )
         context = widget.get_context("test", None, {})
 
@@ -1387,12 +1374,11 @@ class TestWidgetValidationAndPermissions:
         permission_cache.timeout = 300
         cache.clear()
 
-        widget = TomSelectModelWidget(
-            config=TomSelectConfig(url="autocomplete-edition")
-        )
+        widget = TomSelectModelWidget(config=TomSelectConfig(url="autocomplete-edition"))
 
         class MockView:
             """Mock view with permission caching."""
+
             model = Edition
 
             def has_permission(self, request, action):
@@ -1405,7 +1391,7 @@ class TestWidgetValidationAndPermissions:
 
             def get_permission_required(self):
                 """Return required permissions."""
-                return ['view_edition']
+                return ["view_edition"]
 
         view = MockView()
 
@@ -1415,26 +1401,19 @@ class TestWidgetValidationAndPermissions:
 
         # First call should cache the permission
         context = widget.get_permissions_context(view)
-        assert context['can_view'] is True
+        assert context["can_view"] is True
 
         # Build cache key using the permission_cache's actual method
         unique_key = f"tomselect_perm:{mock_request.user.id}:edition:view:v1"
         cache_key = hashlib.md5(unique_key.encode()).hexdigest()
 
         # Set the permission directly using the permission_cache method
-        permission_cache.set_permission(
-            user_id=mock_request.user.id,
-            model_name='edition',
-            action='view',
-            value=True
-        )
+        permission_cache.set_permission(user_id=mock_request.user.id, model_name="edition", action="view", value=True)
 
         # Verify permission was cached correctly
-        assert permission_cache.get_permission(
-            user_id=mock_request.user.id,
-            model_name='edition',
-            action='view'
-        ) is True
+        assert (
+            permission_cache.get_permission(user_id=mock_request.user.id, model_name="edition", action="view") is True
+        )
 
 
 @pytest.mark.django_db
@@ -1656,6 +1635,7 @@ class TestWidgetConfigValidation:
 
         assert expected_error in str(exc_info.value)
 
+
 @pytest.mark.django_db
 class TestWidgetTranslations:
     """Test translation handling in TomSelect widgets."""
@@ -1671,8 +1651,8 @@ class TestWidgetTranslations:
                 extra_columns={
                     "year": _("Publication Year"),
                     "pages": _lazy("Page Count"),
-                }
-            )
+                },
+            ),
         )
         widget = TomSelectModelWidget(config=config)
         context = widget.get_context("test", None, {})
@@ -1688,18 +1668,11 @@ class TestWidgetTranslations:
         """Test translation of plugin button labels."""
         config = TomSelectConfig(
             url="autocomplete-edition",
-            plugin_clear_button=PluginClearButton(
-                title=_("Clear Selection")
-            ),
-            plugin_remove_button=PluginRemoveButton(
-                title=_lazy("Remove Item"),
-                label=_("×")
-            ),
+            plugin_clear_button=PluginClearButton(title=_("Clear Selection")),
+            plugin_remove_button=PluginRemoveButton(title=_lazy("Remove Item"), label=_("×")),
             plugin_dropdown_footer=PluginDropdownFooter(
-                title=_lazy("Available Actions"),
-                list_view_label=_("View All"),
-                create_view_label=_lazy("Create New")
-            )
+                title=_lazy("Available Actions"), list_view_label=_("View All"), create_view_label=_lazy("Create New")
+            ),
         )
         widget = TomSelectModelWidget(config=config)
         context = widget.get_context("test", None, {})
@@ -1720,14 +1693,9 @@ class TestWidgetTranslations:
                 title=_lazy("Select Item"),
                 value_field_label=_("Value"),
                 label_field_label=_lazy("Label"),
-                extra_columns={
-                    "col1": _("Column 1"),
-                    "col2": _lazy("Column 2")
-                }
+                extra_columns={"col1": _("Column 1"), "col2": _lazy("Column 2")},
             ),
-            plugin_clear_button=PluginClearButton(
-                title=_("Clear")
-            )
+            plugin_clear_button=PluginClearButton(title=_("Clear")),
         )
         widget = TomSelectModelWidget(config=config)
         context = widget.get_context("test", None, {})
@@ -1747,10 +1715,7 @@ class TestWidgetTranslations:
 
     def test_placeholder_translation(self):
         """Test translation of placeholder text."""
-        config = TomSelectConfig(
-            url="autocomplete-edition",
-            placeholder=_lazy("Choose an edition...")
-        )
+        config = TomSelectConfig(url="autocomplete-edition", placeholder=_lazy("Choose an edition..."))
         widget = TomSelectModelWidget(config=config)
         context = widget.get_context("test", None, {})
 
@@ -1763,8 +1728,8 @@ class TestWidgetTranslations:
             url="autocomplete-edition",
             plugin_dropdown_header=PluginDropdownHeader(
                 title=_lazy("Select up to %(count)d items") % {"count": item_count},
-                value_field_label=_("ID #%(num)d") % {"num": 1}
-            )
+                value_field_label=_("ID #%(num)d") % {"num": 1},
+            ),
         )
         widget = TomSelectModelWidget(config=config)
         context = widget.get_context("test", None, {})
@@ -1778,12 +1743,8 @@ class TestWidgetTranslations:
         config = TomSelectConfig(
             url="autocomplete-edition",
             plugin_dropdown_header=PluginDropdownHeader(
-                extra_columns={
-                    "status": _lazy("Status"),
-                    "info": _("Information"),
-                    "details": _lazy("Details")
-                }
-            )
+                extra_columns={"status": _lazy("Status"), "info": _("Information"), "details": _lazy("Details")}
+            ),
         )
         widget = TomSelectModelWidget(config=config)
         context = widget.get_context("test", None, {})

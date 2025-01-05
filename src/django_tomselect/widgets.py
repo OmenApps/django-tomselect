@@ -110,17 +110,17 @@ class TomSelectWidgetMixin:
 
         if self.plugin_dropdown_header:
             header = self.plugin_dropdown_header
-            plugins['dropdown_header'] = {
-                'title': str(header.title),
-                'header_class': header.header_class,
-                'title_row_class': header.title_row_class,
-                'label_class': header.label_class,
-                'value_field_label': str(header.value_field_label),
-                'label_field_label': str(header.label_field_label),
-                'label_col_class': header.label_col_class,
-                'show_value_field': header.show_value_field,
-                'extra_headers': list(header.extra_columns.values()),
-                'extra_values': list(header.extra_columns.keys())
+            plugins["dropdown_header"] = {
+                "title": str(header.title),
+                "header_class": header.header_class,
+                "title_row_class": header.title_row_class,
+                "label_class": header.label_class,
+                "value_field_label": str(header.value_field_label),
+                "label_field_label": str(header.label_field_label),
+                "label_col_class": header.label_col_class,
+                "show_value_field": header.show_value_field,
+                "extra_headers": list(header.extra_columns.values()),
+                "extra_values": list(header.extra_columns.keys()),
             }
 
         if self.plugin_dropdown_footer:
@@ -166,8 +166,8 @@ class TomSelectWidgetMixin:
         # Mark as TomSelect widget for dynamic initialization
         attrs["data-tomselect"] = "true"
 
-        attrs["data-template-option'] = attrs.get('data-template-option', '').replace('"', '\\"')
-        attrs['data-template-item'] = attrs.get('data-template-item', '').replace('"', '\\"')
+        attrs["data-template-option"] = attrs.get("data-template-option", "").replace('"', '\\"')
+        attrs["data-template-item"] = attrs.get("data-template-item", "").replace('"', '\\"')
 
         return {**attrs, **(extra_attrs or {})}
 
@@ -353,7 +353,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         urls = {}
 
         # If obj is a dictionary, it's likely a cleaned_data object
-        if isinstance(obj, dict) or not hasattr(obj, 'pk') or obj.pk is None:
+        if isinstance(obj, dict) or not hasattr(obj, "pk") or obj.pk is None:
             return {}
 
         if self.show_detail and autocomplete_view.detail_url and autocomplete_view.has_permission(request, "view"):
@@ -471,7 +471,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 # Handle the case where obj is a dictionary (e.g., cleaned_data)
                 if isinstance(obj, dict):
                     opt = {
-                        "value": str(obj.get('pk', '')),
+                        "value": str(obj.get("pk", "")),
                         "label": self.get_label_for_object(obj, autocomplete_view),
                         **self.get_instance_url_context(obj, autocomplete_view),
                     }

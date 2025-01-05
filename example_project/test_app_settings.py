@@ -69,19 +69,11 @@ class TestAppSettings:
     def test_merge_configs_with_nested_plugins(self):
         """Test merging configs with nested plugin structures."""
         base = TomSelectConfig(
-            plugin_dropdown_header=PluginDropdownHeader(
-                title="Base",
-                extra_columns={"key1": "Value1"}
-            ),
-            plugin_dropdown_footer=PluginDropdownFooter(
-                title="Base Footer"
-            )
+            plugin_dropdown_header=PluginDropdownHeader(title="Base", extra_columns={"key1": "Value1"}),
+            plugin_dropdown_footer=PluginDropdownFooter(title="Base Footer"),
         )
         override = TomSelectConfig(
-            plugin_dropdown_header=PluginDropdownHeader(
-                title="Override",
-                extra_columns={"key2": "Value2"}
-            )
+            plugin_dropdown_header=PluginDropdownHeader(title="Override", extra_columns={"key2": "Value2"})
         )
         result = app_settings.merge_configs(base, override)
         assert result.plugin_dropdown_header.title == "Override"
@@ -92,16 +84,10 @@ class TestAppSettings:
         """Test validation of filter_by and exclude_by combinations."""
         # Test that exactly same field and value raises error
         with pytest.raises(ValidationError):
-            TomSelectConfig(
-                filter_by=("field", "value"),
-                exclude_by=("field", "value")
-            )
+            TomSelectConfig(filter_by=("field", "value"), exclude_by=("field", "value"))
 
         # However, different fields should be allowed
-        config = TomSelectConfig(
-            filter_by=("field1", "value1"),
-            exclude_by=("field2", "value2")
-        )
+        config = TomSelectConfig(filter_by=("field1", "value1"), exclude_by=("field2", "value2"))
         assert config.filter_by == ("field1", "value1")
         assert config.exclude_by == ("field2", "value2")
 
@@ -141,14 +127,12 @@ class TestAppSettings:
     def test_merge_configs_with_none_values(self):
         """Test merging configs when override contains None values."""
         base = TomSelectConfig(
-            url="base-url",
-            highlight=True,
-            plugin_dropdown_header=PluginDropdownHeader(title="Base Title")
+            url="base-url", highlight=True, plugin_dropdown_header=PluginDropdownHeader(title="Base Title")
         )
         override = TomSelectConfig(
             url=None,  # Should not override
             highlight=False,  # Should override
-            plugin_dropdown_header=None  # Should not override
+            plugin_dropdown_header=None,  # Should not override
         )
         result = app_settings.merge_configs(base, override)
         assert result.url == "base-url"  # Maintained from base
@@ -162,8 +146,8 @@ class TestAppSettings:
             (True, True),
             (False, False),
             (None, None),  # Current behavior - None is passed through
-            ("invalid", "invalid")  # Current behavior - no validation
-        ]
+            ("invalid", "invalid"),  # Current behavior - no validation
+        ],
     )
     def test_preload_validation(self, preload_value, expected):
         """Test preload parameter behavior with various values."""
@@ -178,10 +162,7 @@ class TestAppSettings:
     def test_plugin_configuration_inheritance(self):
         """Test that plugin configurations properly inherit and override."""
         base_config = TomSelectConfig(
-            plugin_clear_button=PluginClearButton(
-                title="Base Clear",
-                class_name="base-clear"
-            )
+            plugin_clear_button=PluginClearButton(title="Base Clear", class_name="base-clear")
         )
 
         # Create new config inheriting from base
@@ -189,10 +170,9 @@ class TestAppSettings:
             base_config,
             TomSelectConfig(
                 plugin_clear_button=PluginClearButton(
-                    title="New Clear",  # Override title
-                    class_name="base-clear"  # Keep same class
+                    title="New Clear", class_name="base-clear"  # Override title  # Keep same class
                 )
-            )
+            ),
         )
 
         assert merged.plugin_clear_button.title == "New Clear"
@@ -206,15 +186,11 @@ class TestAppSettings:
             label_field="custom_name",
             filter_by=("category", "type"),
             plugin_dropdown_header=PluginDropdownHeader(
-                title="Header",
-                show_value_field=True,
-                extra_columns={"status": "Status"}
+                title="Header", show_value_field=True, extra_columns={"status": "Status"}
             ),
-            plugin_clear_button=PluginClearButton(
-                title="Clear All"
-            ),
+            plugin_clear_button=PluginClearButton(title="Clear All"),
             plugin_checkbox_options=PluginCheckboxOptions(),
-            use_htmx=True
+            use_htmx=True,
         )
 
         assert config.url == "test-url"
@@ -519,9 +495,7 @@ class TestTomSelectConfig:
         with updated values rather than modifying an existing one.
         """
         base_config = TomSelectConfig()
-        new_config = TomSelectConfig(
-            **{**base_config.__dict__, "url": "new-url", "highlight": False}
-        )
+        new_config = TomSelectConfig(**{**base_config.__dict__, "url": "new-url", "highlight": False})
         assert new_config.url == "new-url"
         assert new_config.highlight is False
         # Verify original config remains unchanged
@@ -554,15 +528,11 @@ class TestTomSelectConfig:
     def test_merge_configs_with_dropdown_header(self):
         """Test merging configs with dropdown header plugin."""
         base = TomSelectConfig(
-            plugin_dropdown_header=PluginDropdownHeader(
-                title="Base Title",
-                extra_columns={"base": "Base Column"}
-            )
+            plugin_dropdown_header=PluginDropdownHeader(title="Base Title", extra_columns={"base": "Base Column"})
         )
         override = TomSelectConfig(
             plugin_dropdown_header=PluginDropdownHeader(
-                title="Override Title",
-                extra_columns={"override": "Override Column"}
+                title="Override Title", extra_columns={"override": "Override Column"}
             )
         )
         result = app_settings.merge_configs(base, override)
@@ -702,7 +672,7 @@ class TestPluginDropdownHeader:
             title="Test Title",
             value_field_label="Test Value",
             label_field_label="Test Label",
-            extra_columns={"key": "Test Column"}
+            extra_columns={"key": "Test Column"},
         )
         assert config._title == "Test Title"
         assert config._value_field_label == "Test Value"
@@ -715,7 +685,7 @@ class TestPluginDropdownHeader:
             title="Test Title",
             value_field_label="Test Value",
             label_field_label="Test Label",
-            extra_columns={"key": "Test Column"}
+            extra_columns={"key": "Test Column"},
         )
         result = config.as_dict()
         assert result["title"] == "Test Title"

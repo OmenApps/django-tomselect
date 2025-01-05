@@ -15,11 +15,7 @@ from django_tomselect.app_settings import (
     PluginRemoveButton,
     TomSelectConfig,
 )
-from django_tomselect.forms import (
-    TomSelectChoiceField,
-    TomSelectModelChoiceField,
-    TomSelectModelMultipleChoiceField,
-)
+from django_tomselect.forms import TomSelectChoiceField, TomSelectModelChoiceField, TomSelectModelMultipleChoiceField
 from example_project.example.models import Article
 
 category_header = PluginDropdownHeader(

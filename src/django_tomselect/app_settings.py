@@ -78,6 +78,7 @@ class PluginClearButton(BaseConfig):
 @dataclass(frozen=True)
 class PluginDropdownHeader(BaseConfig):
     """Plugin configuration for the dropdown_header plugin."""
+
     title: str = "Autocomplete"
     header_class: str = "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header"
     title_row_class: str = "row"
@@ -112,10 +113,10 @@ class PluginDropdownHeader(BaseConfig):
         """Return the configuration as a dictionary with evaluated translations."""
         base_dict = super().as_dict()
         # Replace _private fields with their property values
-        base_dict['title'] = self._title
-        base_dict['value_field_label'] = self._value_field_label
-        base_dict['label_field_label'] = self._label_field_label
-        base_dict['extra_columns'] = self._extra_columns
+        base_dict["title"] = self._title
+        base_dict["value_field_label"] = self._value_field_label
+        base_dict["label_field_label"] = self._label_field_label
+        base_dict["extra_columns"] = self._extra_columns
         return base_dict
 
     def validate(self) -> None:
@@ -387,11 +388,11 @@ def merge_configs(base: TomSelectConfig, override: TomSelectConfig | None = None
     for field_name in override.__dataclass_fields__:
         val = getattr(override, field_name)
         if val is not None:
-            if field_name == 'plugin_dropdown_header' and val:
+            if field_name == "plugin_dropdown_header" and val:
                 # Special handling for dropdown header to preserve translations
                 header_dict = val.__dict__.copy()
-                if 'extra_columns' in header_dict:
-                    header_dict['extra_columns'] = header_dict.pop('extra_columns')
+                if "extra_columns" in header_dict:
+                    header_dict["extra_columns"] = header_dict.pop("extra_columns")
                 combined[field_name] = PluginDropdownHeader(**header_dict)
             else:
                 combined[field_name] = val

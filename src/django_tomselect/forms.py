@@ -3,11 +3,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from django_tomselect.app_settings import (
-    GLOBAL_DEFAULT_CONFIG,
-    TomSelectConfig,
-    merge_configs,
-)
+from django_tomselect.app_settings import GLOBAL_DEFAULT_CONFIG, TomSelectConfig, merge_configs
 from django_tomselect.logging import package_logger
 from django_tomselect.models import EmptyModel
 from django_tomselect.widgets import (

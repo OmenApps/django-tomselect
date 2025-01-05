@@ -107,8 +107,10 @@ def autocomplete_url():
 @pytest.fixture
 def mock_request():
     """Create a mock request with authentication."""
+
     class MockUser:
         """Mock user class with authentication and permissions."""
+
         id = 1
         is_authenticated = True
 
@@ -118,6 +120,7 @@ def mock_request():
 
     class MockRequest:
         """Mock request class with user and method attributes."""
+
         user = MockUser()
         method = "GET"
         GET = {}

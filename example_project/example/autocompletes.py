@@ -21,10 +21,7 @@ from django.db.models import (
 from django.db.models.functions import Now
 from django.utils import timezone
 
-from django_tomselect.autocompletes import (
-    AutocompleteIterablesView,
-    AutocompleteModelView,
-)
+from django_tomselect.autocompletes import AutocompleteIterablesView, AutocompleteModelView
 from example_project.example.models import (
     Article,
     ArticlePriority,

@@ -6,20 +6,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 
-from example_project.example.forms import (
-    AuthorForm,
-    CategoryForm,
-    EditionForm,
-    MagazineForm,
-)
-from example_project.example.models import (
-    Article,
-    ArticleStatus,
-    Author,
-    Category,
-    Edition,
-    Magazine,
-)
+from example_project.example.forms import AuthorForm, CategoryForm, EditionForm, MagazineForm
+from example_project.example.models import Article, ArticleStatus, Author, Category, Edition, Magazine
 
 
 def index_view(request):

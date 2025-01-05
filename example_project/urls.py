@@ -7,10 +7,7 @@ from django.http import HttpResponse
 from django.urls import include, path
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-from django_tomselect.autocompletes import (
-    AutocompleteIterablesView,
-    AutocompleteModelView,
-)
+from django_tomselect.autocompletes import AutocompleteIterablesView, AutocompleteModelView
 
 
 @ensure_csrf_cookie
