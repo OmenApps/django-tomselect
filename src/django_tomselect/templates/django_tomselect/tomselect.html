@@ -6,8 +6,12 @@ Main Tom Select template.
 
 **Blocks:**
 - block select_element: Override to change the way the <select> is included.
+- block tomselect_global_setup: Add global initialization logic, such as the MutationObserver for dynamic content.
 - block tomselect_init: Override to alter the TomSelect initialization logic, including event handlers, fetch calls, and callback methods.
 - block tomselect_plugins: Insert or override plugin-related JS configuration.
+- block tomselect_url_setup: Define the originalFirstUrl function for constructing the initial URL.
+- block tomselect_config: Define the main TomSelect configuration object.
+- block tomselect_render: Define the render object for customizing the appearance of options, items, and other elements.
 - block tomselect_extra_js: Add custom JS at the end of initialization.
 
 **Overriding Example:**
@@ -30,6 +34,218 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
 {% load i18n %}
 
+<script>
+    {% block tomselect_global_setup %}
+        // Global namespace for django-tomselect
+        if (!window.djangoTomSelect) {
+            window.djangoTomSelect = window.djangoTomSelect || {
+                configs: new Map(),
+                instances: new Map(),
+
+                // Deep clone config while preserving functions
+                cloneConfig: function(config) {
+                    const cloned = {};
+
+                    for (let key in config) {
+                        if (config.hasOwnProperty(key)) {
+                            if (typeof config[key] === 'function') {
+                                cloned[key] = config[key];
+                            } else if (config[key] instanceof RegExp) {
+                                cloned[key] = new RegExp(config[key]);
+                            } else if (Array.isArray(config[key])) {
+                                cloned[key] = [...config[key]];
+                            } else if (typeof config[key] === 'object' && config[key] !== null) {
+                                cloned[key] = this.cloneConfig(config[key]);
+                            } else {
+                                cloned[key] = config[key];
+                            }
+                        }
+                    }
+
+                    return cloned;
+                },
+
+                // Initialize a new TomSelect instance
+                initialize: function(element, config) {
+                    if (!(element instanceof HTMLElement)) {
+                        console.warn('Invalid element provided to djangoTomSelect.initialize');
+                        return null;
+                    }
+
+                    try {
+                        // Clean up any existing instance
+                        this.destroy(element);
+
+                        // Remove any existing TomSelect wrappers
+                        const wrappers = element.parentNode.querySelectorAll('.ts-wrapper');
+                        wrappers.forEach(wrapper => {
+                            if (wrapper.contains(element)) {
+                                wrapper.parentNode.insertBefore(element, wrapper);
+                                wrapper.remove();
+                            }
+                        });
+
+                        // Reset the select element to its original state
+                        element.className = element.className.replace(/\btomselected\b/g, '');
+                        element.style.display = '';
+                        element.removeAttribute('tabindex');
+                        element.removeAttribute('data-ts-hidden');
+
+                        // Create new instance
+                        const instance = new TomSelect(element, config);
+                        this.instances.set(element.id, instance);
+                        this.configs.set(element.id, config);
+
+                        // Set up dependent/exclude field handlers after initialization
+                        if (config.dependentField || config.excludeField) {
+                            const change_handler = function(value) {
+                                if (!instance) return;
+
+                                instance.clear();
+                                instance.clearOptions();
+                                instance.clearCache();
+                                instance.settings.pagination = {};
+
+                                if (instance.dropdown_content) {
+                                    instance.dropdown_content.scrollTop = 0;
+                                }
+
+                                instance.settings.firstUrl = config.originalFirstUrl;
+                                instance.settings.setNextUrl = config.originalFirstUrl;
+                                instance.clearPagination();
+                                instance.load('', () => {
+                                    console.log("%c Received callback data after handler", "color:red;");
+                                });
+
+                                window[config.resetVarName] = true;
+                            };
+
+                            // Set up dependent field handler
+                            if (config.dependentField) {
+                                const dependentField = document.getElementById(config.dependentField);
+                                const dependentInstance = this.instances.get(config.dependentField);
+                                if (dependentInstance) {
+                                    dependentInstance.on('change', change_handler);
+                                }
+                            }
+
+                            // Set up exclude field handler
+                            if (config.excludeField) {
+                                const excludeField = document.getElementById(config.excludeField);
+                                const excludeInstance = this.instances.get(config.excludeField);
+                                if (excludeInstance) {
+                                    excludeInstance.on('change', change_handler);
+                                }
+                            }
+                        }
+
+                        return instance;
+                    } catch (error) {
+                        console.error('Error initializing TomSelect:', error);
+                        return null;
+                    }
+                },
+
+                // Clean up an existing instance
+                destroy: function(element) {
+                    if (!(element instanceof HTMLElement)) return;
+
+                    try {
+                        // Check for existing TomSelect instance
+                        if (element.tomselect) {
+                            element.tomselect.destroy();
+                        }
+
+                        // Clean up our stored instance
+                        const instance = this.instances.get(element.id);
+                        if (instance) {
+                            instance.destroy();
+                            this.instances.delete(element.id);
+                            this.configs.delete(element.id);
+                        }
+                    } catch (error) {
+                        console.warn('Error destroying TomSelect instance:', error);
+                    }
+                },
+
+                // Reinitialize TomSelect on dynamic content
+                reinitialize: function(container) {
+                    setTimeout(() => {
+                        const selects = container.querySelectorAll('select[data-tomselect]:not(.tomselected)');
+                        selects.forEach(select => {
+                            // Get config from original instance if available
+                            let config = this.configs.get(select.id);
+                            if (!config) {
+                                // If no stored config, try to get from a similar widget
+                                const similarId = Array.from(this.configs.keys()).find(id =>
+                                    id.replace(/form-\d+-/, '') === select.id.replace(/form-\d+-/, ''));
+                                if (similarId) {
+                                    config = this.cloneConfig(this.configs.get(similarId));
+                                    // Clean instance-specific settings
+                                    delete config.items;
+                                    delete config.renderCache;
+
+                                    // Generate a new unique reset variable name for this instance
+                                    const newResetVar = `wasReset_${select.id.replace(/-/g, '_')}`;
+                                    window[newResetVar] = false;
+
+                                    // Update the config's load function with the new reset variable
+                                    if (typeof config.load === 'function') {
+                                        const loadFuncStr = config.load.toString()
+                                            .replace(/wasReset_[a-zA-Z0-9_]+/g, newResetVar);
+                                        config.load = new Function('return ' + loadFuncStr)();
+                                    }
+                                }
+                            }
+                            if (config) {
+                                this.initialize(select, config);
+                            }
+                        });
+                    }, 0);
+                }
+            };
+
+            // Debounced observer to prevent rapid consecutive calls
+            const debounce = (fn, delay) => {
+                let timeoutId;
+                return (...args) => {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => fn.apply(null, args), delay);
+                };
+            };
+
+            // Observer for dynamic content
+            const tomSelectObserver = new MutationObserver(debounce((mutations) => {
+                mutations.forEach(mutation => {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) { // ELEMENT_NODE
+                            const needsInit = node.querySelector('select[data-tomselect]:not(.tomselected)');
+                            if (needsInit) {
+                                window.djangoTomSelect.reinitialize(node);
+                            }
+                        }
+                    });
+                });
+            }, 50));
+
+            // Start observing after DOM is loaded
+            {% if not widget.use_htmx %}
+                document.addEventListener('DOMContentLoaded', () => {
+                    tomSelectObserver.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                });
+            {% else %}
+                tomSelectObserver.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            {% endif %}
+        }
+    {% endblock tomselect_global_setup %}
+</script>
+
 {% block select_element %}
     {% include "django_tomselect/render/select.html" with widget=widget %}
 {% endblock select_element %}
@@ -37,232 +253,246 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 <script>
     {% block tomselect_init %}
         (function() {
-            // Initialize TomSelect after the DOM is loaded (if not using htmx)
-            {% if not widget.use_htmx %}
-                document.addEventListener("DOMContentLoaded", function(e) {
-            {% endif %}
+            const elementId = '{% if "id" in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}';
+            const element = document.getElementById(elementId);
+            if (!element) return;
 
-            // Example initialization variables
-            let wasReset{{ widget.name }} = false;
+            // Create a unique reset variable name based on the element ID
+            const resetVarName = 'wasReset_' + elementId.replace(/-/g, '_');
+            window[resetVarName] = false;
+
             function logCallback(data) {
                 console.log("%c Received callback data:", "color:red;", data);
             }
 
-            // Constructing the originalFirstUrl function based on query and filters
-            var originalFirstUrl = function(query) {
-                let url = '{{ widget.autocomplete_url }}' + '?q=' + encodeURIComponent(query){% if 'autocomplete_params' in widget.keys and not widget.autocomplete_params == '' %} + '&{{ widget.autocomplete_params|safe }}'{% endif %};
-                {% if "dependent_field" in widget.keys %}
-                    const dependentField = document.getElementById('id_{{ widget.dependent_field }}');
-                    const dependentValue = dependentField ? dependentField.value : '';
-                    url = `${url}&f='{{ widget.dependent_field }}__{{ widget.dependent_field_lookup }}=${dependentValue}'`;
-                {% endif %}
-                {% if "exclude_field" in widget.keys %}
-                    const excludeField = document.getElementById('id_{{ widget.exclude_field }}');
-                    const excludeValue = excludeField ? excludeField.value : '';
-                    url = `${url}&e='{{ widget.exclude_field }}__{{ widget.exclude_field_lookup }}=${excludeValue}'`;
-                {% endif %}
-                return url;
-            };
-
-            // TomSelect configuration object
-            var config = {
-                valueField: '{{ widget.value_field }}',
-                labelField: '{{ widget.label_field }}',
-                searchField: [],
-                highlight: {% if widget.highlight %}true{% else %}false{% endif %},
-                openOnFocus: {% if widget.open_on_focus %}true{% else %}false{% endif %},
-                maxOptions: {% if widget.max_options %}{{ widget.max_options }}{% else %}null{% endif %},
-                preload: {% if widget.preload == "focus" %}'focus'{% elif widget.preload %}true{% else %}false{% endif %},
-                maxItems: {% if not widget.is_multiple %}1{% else %}{% if widget.max_items %}{{ widget.max_items }}{% else %}null{% endif %}{% endif %},
-                showValueField: {% if 'dropdown_header' in widget.plugins.keys and widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
-                create: {% if 'create' in widget.keys and widget.create %}true{% else %}false{% endif %},
-
-                {% block tomselect_plugins %}
-                    plugins: {
-                        {% if 'checkbox_options' in widget.plugins.keys and widget.plugins.checkbox_options %}
-                            checkbox_options: true,
-                        {% endif %}
-
-                        {% if 'clear_button' in widget.plugins.keys %}
-                            clear_button: {
-                                title: '{{ widget.plugins.clear_button.title }}',
-                                className: '{{ widget.plugins.clear_button.class_name }}'
-                            },
-                        {% endif %}
-
-                        {% comment %} {% if 'dropdown_header' in widget.plugins.keys %}
-                            dropdown_header: {
-                                title: '{{ widget.plugins.dropdown_header.title }}',
-                                header_class: '{{ widget.plugins.dropdown_header.header_class }}',
-                                title_row_class: '{{ widget.plugins.dropdown_header.title_row_class }}',
-                                label_class: '{{ widget.plugins.dropdown_header.label_class }}',
-                                value_field_label: '{{ widget.plugins.dropdown_header.value_field_label }}',
-                                label_field_label: '{{ widget.plugins.dropdown_header.label_field_label }}',
-                                label_col_class: '{{ widget.plugins.dropdown_header.label_col_class }}',
-                                show_value_field: {% if widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
-                                extra_columns: {{ widget.plugins.dropdown_header.extra_columns|safe }},
-                                extra_headers: {{ widget.plugins.dropdown_header.extra_headers|safe }},
-                                extra_values: {{ widget.plugins.dropdown_header.extra_values|safe }}
-                            },
-                        {% endif %} {% endcomment %}
-
-                        {% if 'dropdown_header' in widget.plugins.keys %}
-                            dropdown_header:{
-                                title: '{% if widget.plugins.dropdown_header.title %}{{ widget.plugins.dropdown_header.title }}{% else %}Select an option{% endif %}',
-                                headerClass: '{{ widget.plugins.dropdown_header.header_class }}',
-                                {% include "django_tomselect/render/dropdown_header.html" with widget=widget %}
-                            },
-                        {% endif %}
-
-
-                        {% comment %} {% if 'dropdown_footer' in widget.plugins.keys %}
-                            dropdown_footer: {
-                                title: '{{ widget.plugins.dropdown_footer.title }}',
-                                footer_class: '{{ widget.plugins.dropdown_footer.footer_class }}',
-                                create_view_label: '{{ widget.plugins.dropdown_footer.create_view_label }}',
-                                create_view_class: '{{ widget.plugins.dropdown_footer.create_view_class }}',
-                                list_view_label: '{{ widget.plugins.dropdown_footer.list_view_label }}',
-                                list_view_class: '{{ widget.plugins.dropdown_footer.list_view_class }}'
-                            },
-                        {% endif %} {% endcomment %}
-
-                        {% if 'dropdown_footer' in widget.plugins.keys %}
-                            dropdown_footer:{
-                                title: '{% if widget.plugins.dropdown_footer.title %}{{ widget.plugins.dropdown_footer.title }}{% else %}Select an option{% endif %}',
-                                footerClass: '{{ widget.plugins.dropdown_footer.footer_class }}',
-                                {% include "django_tomselect/render/dropdown_footer.html" with widget=widget %}
-                            },
-                        {% endif %}
-
-                        {% if 'dropdown_input' in widget.plugins.keys and widget.plugins.dropdown_input %}
-                            dropdown_input: true,
-                        {% endif %}
-
-                        {% if 'remove_button' in widget.plugins.keys %}
-                            remove_button: {
-                                title: '{{ widget.plugins.remove_button.title }}',
-                                label: '{{ widget.plugins.remove_button.label|safe }}',
-                                className: '{{ widget.plugins.remove_button.class_name }}'
-                            },
-                        {% endif %}
-
-                        virtual_scroll: true
-                    },
-                {% endblock tomselect_plugins %}
-
-                {% if widget.value %}
-                    onInitialize: function() {
-                        {% for option in widget.selected_options %}
-                            this.addOption({
-                                {{ widget.value_field }}: '{{ option.value }}',
-                                {{ widget.label_field }}: '{{ option.label }}',
-                                {% if "create_url" in option.keys %}create_url: '{{ option.create_url }}',{% endif %}
-                                {% if "detail_url" in option.keys %}detail_url: '{{ option.detail_url }}',{% endif %}
-                                {% if "update_url" in option.keys %}update_url: '{{ option.update_url }}',{% endif %}
-                                {% if "delete_url" in option.keys %}delete_url: '{{ option.delete_url }}',{% endif %}
-                            });
-                            this.addItem('{{ option.value }}');
-                        {% endfor %}
-                    },
-                {% endif %}
-
-                shouldLoad: function(query){
-                    var shouldLoadValue;
-                    if (this.settings.page && (!query.trim() || query === undefined)) {
-                        shouldLoadValue = true;
-                    } else {
-                        shouldLoadValue = query.length >= {{ widget.minimum_query_length }};
-                    }
-                    return shouldLoadValue;
-                },
-
-                firstUrl: originalFirstUrl,
-
-                getUrl: function(query) {
-                    let url = this.settings.pagination[query] || this.settings.firstUrl(query);
-                    return url;
-                },
-
-                load: function(query, callback) {
-                    let url = this.getUrl(query);
-                    if (wasReset{{ widget.name }} === true) {
-                        url = originalFirstUrl(query);
-                    }
-
-                    fetch(url)
-                        .then(response => response.json())
-                        .then(json => {
-                            if (json.has_more) {
-                                url = url.replace(/&p=\d+/g, '');
-                                {% if "dependent_field" in widget.keys or "exclude_field" in widget.keys %}
-                                    if (wasReset{{ widget.name }} === false) {
-                                        this.setNextUrl(query, url + '&p=' + (json.page + 1));
-                                    } else {
-                                        wasReset{{ widget.name }} = false;
-                                        this.setNextUrl(query, url + '&p=1');
-                                    }
-                                {% else %}
-                                    this.setNextUrl(query, url + '&p=' + (json.page + 1));
-                                {% endif %}
-                            }
-
-                            const _scrollToOption = this.scrollToOption;
-                            this.scrollToOption = () => {};
-                            callback(json.results);
-                            this.scrollToOption = _scrollToOption;
-                        }).catch(() => {
-                            console.log('%c Error loading data for {{ widget.name }}, url=', "color:red;", url);
-                            callback();
-                        })
-                },
-
-                render: {
-                    {% with widget.attrs as attrs %}
-                        {% if 'data_custom_rendering' in attrs.keys and attrs.data_custom_rendering|default:False %}
-                            option: function(data, escape) {
-                                return new Function('data', 'escape', 'return `' + {{ attrs.data_template_option|safe }} + '`')(data, escape);
-                            },
-                            item: function(data, escape) {
-                                return new Function('data', 'escape', 'return `' + {{ attrs.data_template_item|safe }} + '`')(data, escape);
-                            },
-                        {% elif 'render' in attrs.keys %}
-                            {% if attrs.render.option|default:False %}
-                                option: function(data, escape) {
-                                    {{ attrs.render.option|safe }}
-                                },
-                            {% endif %}
-                            {% if attrs.render.item|default:False %}
-                                item: function(data, escape) {
-                                    {{ attrs.render.item|safe }}
-                                },
-                            {% endif %}
-                        {% else %}
-                            {% include "django_tomselect/render/item.html" with widget=widget %}
-                            {% include "django_tomselect/render/option.html" with widget=widget %}
-                        {% endif %}
-                    {% endwith %}
-
-                    {% include "django_tomselect/render/loading.html" with widget=widget %}
-                    {% include "django_tomselect/render/loading_more.html" with widget=widget %}
-                    {% include "django_tomselect/render/no_more_results.html" with widget=widget %}
-                    {% include "django_tomselect/render/no_results.html" with widget=widget %}
-                    {% include "django_tomselect/render/not_loading.html" with widget=widget %}
-                    {% if 'create' in widget.keys and widget.create %}
-                        {% include "django_tomselect/render/option_create.html" with widget=widget %}
+            {% block tomselect_url_setup %}
+                // Constructing the originalFirstUrl function based on query and filters
+                var originalFirstUrl = function(query) {
+                    var url = '{{ widget.autocomplete_url }}' + '?q=' + encodeURIComponent(query){% if 'autocomplete_params' in widget.keys and not widget.autocomplete_params == '' %} + '&{{ widget.autocomplete_params|safe }}'{% endif %};
+                    {% if "dependent_field" in widget.keys %}
+                        const dependentField = document.getElementById('id_{{ widget.dependent_field }}');
+                        const dependentValue = dependentField ? dependentField.value : '';
+                        url = `${url}&f='{{ widget.dependent_field }}__{{ widget.dependent_field_lookup }}=${dependentValue}'`;
                     {% endif %}
-                }
+                    {% if "exclude_field" in widget.keys %}
+                        const excludeField = document.getElementById('id_{{ widget.exclude_field }}');
+                        const excludeValue = excludeField ? excludeField.value : '';
+                        url = `${url}&e='{{ widget.exclude_field }}__{{ widget.exclude_field_lookup }}=${excludeValue}'`;
+                    {% endif %}
+                    return url;
+                };
+            {% endblock tomselect_url_setup %}
 
-            };
+            {% block tomselect_config %}
+                const config = {
+                    valueField: '{{ widget.value_field }}',
+                    labelField: '{{ widget.label_field }}',
+                    searchField: [],
+                    highlight: {% if widget.highlight %}true{% else %}false{% endif %},
+                    openOnFocus: {% if widget.open_on_focus %}true{% else %}false{% endif %},
+                    maxOptions: {% if widget.max_options %}{{ widget.max_options }}{% else %}null{% endif %},
+                    preload: {% if widget.preload == "focus" %}'focus'{% elif widget.preload %}true{% else %}false{% endif %},
+                    maxItems: {% if not widget.is_multiple %}1{% else %}{% if widget.max_items %}{{ widget.max_items }}{% else %}null{% endif %}{% endif %},
+                    showValueField: {% if 'dropdown_header' in widget.plugins.keys and widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
+                    create: {% if 'create' in widget.keys and widget.create %}true{% else %}false{% endif %},
+                    resetVarName: resetVarName,
+                    originalFirstUrl: originalFirstUrl,
+                    {% if "dependent_field" in widget.keys %}
+                        dependentField: 'id_{{ widget.dependent_field }}',
+                    {% endif %}
+                    {% if "exclude_field" in widget.keys %}
+                        excludeField: 'id_{{ widget.exclude_field }}',
+                    {% endif %}
 
-            var {{ widget.name }} = new TomSelect('#{% if 'id' in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}', config);
+                    {% block tomselect_plugins %}
+                        plugins: {
+                            {% if 'checkbox_options' in widget.plugins.keys and widget.plugins.checkbox_options %}
+                                checkbox_options: true,
+                            {% endif %}
+
+                            {% if 'clear_button' in widget.plugins.keys %}
+                                clear_button: {
+                                    title: '{{ widget.plugins.clear_button.title }}',
+                                    className: '{{ widget.plugins.clear_button.class_name }}'
+                                },
+                            {% endif %}
+
+                            {% comment %} {% if 'dropdown_header' in widget.plugins.keys %}
+                                dropdown_header: {
+                                    title: '{{ widget.plugins.dropdown_header.title }}',
+                                    header_class: '{{ widget.plugins.dropdown_header.header_class }}',
+                                    title_row_class: '{{ widget.plugins.dropdown_header.title_row_class }}',
+                                    label_class: '{{ widget.plugins.dropdown_header.label_class }}',
+                                    value_field_label: '{{ widget.plugins.dropdown_header.value_field_label }}',
+                                    label_field_label: '{{ widget.plugins.dropdown_header.label_field_label }}',
+                                    label_col_class: '{{ widget.plugins.dropdown_header.label_col_class }}',
+                                    show_value_field: {% if widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
+                                    extra_columns: {{ widget.plugins.dropdown_header.extra_columns|safe }},
+                                    extra_headers: {{ widget.plugins.dropdown_header.extra_headers|safe }},
+                                    extra_values: {{ widget.plugins.dropdown_header.extra_values|safe }}
+                                },
+                            {% endif %} {% endcomment %}
+
+                            {% if 'dropdown_header' in widget.plugins.keys %}
+                                dropdown_header:{
+                                    title: '{% if widget.plugins.dropdown_header.title %}{{ widget.plugins.dropdown_header.title }}{% else %}Select an option{% endif %}',
+                                    headerClass: '{{ widget.plugins.dropdown_header.header_class }}',
+                                    {% include "django_tomselect/render/dropdown_header.html" with widget=widget %}
+                                },
+                            {% endif %}
+
+
+                            {% comment %} {% if 'dropdown_footer' in widget.plugins.keys %}
+                                dropdown_footer: {
+                                    title: '{{ widget.plugins.dropdown_footer.title }}',
+                                    footer_class: '{{ widget.plugins.dropdown_footer.footer_class }}',
+                                    create_view_label: '{{ widget.plugins.dropdown_footer.create_view_label }}',
+                                    create_view_class: '{{ widget.plugins.dropdown_footer.create_view_class }}',
+                                    list_view_label: '{{ widget.plugins.dropdown_footer.list_view_label }}',
+                                    list_view_class: '{{ widget.plugins.dropdown_footer.list_view_class }}'
+                                },
+                            {% endif %} {% endcomment %}
+
+                            {% if 'dropdown_footer' in widget.plugins.keys %}
+                                dropdown_footer:{
+                                    title: '{% if widget.plugins.dropdown_footer.title %}{{ widget.plugins.dropdown_footer.title }}{% else %}Select an option{% endif %}',
+                                    footerClass: '{{ widget.plugins.dropdown_footer.footer_class }}',
+                                    {% include "django_tomselect/render/dropdown_footer.html" with widget=widget %}
+                                },
+                            {% endif %}
+
+                            {% if 'dropdown_input' in widget.plugins.keys and widget.plugins.dropdown_input %}
+                                dropdown_input: true,
+                            {% endif %}
+
+                            {% if 'remove_button' in widget.plugins.keys %}
+                                remove_button: {
+                                    title: '{{ widget.plugins.remove_button.title }}',
+                                    label: '{{ widget.plugins.remove_button.label|safe }}',
+                                    className: '{{ widget.plugins.remove_button.class_name }}'
+                                },
+                            {% endif %}
+
+                            virtual_scroll: true
+                        },
+                    {% endblock tomselect_plugins %}
+
+                    {% if widget.value %}
+                        onInitialize: function() {
+                            {% for option in widget.selected_options %}
+                                this.addOption({
+                                    {{ widget.value_field }}: '{{ option.value }}',
+                                    {{ widget.label_field }}: '{{ option.label }}',
+                                    {% if "create_url" in option.keys %}create_url: '{{ option.create_url }}',{% endif %}
+                                    {% if "detail_url" in option.keys %}detail_url: '{{ option.detail_url }}',{% endif %}
+                                    {% if "update_url" in option.keys %}update_url: '{{ option.update_url }}',{% endif %}
+                                    {% if "delete_url" in option.keys %}delete_url: '{{ option.delete_url }}',{% endif %}
+                                });
+                                this.addItem('{{ option.value }}');
+                            {% endfor %}
+                        },
+                    {% endif %}
+
+                    shouldLoad: function(query){
+                        var shouldLoadValue;
+                        if (this.settings.page && (!query.trim() || query === undefined)) {
+                            shouldLoadValue = true;
+                        } else {
+                            shouldLoadValue = query.length >= {{ widget.minimum_query_length }};
+                        }
+                        return shouldLoadValue;
+                    },
+
+                    firstUrl: originalFirstUrl,
+
+                    getUrl: function(query) {
+                        var url = this.settings.pagination[query] || this.settings.firstUrl(query);
+                        return url;
+                    },
+
+                    load: function(query, callback) {
+                        var url = this.getUrl(query);
+                        if (window[resetVarName] === true) {
+                            url = originalFirstUrl(query);
+                        }
+
+                        fetch(url)
+                            .then(response => response.json())
+                            .then(json => {
+                                if (json.has_more) {
+                                    url = url.replace(/&p=\d+/g, '');
+                                    {% if "dependent_field" in widget.keys or "exclude_field" in widget.keys %}
+                                        if (window[resetVarName] === false) {
+                                            this.setNextUrl(query, url + '&p=' + (json.page + 1));
+                                        } else {
+                                            window[resetVarName] = false;
+                                            this.setNextUrl(query, url + '&p=1');
+                                        }
+                                    {% else %}
+                                        this.setNextUrl(query, url + '&p=' + (json.page + 1));
+                                    {% endif %}
+                                }
+
+                                const _scrollToOption = this.scrollToOption;
+                                this.scrollToOption = () => {};
+                                callback(json.results);
+                                this.scrollToOption = _scrollToOption;
+                            }).catch(() => {
+                                console.log('%c Error loading data for {{ widget.name }}, url=', "color:red;", url);
+                                callback();
+                            })
+                    },
+
+                    {% block tomselect_render %}
+                        render: {
+                            {% with widget.attrs as attrs %}
+                                {% if 'data_custom_rendering' in attrs.keys and attrs.data_custom_rendering|default:False %}
+                                    option: function(data, escape) {
+                                        return new Function('data', 'escape', 'return `' + {{ attrs.data_template_option|safe }} + '`')(data, escape);
+                                    },
+                                    item: function(data, escape) {
+                                        return new Function('data', 'escape', 'return `' + {{ attrs.data_template_item|safe }} + '`')(data, escape);
+                                    },
+                                {% elif 'render' in attrs.keys %}
+                                    {% if attrs.render.option|default:False %}
+                                        option: function(data, escape) {
+                                            {{ attrs.render.option|safe }}
+                                        },
+                                    {% endif %}
+                                    {% if attrs.render.item|default:False %}
+                                        item: function(data, escape) {
+                                            {{ attrs.render.item|safe }}
+                                        },
+                                    {% endif %}
+                                {% else %}
+                                    {% include "django_tomselect/render/item.html" with widget=widget %}
+                                    {% include "django_tomselect/render/option.html" with widget=widget %}
+                                {% endif %}
+                            {% endwith %}
+
+                            {% include "django_tomselect/render/loading.html" with widget=widget %}
+                            {% include "django_tomselect/render/loading_more.html" with widget=widget %}
+                            {% include "django_tomselect/render/no_more_results.html" with widget=widget %}
+                            {% include "django_tomselect/render/no_results.html" with widget=widget %}
+                            {% include "django_tomselect/render/not_loading.html" with widget=widget %}
+                            {% if 'create' in widget.keys and widget.create %}
+                                {% include "django_tomselect/render/option_create.html" with widget=widget %}
+                            {% endif %}
+                        }
+                    {% endblock tomselect_render %}
+
+                };
+            {% endblock tomselect_config %}
 
             {% if 'render' in widget.attrs.keys and widget.attrs.render %}
-                {{ widget.name }}.on('option_add', function(value, data) {
-                    // Preserve rich data for rendering
-                    this.options[value] = data;
+                element.addEventListener('option_add', function() {
+                    // Ensure all selected data is preserved
+                    this.items.forEach(item => {
+                        this.options[item].selected = true;
+                    });
                 });
 
-                {{ widget.name }}.on('load', function(data) {
+                element.addEventListener('load', function(data) {
                     // Ensure all loaded data is preserved
                     data.forEach(item => {
                         this.options[item.id] = item;
@@ -272,7 +502,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
             // Dependent/exclude field change handling
             var change_handler = function(value) {
-                const tomSelect = {{ widget.name }};
+                const tomSelect = element.tomselect;
+                if (!tomSelect) return;
 
                 tomSelect.clear();
                 tomSelect.clearOptions();
@@ -288,24 +519,18 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 tomSelect.clearPagination();
                 tomSelect.load('', logCallback);
 
-                wasReset{{ widget.name }} = true;
+                window[resetVarName] = true;
             };
 
-            {% if "dependent_field" in widget.keys %}
-                const dependentField = document.getElementById('id_{{ widget.dependent_field }}');
-                if (dependentField && dependentField.tomselect) {
-                    dependentField.tomselect.on('change', change_handler);
-                }
-            {% endif %}
-            {% if "exclude_field" in widget.keys %}
-                const excludeField = document.getElementById('id_{{ widget.exclude_field }}');
-                if (excludeField && excludeField.tomselect) {
-                    excludeField.tomselect.on('change', change_handler);
-                }
-            {% endif %}
+            // Mark the select as a TomSelect widget
+            element.setAttribute('data-tomselect', 'true');
 
             {% if not widget.use_htmx %}
-            });
+                document.addEventListener('DOMContentLoaded', () => {
+                    window.djangoTomSelect.initialize(element, config);
+                });
+            {% else %}
+                window.djangoTomSelect.initialize(element, config);
             {% endif %}
         })();
     {% endblock tomselect_init %}

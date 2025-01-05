@@ -163,7 +163,10 @@ class TomSelectWidgetMixin:
         if self.placeholder is not None:
             attrs["placeholder"] = self.placeholder
 
-        attrs['data-template-option'] = attrs.get('data-template-option', '').replace('"', '\\"')
+        # Mark as TomSelect widget for dynamic initialization
+        attrs["data-tomselect"] = "true"
+
+        attrs["data-template-option'] = attrs.get('data-template-option', '').replace('"', '\\"')
         attrs['data-template-item'] = attrs.get('data-template-item', '').replace('"', '\\"')
 
         return {**attrs, **(extra_attrs or {})}
