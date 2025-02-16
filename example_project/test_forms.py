@@ -23,14 +23,7 @@ from django_tomselect.widgets import (
     TomSelectModelMultipleWidget,
     TomSelectModelWidget,
 )
-from example_project.example.models import (
-    Article,
-    ArticlePriority,
-    ArticleStatus,
-    Author,
-    Edition,
-    Magazine,
-)
+from example_project.example.models import Article, ArticlePriority, ArticleStatus, Author, Edition, Magazine
 
 
 @pytest.mark.django_db
@@ -882,10 +875,12 @@ class TestFormsetIntegration:
         # Create a custom form that uses TomSelect
         class EditionForm(forms.ModelForm):
             """Custom form for Edition with TomSelect field."""
+
             magazine = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-magazine"))
 
             class Meta:
                 """Meta class for EditionForm."""
+
                 model = Edition
                 fields = ["name", "magazine"]
 
@@ -927,8 +922,10 @@ class TestFormsetIntegration:
 
         class EditionInlineForm(forms.ModelForm):
             """Custom inline form for Edition with TomSelect field."""
+
             class Meta:
                 """Meta class for EditionInlineForm."""
+
                 model = Edition
                 fields = ["name", "year", "pages", "pub_num"]
                 # Note: magazine field is handled automatically by the inline formset
@@ -1018,6 +1015,7 @@ class TestFormsetIntegration:
 
         class ArticleForm(forms.ModelForm):
             """Custom form for Article with dependent fields."""
+
             magazine = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-magazine"))
             edition = TomSelectModelChoiceField(
                 config=TomSelectConfig(url="autocomplete-edition", filter_by=("magazine", "magazine_id"))
@@ -1026,6 +1024,7 @@ class TestFormsetIntegration:
 
             class Meta:
                 """Meta class for ArticleForm."""
+
                 model = Article
                 fields = ["title", "word_count", "magazine", "edition", "authors"]
 
@@ -1072,16 +1071,19 @@ class TestFormsetIntegration:
 
         class EditionForm(forms.ModelForm):
             """Custom form for Edition with TomSelect field."""
+
             magazine = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-magazine"))
 
             class Meta:
                 """Meta class for EditionForm."""
+
                 model = Edition
                 fields = ["name", "year", "pages", "pub_num", "magazine"]
 
         # Custom formset with validation
         class BaseEditionFormSet(forms.BaseModelFormSet):
             """Custom formset for Edition with validation."""
+
             def clean(self):
                 """Custom validation logic."""
                 super().clean()
@@ -1127,19 +1129,17 @@ class TestFormsetIntegration:
 
         class EditionForm(forms.ModelForm):
             """Custom form for Edition with TomSelect field."""
+
             magazine = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-magazine"), required=True)
 
             class Meta:
                 """Meta class for EditionForm."""
+
                 model = Edition
                 fields = ["name", "magazine"]
 
         EditionFormSet = forms.modelformset_factory(  # pylint: disable=C0103
-            Edition,
-            form=EditionForm,
-            extra=1,
-            validate_min=True,
-            min_num=1
+            Edition, form=EditionForm, extra=1, validate_min=True, min_num=1
         )
 
         # Test validation failure with missing required field
@@ -1159,19 +1159,17 @@ class TestFormsetIntegration:
     def test_formset_with_initial_data(self, magazines):
         """Test formset with initial data in TomSelect fields."""
         # Create initial editions
-        Edition.objects.create(
-            name="Edition 1", year="2024", pages="100", pub_num="TEST-001", magazine=magazines[0]
-        )
-        Edition.objects.create(
-            name="Edition 2", year="2024", pages="200", pub_num="TEST-002", magazine=magazines[1]
-        )
+        Edition.objects.create(name="Edition 1", year="2024", pages="100", pub_num="TEST-001", magazine=magazines[0])
+        Edition.objects.create(name="Edition 2", year="2024", pages="200", pub_num="TEST-002", magazine=magazines[1])
 
         class EditionForm(forms.ModelForm):
             """Custom form for Edition with TomSelect field."""
+
             magazine = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-magazine"))
 
             class Meta:
                 """Meta class for EditionForm."""
+
                 model = Edition
                 fields = ["name", "magazine"]
 
@@ -1195,18 +1193,17 @@ class TestFormsetIntegration:
 
         class EditionForm(forms.ModelForm):
             """Custom form for Edition with TomSelect field."""
+
             magazine = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-magazine"))
 
             class Meta:
                 """Meta class for EditionForm."""
+
                 model = Edition
                 fields = ["name", "magazine"]
 
         EditionFormSet = forms.modelformset_factory(  # pylint: disable=C0103
-            Edition,
-            form=EditionForm,
-            extra=1,
-            can_delete=True
+            Edition, form=EditionForm, extra=1, can_delete=True
         )
 
         # Test submission with empty forms
