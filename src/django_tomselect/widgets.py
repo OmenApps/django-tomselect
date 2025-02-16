@@ -328,22 +328,26 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         """
         request = self.get_current_request()
 
-        try:
-            context = {
-                "view_list_url": (
-                    reverse(autocomplete_view.list_url)
-                    if hasattr(autocomplete_view, "list_url") and autocomplete_view.has_permission(request, "view")
-                    else None
-                ),
-                "view_create_url": (
-                    reverse(autocomplete_view.create_url)
-                    if hasattr(autocomplete_view, "create_url") and autocomplete_view.has_permission(request, "create")
-                    else None
-                ),
-            }
-        except NoReverseMatch:
-            package_logger.warning("Unable to reverse list_url or create_url for model %s", self.model)
-            context = {"view_list_url": None, "view_create_url": None}
+        def is_valid_url(view, url_attr, permission):
+            """Check if the URL attribute is valid and if the user has permission."""
+            return (
+                hasattr(view, url_attr) and
+                getattr(view, url_attr) not in ("", None) and
+                view.has_permission(request, permission)
+            )
+
+        def get_url(view, url_attr, permission):
+            """Get the URL for the specified attribute."""
+            try:
+                return reverse(getattr(view, url_attr)) if is_valid_url(view, url_attr, permission) else None
+            except NoReverseMatch:
+                package_logger.warning("Unable to reverse %s for model %s", url_attr, self.model)
+                return None
+
+        context = {
+            "view_list_url": get_url(autocomplete_view, "list_url", "view"),
+            "view_create_url": get_url(autocomplete_view, "create_url", "create"),
+        }
         package_logger.debug("Model URL context: %s", context)
         return context
 
