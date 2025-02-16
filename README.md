@@ -67,6 +67,7 @@ from django_tomselect.autocompletes import AutocompleteModelView
 class PersonAutocompleteView(AutocompleteModelView):
     model = Person
     search_lookups = ["full_name__icontains"]
+    value_fields = ["id","full_name"]
 ```
 
 4. **Add URL pattern:**
@@ -82,7 +83,7 @@ from django_tomselect.forms import TomSelectModelChoiceField, TomSelectConfig
 
 class MyForm(forms.Form):
     person = TomSelectModelChoiceField(
-        TomSelectConfig(
+        config = TomSelectConfig(
             url="person_autocomplete",
             value_field="id",
             label_field="full_name",
