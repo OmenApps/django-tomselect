@@ -95,6 +95,8 @@ class TomSelectWidgetMixin:
     ) -> str:
         """Render the widget."""
         context = self.get_context(name, value, attrs)
+
+        package_logger.debug(f"Rendering TomSelect widget with context: {context} and template: {self.template_name}")
         return self._render(self.template_name, context, renderer)
 
     def get_plugin_context(self) -> dict[str, Any]:
@@ -331,9 +333,9 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         def is_valid_url(view, url_attr, permission):
             """Check if the URL attribute is valid and if the user has permission."""
             return (
-                hasattr(view, url_attr) and
-                getattr(view, url_attr) not in ("", None) and
-                view.has_permission(request, permission)
+                hasattr(view, url_attr)
+                and getattr(view, url_attr) not in ("", None)
+                and view.has_permission(request, permission)
             )
 
         def get_url(view, url_attr, permission):
@@ -395,6 +397,14 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
     def get_context(self, name: str, value: Any, attrs: dict[str, str] | None = None) -> dict[str, Any]:
         """Get context for rendering the widget."""
         self.get_queryset()  # Ensure we have model info
+
+        # Only include the global setup if it hasn't been rendered yet
+        request = get_current_request()
+        if not getattr(request, "_tomselect_global_rendered", False):
+            package_logger.debug("Rendering global TomSelect setup.")
+            self.template_name = "django_tomselect/tomselect_setup.html"
+            if request:
+                request._tomselect_global_rendered = True
 
         # Initial context without autocomplete view
         base_context = {
@@ -630,6 +640,14 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
 
     def get_context(self, name: str, value: Any, attrs: dict[str, str] | None = None) -> dict[str, Any]:
         """Get context for rendering the widget."""
+        # Only include the global setup if it hasn't been rendered yet
+        request = get_current_request()
+        if not getattr(request, "_tomselect_global_rendered", False):
+            package_logger.debug("Rendering global TomSelect setup.")
+            self.template_name = "django_tomselect/tomselect_setup.html"
+            if request:
+                request._tomselect_global_rendered = True
+
         attrs = self.build_attrs(self.attrs, attrs)
         context = {
             "widget": {

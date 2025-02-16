@@ -93,21 +93,3 @@ def tomselect_media_js(use_minified: bool = None):
     """Return only JS tags for the TomSelectIterablesWidget."""
     widget = get_widget_with_config(use_minified=use_minified)
     return mark_safe(render_js_scripts(widget.media._js))
-
-
-@register.simple_tag
-def is_tomselect_initialized():
-    """Check if TomSelect has been initialized for the current request."""
-    request = get_current_request()
-    if request is None:
-        return False
-    return getattr(request, '_tomselect_initialized', False)
-
-
-@register.simple_tag
-def mark_tomselect_initialized():
-    """Mark TomSelect as initialized for the current request."""
-    request = get_current_request()
-    if request is not None:
-        request._tomselect_initialized = True
-    return ''

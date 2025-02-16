@@ -15,7 +15,7 @@ Main Tom Select template.
 
 **Overriding Example:**
 To override only the plugin configuration, you might create:
-`templates/django_tomselect/tomselect.html`:
+`django_tomselect/tomselect.html`:
 
 {% block tomselect_plugins %}
     // Your custom plugin code here
@@ -34,11 +34,14 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
 {% load i18n %}
 
-{% include "django_tomselect/tomselect_setup.html" %}
-
 {% block select_element %}
     {% include "django_tomselect/render/select.html" with widget=widget %}
 {% endblock select_element %}
+
+<script>
+    {% block tomselect_global_setup %}
+    {% endblock tomselect_global_setup %}
+</script>
 
 <script>
     {% block tomselect_init %}
