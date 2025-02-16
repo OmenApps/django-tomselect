@@ -1,0 +1,243 @@
+{% comment %}
+This template is used to set up the global TomSelect configuration and initialization logic once per page.
+
+**Blocks:**
+- block tomselect_global_setup: Add global initialization logic, such as the MutationObserver for dynamic content.
+
+**Overriding Example:**
+To override the global setup logic, you can create a custom template in your Django app. For example, create a file named
+`templates/django_tomselect/tomselect_setup.html` in your app's templates directory.
+Then, in that file, you can override the block:
+
+
+{% load i18n %}
+{% load django_tomselect %}
+
+<script>
+    {% block tomselect_global_setup %}
+        // Custom global setup code here
+        console.log('Custom TomSelect global setup');
+    {% endblock tomselect_global_setup %}
+</script>
+This will replace the original code block in the `tomselect_setup.html` template.
+
+{% endcomment %}
+
+{% load i18n %}
+{% load django_tomselect %}
+
+<script>
+    {% block tomselect_global_setup %}
+        {% get_current_language as LANGUAGE_CODE %}
+        {% if not is_tomselect_initialized %}
+            {% mark_tomselect_initialized %}
+            // Global namespace for django-tomselect
+            if (!window.djangoTomSelect) {
+                window.djangoTomSelect = window.djangoTomSelect || {
+                    configs: new Map(),
+                    instances: new Map(),
+
+                    // Deep clone config while preserving functions
+                    cloneConfig: function(config) {
+                        const cloned = {};
+
+                        for (let key in config) {
+                            if (config.hasOwnProperty(key)) {
+                                if (typeof config[key] === 'function') {
+                                    cloned[key] = config[key];
+                                } else if (config[key] instanceof RegExp) {
+                                    cloned[key] = new RegExp(config[key]);
+                                } else if (Array.isArray(config[key])) {
+                                    cloned[key] = [...config[key]];
+                                } else if (typeof config[key] === 'object' && config[key] !== null) {
+                                    cloned[key] = this.cloneConfig(config[key]);
+                                } else {
+                                    cloned[key] = config[key];
+                                }
+                            }
+                        }
+
+                        return cloned;
+                    },
+
+                    // Initialize a new TomSelect instance
+                    initialize: function(element, config) {
+                        if (!(element instanceof HTMLElement)) {
+                            console.warn('Invalid element provided to djangoTomSelect.initialize');
+                            return null;
+                        }
+
+                        try {
+                            // Clean up any existing instance
+                            this.destroy(element);
+
+                            // Remove any existing TomSelect wrappers
+                            const wrappers = element.parentNode.querySelectorAll('.ts-wrapper');
+                            wrappers.forEach(wrapper => {
+                                if (wrapper.contains(element)) {
+                                    wrapper.parentNode.insertBefore(element, wrapper);
+                                    wrapper.remove();
+                                }
+                            });
+
+                            // Reset the select element to its original state
+                            element.className = element.className.replace(/\btomselected\b/g, '');
+                            element.style.display = '';
+                            element.removeAttribute('tabindex');
+                            element.removeAttribute('data-ts-hidden');
+
+                            // Create new instance
+                            const instance = new TomSelect(element, config);
+                            this.instances.set(element.id, instance);
+                            this.configs.set(element.id, config);
+
+                            // Set up dependent/exclude field handlers after initialization
+                            if (config.dependentField || config.excludeField) {
+                                const change_handler = function(value) {
+                                    if (!instance) return;
+
+                                    instance.clear();
+                                    instance.clearOptions();
+                                    instance.clearCache();
+                                    instance.settings.pagination = {};
+
+                                    if (instance.dropdown_content) {
+                                        instance.dropdown_content.scrollTop = 0;
+                                    }
+
+                                    instance.settings.firstUrl = config.originalFirstUrl;
+                                    instance.settings.setNextUrl = config.originalFirstUrl;
+                                    instance.clearPagination();
+                                    instance.load('', () => {
+                                        console.log("%c Received callback data after handler", "color:red;");
+                                    });
+
+                                    window[config.resetVarName] = true;
+                                };
+
+                                // Set up dependent field handler
+                                if (config.dependentField) {
+                                    const dependentField = document.getElementById(config.dependentField);
+                                    const dependentInstance = this.instances.get(config.dependentField);
+                                    if (dependentInstance) {
+                                        dependentInstance.on('change', change_handler);
+                                    }
+                                }
+
+                                // Set up exclude field handler
+                                if (config.excludeField) {
+                                    const excludeField = document.getElementById(config.excludeField);
+                                    const excludeInstance = this.instances.get(config.excludeField);
+                                    if (excludeInstance) {
+                                        excludeInstance.on('change', change_handler);
+                                    }
+                                }
+                            }
+
+                            return instance;
+                        } catch (error) {
+                            console.error('Error initializing TomSelect:', error);
+                            return null;
+                        }
+                    },
+
+                    // Clean up an existing instance
+                    destroy: function(element) {
+                        if (!(element instanceof HTMLElement)) return;
+
+                        try {
+                            // Check for existing TomSelect instance
+                            if (element.tomselect) {
+                                element.tomselect.destroy();
+                            }
+
+                            // Clean up our stored instance
+                            const instance = this.instances.get(element.id);
+                            if (instance) {
+                                instance.destroy();
+                                this.instances.delete(element.id);
+                                this.configs.delete(element.id);
+                            }
+                        } catch (error) {
+                            console.warn('Error destroying TomSelect instance:', error);
+                        }
+                    },
+
+                    // Reinitialize TomSelect on dynamic content
+                    reinitialize: function(container) {
+                        setTimeout(() => {
+                            const selects = container.querySelectorAll('select[data-tomselect]:not(.tomselected)');
+                            selects.forEach(select => {
+                                // Get config from original instance if available
+                                let config = this.configs.get(select.id);
+                                if (!config) {
+                                    // If no stored config, try to get from a similar widget
+                                    const similarId = Array.from(this.configs.keys()).find(id =>
+                                        id.replace(/form-\d+-/, '') === select.id.replace(/form-\d+-/, ''));
+                                    if (similarId) {
+                                        config = this.cloneConfig(this.configs.get(similarId));
+                                        // Clean instance-specific settings
+                                        delete config.items;
+                                        delete config.renderCache;
+
+                                        // Generate a new unique reset variable name for this instance
+                                        const newResetVar = `wasReset_${select.id.replace(/-/g, '_')}`;
+                                        window[newResetVar] = false;
+
+                                        // Update the config's load function with the new reset variable
+                                        if (typeof config.load === 'function') {
+                                            const loadFuncStr = config.load.toString()
+                                                .replace(/wasReset_[a-zA-Z0-9_]+/g, newResetVar);
+                                            config.load = new Function('return ' + loadFuncStr)();
+                                        }
+                                    }
+                                }
+                                if (config) {
+                                    this.initialize(select, config);
+                                }
+                            });
+                        }, 0);
+                    }
+                };
+
+                // Debounced observer to prevent rapid consecutive calls
+                const debounce = (fn, delay) => {
+                    let timeoutId;
+                    return (...args) => {
+                        clearTimeout(timeoutId);
+                        timeoutId = setTimeout(() => fn.apply(null, args), delay);
+                    };
+                };
+
+                // Observer for dynamic content
+                const tomSelectObserver = new MutationObserver(debounce((mutations) => {
+                    mutations.forEach(mutation => {
+                        mutation.addedNodes.forEach(node => {
+                            if (node.nodeType === 1) { // ELEMENT_NODE
+                                const needsInit = node.querySelector('select[data-tomselect]:not(.tomselected)');
+                                if (needsInit) {
+                                    window.djangoTomSelect.reinitialize(node);
+                                }
+                            }
+                        });
+                    });
+                }, 50));
+
+                // Start observing after DOM is loaded
+                {% if not widget.use_htmx %}
+                    document.addEventListener('DOMContentLoaded', () => {
+                        tomSelectObserver.observe(document.body, {
+                            childList: true,
+                            subtree: true
+                        });
+                    });
+                {% else %}
+                    tomSelectObserver.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                {% endif %}
+            }
+        {% endif %}
+    {% endblock tomselect_global_setup %}
+</script>
