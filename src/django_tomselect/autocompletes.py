@@ -297,24 +297,16 @@ class AutocompleteModelView(View):
     def get_permission_required(self):
         """Get the permissions required for this view.
 
-        Can be overridden for dynamic permission requirements.
+        If permission_required is None, no permissions are required.
+        Otherwise, use the specified permissions or fall back to model-based defaults.
         """
         if self.permission_required is None:
-            # Default permissions based on model and action
-            perms = []
-            if self.model:
-                opts = self.model._meta
-                perms.extend(
-                    [
-                        f"{opts.app_label}.list_{opts.model_name}",  # Basic list permission
-                        f"{opts.app_label}.view_{opts.model_name}",  # Basic view permission
-                        f"{opts.app_label}.search_{opts.model_name}",  # Optional custom search permission
-                    ]
-                )
-                package_logger.debug("Default permissions %s", perms)
-            return perms
-        package_logger.debug("Custom permissions %s", self.permission_required)
-        return self.permission_required
+            return []  # No permissions required
+
+        if isinstance(self.permission_required, str):
+            return [self.permission_required]
+
+        return self.permission_required or []
 
     @cache_permission
     def has_permission(self, request, action="view"):

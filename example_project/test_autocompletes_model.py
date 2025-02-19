@@ -818,6 +818,145 @@ class TestAutocompleteModelViewEdgeCases:
 class TestAutocompleteModelViewPermissions:
     """Tests for AutocompleteModelView permissions handling."""
 
+    class NoPermissionsView(AutocompleteModelView):
+        """Test view with no permissions required."""
+
+        model = Edition
+        permission_required = None
+        search_lookups = ["name__icontains"]
+
+    class WithPermissionsView(AutocompleteModelView):
+        """Test view with explicit permissions required."""
+
+        model = Edition
+        permission_required = ["example.view_edition"]
+        search_lookups = ["name__icontains"]
+
+    def test_no_permissions_required(self, mock_request):
+        """Test that views with permission_required = None don't check permissions."""
+        view = self.NoPermissionsView()
+        view.setup(mock_request)
+
+        # This should not raise PermissionDenied
+        response = view.dispatch(mock_request)
+        assert response.status_code == 200
+
+    def test_explicit_permissions_required_with_permission(self, mock_request):
+        """Test that views with explicit permissions work when user has permission."""
+        view = self.WithPermissionsView()
+        view.setup(mock_request)
+
+        # Should not raise PermissionDenied since mock_request user has all permissions
+        response = view.dispatch(mock_request)
+        assert response.status_code == 200
+
+    def test_explicit_permissions_required_without_permission(self, user):
+        """Test that views with explicit permissions fail when user lacks permission."""
+
+        class UnauthorizedRequest:
+            """Mock request with unauthorized user."""
+
+            def __init__(self, user):
+                self.user = user
+                self.method = "GET"
+                self.GET = {}
+
+            def get_full_path(self):
+                return "/test/"
+
+        request = UnauthorizedRequest(user)
+        view = self.WithPermissionsView()
+        view.setup(request)
+
+        # Should raise PermissionDenied since user doesn't have permission
+        with pytest.raises(PermissionDenied):
+            view.dispatch(request)
+
+    def test_get_permission_required_none(self, mock_request):
+        """Test that get_permission_required returns empty list when permission_required is None."""
+        view = self.NoPermissionsView()
+        view.setup(mock_request)
+        assert view.get_permission_required() == []
+
+    def test_get_permission_required_list(self, mock_request):
+        """Test that get_permission_required returns list for explicit permissions."""
+        view = self.WithPermissionsView()
+        view.setup(mock_request)
+        assert view.get_permission_required() == ["example.view_edition"]
+
+    def test_get_permission_required_string(self, mock_request):
+        """Test that get_permission_required handles string permission."""
+
+        class StringPermissionView(AutocompleteModelView):
+            """Test view with string permission_required."""
+
+            model = Edition
+            permission_required = "example.view_edition"
+
+        view = StringPermissionView()
+        view.setup(mock_request)
+        assert view.get_permission_required() == ["example.view_edition"]
+
+    def test_has_permission_with_none(self, mock_request):
+        """Test that has_permission returns True when no permissions are required."""
+        view = self.NoPermissionsView()
+        view.setup(mock_request)
+        assert view.has_permission(mock_request) is True
+
+    def test_has_permission_with_allow_anonymous(self, mock_request):
+        """Test that has_permission returns True when allow_anonymous is True."""
+        view = self.WithPermissionsView()
+        view.allow_anonymous = True
+        view.setup(mock_request)
+        assert view.has_permission(mock_request) is True
+
+    def test_has_permission_with_skip_authorization(self, mock_request):
+        """Test that has_permission returns True when skip_authorization is True."""
+        view = self.WithPermissionsView()
+        view.skip_authorization = True
+        view.setup(mock_request)
+        assert view.has_permission(mock_request) is True
+
+    def test_unauthenticated_user(self):
+        """Test that has_permission returns False for unauthenticated users."""
+
+        class UnauthenticatedUser:
+            """Mock user class for unauthenticated users."""
+
+            id = 1
+            is_authenticated = False
+
+        class UnauthenticatedRequest:
+            """Mock request class for unauthenticated requests."""
+
+            def __init__(self):
+                self.user = UnauthenticatedUser()
+                self.method = "GET"
+                self.GET = {}
+
+            def get_full_path(self):
+                """Mock method to get full path."""
+                return "/test/"
+
+        request = UnauthenticatedRequest()
+        view = self.WithPermissionsView()
+        view.setup(request)
+        assert view.has_permission(request) is False
+
+    def test_queryset_with_no_permissions(self, mock_request, editions):
+        """Test that queryset is accessible when no permissions are required."""
+        view = self.NoPermissionsView()
+        view.setup(mock_request)
+        queryset = view.get_queryset()
+        assert queryset.count() == len(editions)
+
+    def test_queryset_with_permissions(self, mock_request, editions):
+        """Test that queryset is accessible with proper permissions."""
+        view = self.WithPermissionsView()
+        view.setup(mock_request)
+        queryset = view.get_queryset()
+        assert queryset.count() == len(editions)
+
     def test_has_permission_anonymous_user(self, rf):
         """Test permission handling for anonymous users."""
         view = AutocompleteModelView()
