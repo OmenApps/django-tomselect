@@ -15,6 +15,7 @@ from django_tomselect.cache import cache_permission, permission_cache
 from django_tomselect.constants import EXCLUDEBY_VAR, FILTERBY_VAR, PAGE_VAR, SEARCH_VAR
 from django_tomselect.logging import package_logger
 from django_tomselect.models import EmptyModel
+from django_tomselect.utils import safe_url, sanitize_dict
 
 
 class AutocompleteModelView(View):
@@ -249,8 +250,6 @@ class AutocompleteModelView(View):
         pk_name = self.model._meta.pk.name
         for item in values:
             # Only include URLs if user has relevant permissions
-            # item['can_list'] = self.has_permission(self.request, 'list')
-            # item['can_create'] = self.has_permission(self.request, 'create')
             item["can_view"] = self.has_permission(self.request, "view")
             item["can_update"] = self.has_permission(self.request, "update")
             item["can_delete"] = self.has_permission(self.request, "delete")
@@ -261,22 +260,26 @@ class AutocompleteModelView(View):
             # Add instance-specific URLs conditionally based on permissions
             if self.detail_url and item["can_view"]:
                 try:
-                    item["detail_url"] = reverse(self.detail_url, args=[item["id"]])
+                    item["detail_url"] = safe_url(reverse(self.detail_url, args=[item["id"]]))
                 except NoReverseMatch:
                     package_logger.warning("Could not reverse detail_url %s", self.detail_url)
 
             if self.update_url and item["can_update"]:
                 try:
-                    item["update_url"] = reverse(self.update_url, args=[item["id"]])
+                    item["update_url"] = safe_url(reverse(self.update_url, args=[item["id"]]))
                 except NoReverseMatch:
                     package_logger.warning("Could not reverse update_url %s", self.update_url)
 
             if self.delete_url and item["can_delete"]:
                 try:
-                    item["delete_url"] = reverse(self.delete_url, args=[item["id"]])
+                    item["delete_url"] = safe_url(reverse(self.delete_url, args=[item["id"]]))
                 except NoReverseMatch:
                     package_logger.warning("Could not reverse delete_url %s", self.delete_url)
 
+            # Sanitize all values to prevent XSS
+            item = sanitize_dict(item)
+
+        # Allow custom processing through hook
         return self.hook_prepare_results(values)
 
     def hook_prepare_results(self, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -314,7 +317,6 @@ class AutocompleteModelView(View):
 
         Supports custom auth backends via Django's auth system.
         """
-
         # Skip all checks if configured to do so
         if self.skip_authorization:
             return True
@@ -459,7 +461,6 @@ class AutocompleteIterablesView(View):
             return []
 
         try:
-
             # Handle TextChoices and IntegerChoices
             if isinstance(self.iterable, type) and hasattr(self.iterable, "choices"):
                 return [

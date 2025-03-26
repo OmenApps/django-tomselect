@@ -7,13 +7,13 @@ Renders the Dropdown Footer plugin's HTML.
 html: function (data) {
     let footer = ''
     footer += `
-    <div title="{{ widget.plugins.dropdown_footer.title }}" class="{{ widget.plugins.dropdown_footer.footer_class }}">
+    <div title="{{ widget.plugins.dropdown_footer.title|escapejs }}" class="{{ widget.plugins.dropdown_footer.footer_class }}">
         {% if "view_create_url" in widget.keys and widget.view_create_url %}
-            <a href="{{ widget.view_create_url }}" title='{% translate "Go to Create View for these items" %}' class="{{ widget.plugins.dropdown_footer.create_view_class }}" target="_blank" rel="noopener noreferrer">{{ widget.plugins.dropdown_footer.create_view_label }}</a>
+            <a href="{{ widget.view_create_url|escapejs }}" title='{% translate "Go to Create View for these items" %}' class="{{ widget.plugins.dropdown_footer.create_view_class }}" target="_blank" rel="noopener noreferrer">{{ widget.plugins.dropdown_footer.create_view_label|escapejs }}</a>
         {% endif %}
 
         {% if "view_list_url" in widget.keys and widget.view_list_url %}
-            <a href="{{ widget.view_list_url }}" title='{% translate "Go to List View for these items" %}' class="{{ widget.plugins.dropdown_footer.list_view_class }}" target="_blank" rel="noopener noreferrer">{{ widget.plugins.dropdown_footer.list_view_label }}</a>
+            <a href="{{ widget.view_list_url|escapejs }}" title='{% translate "Go to List View for these items" %}' class="{{ widget.plugins.dropdown_footer.list_view_class }}" target="_blank" rel="noopener noreferrer">{{ widget.plugins.dropdown_footer.list_view_label|escapejs }}</a>
         {% endif %}
     </div>
     `

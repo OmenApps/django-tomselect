@@ -9,16 +9,16 @@ html: function (data) {
     {% if widget.plugins.dropdown_header.show_value_field %}
         header += `
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.value_field_label }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.value_field_label|escapejs }}</span>
         </div>
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
         </div>
         `
     {% else %}
         header += `
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
         </div>
         `
     {% endif %}
@@ -26,12 +26,12 @@ html: function (data) {
     {% for header in widget.plugins.dropdown_header.extra_headers %}
         header += `
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ header }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ header|escapejs }}</span>
         </div>
         `
     {% endfor %}
 
-    return `<div class="{{ widget.plugins.dropdown_header.header_class }}" title="{{ widget.plugins.dropdown_header.title }}" role="row">
+    return `<div class="{{ widget.plugins.dropdown_header.header_class }}" title="{{ widget.plugins.dropdown_header.title|escapejs }}" role="row">
                 <div class="{{ widget.plugins.dropdown_header.title_row_class }}">${header}</div>
             </div>`
 },

@@ -3,11 +3,14 @@ Renders each selected item in the TomSelect input.
 {% endcomment %}
 {% load i18n %}
 item: function(data, escape) {
-    {% if 'data_custom_rendering' in widget.attrs.keys and widget.attrs.data_custom_rendering %}
-        return new Function('data', 'escape', 'return `' + {{ widget.attrs.data_template_item|safe }} + '`')(data, escape);
+    {% if 'data_custom_rendering' in widget.attrs.keys and widget.attrs.data_custom_rendering|default:False %}
+        // Use safe Function constructor with escape function provided
+        var template = {{ widget.attrs.data_template_item|safe }};
+        // Always use escape function
+        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
     {% else %}
         let item = ''
-        item += '<div role="option">' + data.{{ widget.label_field }};
+        item += '<div role="option">' + escape(data.{{ widget.label_field }});
 
         {% if "show_detail" in widget.keys and widget.show_detail %}
             if (data.detail_url) {

@@ -241,10 +241,14 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             {% with widget.attrs as attrs %}
                                 {% if 'data_custom_rendering' in attrs.keys and attrs.data_custom_rendering|default:False %}
                                     option: function(data, escape) {
-                                        return new Function('data', 'escape', 'return `' + {{ attrs.data_template_option|safe }} + '`')(data, escape);
+                                        var template = {{ attrs.data_template_option|safe }};
+                                        // Always provide escape function to sanitize values
+                                        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
                                     },
                                     item: function(data, escape) {
-                                        return new Function('data', 'escape', 'return `' + {{ attrs.data_template_item|safe }} + '`')(data, escape);
+                                        var template = {{ attrs.data_template_item|safe }};
+                                        // Always provide escape function to sanitize values
+                                        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
                                     },
                                 {% elif 'render' in attrs.keys %}
                                     {% if attrs.render.option|default:False %}

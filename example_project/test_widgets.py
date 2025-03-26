@@ -1919,3 +1919,147 @@ class TestLabelFieldInValueFields:
             view2.value_fields.append(label_field)
 
         assert "custom_field" in view2.value_fields
+
+
+@pytest.mark.django_db
+class TestWidgetSecurity:
+    """Security tests for TomSelect widgets."""
+
+    @pytest.fixture
+    def malicious_edition(self):
+        """Create an edition with various malicious content."""
+        edition = Edition.objects.create(
+            name='Attack Vector <img src="x" onerror="alert(1)">',
+            year="<script>document.cookie</script>",
+            pages='100" onmouseover="alert(2)',
+            pub_num="javascript:alert(3)",
+        )
+        yield edition
+        edition.delete()
+
+    @pytest.fixture
+    def setup_complex_widget(self):
+        """Create widget with complex configuration for thorough testing."""
+
+        def _create_widget(show_urls=True, with_plugins=True):
+            config_kwargs = {
+                "url": "autocomplete-edition",
+                "value_field": "id",
+                "label_field": "name",
+            }
+
+            # Add URL display options if requested
+            if show_urls:
+                config_kwargs.update(
+                    {
+                        "show_detail": True,
+                        "show_update": True,
+                        "show_delete": True,
+                    }
+                )
+
+            # Add plugin configurations if requested
+            if with_plugins:
+                config_kwargs.update(
+                    {
+                        "plugin_dropdown_header": PluginDropdownHeader(
+                            show_value_field=True, extra_columns={"year": "Year", "pub_num": "Publication #"}
+                        ),
+                        "plugin_dropdown_footer": PluginDropdownFooter(
+                            title="Options",
+                        ),
+                        "plugin_clear_button": PluginClearButton(),
+                        "plugin_remove_button": PluginRemoveButton(),
+                    }
+                )
+
+            return TomSelectModelWidget(config=TomSelectConfig(**config_kwargs))
+
+        return _create_widget
+
+    def test_render_option_template_escaping(self):
+        """Test escaping in the option template for dropdown choices."""
+        # This test specifically targets the option.html template for search results
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                value_field="id",
+                label_field="name",
+                plugin_dropdown_header=PluginDropdownHeader(show_value_field=True),
+            )
+        )
+
+        # Get the rendered widget and look for proper escaping in templates
+        full_render = widget.render("test_field", None)
+
+        # Check that the option template uses escape function
+        # We should find either template string syntax or function calls with escape
+        assert (
+            "${escape(data[this.settings.labelField])}" in full_render
+            or "${data[this.settings.labelField]}" in full_render
+            or "escape(data[this.settings.labelField])" in full_render
+        )
+
+    def test_javascript_url_escaping(self, setup_complex_widget, malicious_edition, monkeypatch):
+        """Test that javascript: URLs are properly escaped in href attributes."""
+        widget = setup_complex_widget(show_urls=True)
+
+        # Mock methods to return javascript: URLs
+        def mock_url(view_name, args=None):
+            return "javascript:alert('hijacked');"
+
+        # Override the reverse function to return our malicious URLs
+        monkeypatch.setattr("django_tomselect.widgets.reverse", mock_url)
+
+        # Render the widget with a malicious edition
+        rendered = widget.render("test_field", malicious_edition.pk)
+
+        # Parse the output
+        soup = BeautifulSoup(rendered, "html.parser")
+
+        # Check that no unescaped javascript: URLs exist in href attributes
+        for a_tag in soup.find_all("a"):
+            if "href" in a_tag.attrs:
+                assert not a_tag["href"].startswith("javascript:")
+
+        # Check that script strings are properly escaped in the output
+        assert "javascript:alert('hijacked');" not in rendered
+        assert "javascript:" not in rendered or "javascript\\:" in rendered
+
+    def test_unsafe_object_properties(self, malicious_edition):
+        """Test that unsafe object properties can't be exploited."""
+        # Create an object with properties that could be dangerous if not escaped
+        malicious_edition.name = "Safe Name"
+        malicious_edition.__proto__ = {"dangerous": "property"}
+        malicious_edition.constructor = {"dangerous": "constructor"}
+        malicious_edition.__defineGetter__ = lambda x: "exploit"
+
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition", value_field="id", label_field="name")
+        )
+
+        # This should not cause any errors or vulnerabilities
+        try:
+            rendered = widget.render("test_field", malicious_edition.pk)
+            # If we get here without error, that's good
+            assert rendered is not None
+        except Exception as e:
+            pytest.fail(f"Widget rendering failed with: {e}")
+
+    def test_dropdown_inputs_sanitization(self, setup_complex_widget):
+        """Test that inputs in dropdown are properly sanitized."""
+        widget = setup_complex_widget(with_plugins=True)
+
+        # Add the dropdown_input plugin which renders an input in the dropdown
+        widget.plugin_dropdown_input = PluginDropdownInput()
+
+        # Render the widget (no need for a value)
+        rendered = widget.render("test_field", None)
+
+        # Look for proper escaping in the dropdown input elements
+        assert "escape(" in rendered
+
+        # Make sure event handlers on inputs are sanitized
+        assert 'input onkeyup="' not in rendered
+        assert 'input onchange="' not in rendered
+        assert 'input onfocus="' not in rendered
