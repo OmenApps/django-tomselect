@@ -8,7 +8,6 @@ from typing import Literal, Optional
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.module_loading import import_string
-from django.utils.translation import gettext_lazy as _
 
 from django_tomselect.request import DefaultProxyRequest
 
@@ -369,31 +368,67 @@ GLOBAL_DEFAULT_CONFIG = TomSelectConfig(
 
 
 def merge_configs(base: TomSelectConfig, override: TomSelectConfig | None = None) -> TomSelectConfig:
-    """Merge a base TomSelectConfig with an override config.
+    """Merge a base TomSelectConfig with an overriding config.
+
+    1. Starts with all fields from the base config
+    2. Overrides only fields explicitly set in overriding config (different from default)
+    3. Never overrides using `None` values
+    4. For plugin fields, applies the same strategy in a nested manner
 
     Args:
         base: The base configuration.
-        override: The override configuration.
+        override: The overriding configuration.
 
     Returns:
-        The merged configuration.
+        Merged configuration.
     """
     if not override:
         return base
-    # For each field in TomSelectConfig, if override has a non-default value, use it.
-    # If it's None or not provided, keep base value.
-    # Since these are dataclasses, we can do something more direct:
-    # We'll just manually handle this for clarity
-    combined = base.__dict__.copy()
+
+    # Make a copy of the base config's values
+    merged_dict = base.__dict__.copy()
+
+    # Get a clean default config for comparison
+    default_config = TomSelectConfig()
+
+    # For each field in the override
     for field_name in override.__dataclass_fields__:
-        val = getattr(override, field_name)
-        if val is not None:
-            if field_name == "plugin_dropdown_header" and val:
-                # Special handling for dropdown header to preserve translations
-                header_dict = val.__dict__.copy()
-                if "extra_columns" in header_dict:
-                    header_dict["extra_columns"] = header_dict.pop("extra_columns")
-                combined[field_name] = PluginDropdownHeader(**header_dict)
+        # Skip if we're trying to override with None
+        if getattr(override, field_name) is None:
+            continue
+
+        # Check if the override has a non-default value (explicitly set)
+        if getattr(override, field_name) != getattr(default_config, field_name):
+            # The field was explicitly set in the override
+
+            # Special handling for plugin fields
+            if (
+                field_name.startswith("plugin_")
+                and getattr(override, field_name) is not None
+                and getattr(base, field_name) is not None
+            ):
+                # For plugins, we need to merge field by field
+                base_plugin = getattr(base, field_name)
+                override_plugin = getattr(override, field_name)
+
+                # Create a default plugin instance for comparison
+                default_plugin_class = type(override_plugin)
+                default_plugin = default_plugin_class()
+
+                # Copy all fields from base plugin
+                merged_plugin_dict = base_plugin.__dict__.copy()
+
+                # Override only explicitly set fields in the override plugin
+                for plugin_field in override_plugin.__dataclass_fields__:
+                    override_value = getattr(override_plugin, plugin_field)
+                    if override_value is not None and override_value != getattr(default_plugin, plugin_field):
+                        merged_plugin_dict[plugin_field] = override_value
+
+                # Create a new plugin instance with merged values
+                merged_dict[field_name] = type(base_plugin)(**merged_plugin_dict)
             else:
-                combined[field_name] = val
-    return TomSelectConfig(**combined)
+                # For regular fields, just override with the explicit value
+                merged_dict[field_name] = getattr(override, field_name)
+
+    # Create a new config with the merged values
+    return TomSelectConfig(**merged_dict)

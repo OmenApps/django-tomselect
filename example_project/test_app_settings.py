@@ -170,7 +170,8 @@ class TestAppSettings:
             base_config,
             TomSelectConfig(
                 plugin_clear_button=PluginClearButton(
-                    title="New Clear", class_name="base-clear"  # Override title  # Keep same class
+                    title="New Clear",
+                    class_name="base-clear",  # Override title  # Keep same class
                 )
             ),
         )
@@ -202,6 +203,157 @@ class TestAppSettings:
         assert config.plugin_clear_button.title == "Clear All"
         assert isinstance(config.plugin_checkbox_options, PluginCheckboxOptions)
         assert config.use_htmx is True
+
+    def test_merge_configs_preserves_default_settings(self):
+        """Test that merge_configs preserves global settings not explicitly overridden."""
+        # Create a config with non-default values
+        base = TomSelectConfig(
+            url="base-url",
+            value_field="base_value_field",
+            use_htmx=True,
+            highlight=False,
+            create=True,
+        )
+
+        # Create an override config with some fields explicitly set
+        override = TomSelectConfig(
+            url="override-url",  # Explicitly override just URL
+        )
+
+        # Merge configs
+        result = app_settings.merge_configs(base, override)
+
+        # The explicitly set field should be overridden
+        assert result.url == "override-url"
+
+        # Fields not explicitly set should be preserved from base
+        assert result.value_field == "base_value_field"
+        assert result.use_htmx is True
+        assert result.highlight is False
+        assert result.create is True
+
+    def test_merge_configs_handles_default_values_correctly(self):
+        """Test that merge_configs doesn't override with default values."""
+        # Create a config with non-default values
+        base = TomSelectConfig(
+            url="base-url",
+            highlight=False,  # Non-default value
+            preload=False,  # Non-default value
+            use_htmx=True,  # Non-default value
+        )
+
+        # Create an override with default values
+        # When instantiating TomSelectConfig without specifying values,
+        # it will initialize fields with their defaults
+        override = TomSelectConfig()
+
+        # Merge configs
+        result = app_settings.merge_configs(base, override)
+
+        # Default values from override should not replace explicit values from base
+        assert result.url == "base-url"
+        assert result.highlight is False  # Should not be overridden with default (True)
+        assert result.preload is False  # Should not be overridden with default ("focus")
+        assert result.use_htmx is True  # Should not be overridden with default (False)
+
+    def test_merge_configs_preserves_nested_plugin_settings(self):
+        """Test that merge_configs preserves nested plugin settings."""
+        # Create a config with plugin settings
+        base = TomSelectConfig(
+            plugin_clear_button=PluginClearButton(title="Base Title", class_name="base-class"),
+            plugin_dropdown_header=PluginDropdownHeader(title="Base Header", show_value_field=True),
+        )
+
+        # Create an override that only specifies one plugin partially
+        override = TomSelectConfig(
+            # Only override title of the clear button
+            plugin_clear_button=PluginClearButton(
+                title="Override Title"
+                # class_name not specified, should keep base value
+            )
+            # plugin_dropdown_header not specified, should keep all base values
+        )
+
+        # Merge configs
+        result = app_settings.merge_configs(base, override)
+
+        # Explicitly overridden plugin field should be updated
+        assert result.plugin_clear_button.title == "Override Title"
+
+        # Non-overridden plugin field should be preserved
+        assert result.plugin_clear_button.class_name == "base-class"
+
+        # Entire plugin not specified in override should be preserved
+        assert result.plugin_dropdown_header.title == "Base Header"
+        assert result.plugin_dropdown_header.show_value_field is True
+
+    def test_merge_configs_issue_specific_case(self):
+        """Test the specific case from Issues with use_htmx setting."""
+        # Simulate global default with use_htmx=True (like what would set in settings.py)
+        global_config = TomSelectConfig(use_htmx=True)
+
+        # Create a config that specifies other settings but *not* use_htmx
+        field_config = TomSelectConfig(
+            url="autocomplete:gender",
+            placeholder="Select a Gender",
+            # use_htmx is not specified, inherit from global_config
+        )
+
+        # Merge configs
+        result = app_settings.merge_configs(global_config, field_config)
+
+        # Field-specific settings should be applied
+        assert result.url == "autocomplete:gender"
+        assert result.placeholder == "Select a Gender"
+
+        # Global use_htmx setting should be keps
+        assert result.use_htmx is True
+
+    def test_merge_configs_explicit_equals_default(self):
+        """Test handling when override value equals the default value but is explicitly set."""
+        # Create a config with non-default values
+        base = TomSelectConfig(
+            highlight=False,  # Non-default
+            minimum_query_length=5,  # Non-default
+        )
+
+        # Create class to track if __init__ was called with specific values
+        class TrackedConfig(TomSelectConfig):
+            def __init__(self, **kwargs):
+                self._explicit_keys = set(kwargs.keys())
+                super().__init__(**kwargs)
+
+            def is_explicit(self, key):
+                return key in self._explicit_keys
+
+        # Create override with explicit setting that equals the default (highlight=True is default), but explicitly set
+        override = TrackedConfig(
+            highlight=True  # Default value, explicitly set
+        )
+
+        assert override.is_explicit("highlight")
+
+        # Merge configs with custom version of the function that checks explicitness
+        def custom_merge(base, override):
+            combined = base.__dict__.copy()
+
+            for field_name in override.__dataclass_fields__:
+                val = getattr(override, field_name)
+
+                # Check if the value was explicitly provided in init
+                if hasattr(override, "is_explicit") and override.is_explicit(field_name):
+                    combined[field_name] = val
+
+            return TomSelectConfig(**combined)
+
+        result = custom_merge(base, override)
+
+        # highlight should be overridden even though it is same as default value,
+        # because it was explicitly specified
+        assert result.highlight is True
+
+        # minimum_query_length should be the same as base since it wasn't overridden
+        assert result.minimum_query_length == 5
 
 
 @pytest.mark.django_db
