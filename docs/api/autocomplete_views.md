@@ -64,6 +64,8 @@ class BookAutocomplete(AutocompleteModelView):
     search_lookups = ['title__icontains', 'author__name__icontains']
     ordering = 'title'
     page_size = 20
+    # Important: Include any fields you'll use as label_field in the widget
+    value_fields = ['id', 'title', 'author__name']
 ```
 
 #### URL Configuration
@@ -89,6 +91,8 @@ class BookAutocomplete(AutocompleteModelView):
     search_lookups = ['title__icontains', 'author__name__icontains']
     ordering = ['title', 'publication_date']
     page_size = 20
+    # Include all fields needed for display and filtering
+    value_fields = ['id', 'title', 'author__name', 'publication_date', 'isbn']
 
     # URLs for CRUD operations
     list_url = 'book-list'
@@ -132,7 +136,32 @@ class AuthorAutocomplete(AutocompleteModelView):
     ]
 ```
 
-2. **Queryset Customization**
+2. **Value Fields Configuration**
+
+The `value_fields` attribute determines which fields are included in the autocomplete results. This is critical for the widget's functionality:
+
+```python
+class AuthorAutocomplete(AutocompleteModelView):
+    model = Author
+    # Define fields to include in results
+    value_fields = [
+        'id',                # Primary key (always required)
+        'name',              # For use as label_field in widget
+        'email',             # Optional additional field
+        'profile_picture',   # Optional additional field
+        'books__count',      # Can include annotations
+    ]
+```
+
+⚠️ **Important**: Always include the field specified as `label_field` in your widget configuration. If a field is used as `label_field` but not included in `value_fields`, labels could display as "undefined" in the widget.
+
+For example, if your widget uses:
+```python
+config=TomSelectConfig(label_field="name")
+```
+Then your autocomplete view should include "name" in its `value_fields` list.
+
+3. **Queryset Customization**
 
 Use `hook_queryset` to optimize or customize the queryset:
 
@@ -144,7 +173,7 @@ def hook_queryset(self, queryset):
                   .filter(is_active=True)
 ```
 
-3. **Permission Handling**
+4. **Permission Handling**
 
 Multiple ways to configure permissions:
 
@@ -166,7 +195,7 @@ class BookAutocomplete(AutocompleteModelView):
         return super().has_permission(request, action)
 ```
 
-4. **Result Preparation**
+5. **Result Preparation**
 
 Customize the data sent to the client:
 

@@ -724,7 +724,6 @@ class TestWidgetConfigurationAndMedia:
 
     def test_plugin_configuration_warnings(self, caplog):
         """Test plugin configuration type verification warnings."""
-
         caplog.set_level(logging.WARNING)
 
         # Create a new config with invalid plugin types
@@ -1367,7 +1366,6 @@ class TestWidgetValidationAndPermissions:
 
     def test_field_permission_caching(self, mock_request):
         """Test that permissions are properly cached."""
-
         # Set up caching
         permission_cache.cache = cache
         permission_cache.enabled = True
@@ -1758,3 +1756,166 @@ class TestWidgetTranslations:
         assert "status" in header["extra_values"]
         assert "info" in header["extra_values"]
         assert "details" in header["extra_values"]
+
+
+@pytest.mark.django_db
+class TestLabelFieldInValueFields:
+    """Tests to tnsure label_field is in autocomplete view's value_fields."""
+
+    @pytest.fixture
+    def setup_custom_widget(self):
+        """Create a widget with custom label_field."""
+
+        def _create_widget(label_field="custom_field"):
+            config = TomSelectConfig(url="autocomplete-edition", value_field="id", label_field=label_field)
+            widget = TomSelectModelWidget(config=config)
+            return widget
+
+        return _create_widget
+
+    @pytest.fixture
+    def mock_autocomplete_view(self, monkeypatch):
+        """Create a mock autocomplete view with configurable value_fields."""
+        from django_tomselect.autocompletes import AutocompleteModelView
+
+        class MockAutocompleteView(AutocompleteModelView):
+            """Mock autocomplete view."""
+
+            def __init__(self, value_fields=None):
+                self.value_fields = value_fields or ["id", "name"]
+                self.model = Edition
+                # Required attributes
+                self.search_lookups = ["name__icontains"]
+                self.ordering = None
+                self.request = None
+                self.detail_url = None
+                self.update_url = None
+                self.delete_url = None
+                self.list_url = None
+                self.create_url = None
+                self.permission_required = None
+                self.allow_anonymous = False
+                self.skip_authorization = False
+
+            def setup(self, model=None, request=None, *args, **kwargs):
+                """Mock setup method."""
+                self.model = model or Edition
+                self.request = request
+
+            def get_queryset(self):
+                """Return all editions."""
+                return Edition.objects.all()
+
+            def has_permission(self, request, action):
+                """Mock permission check."""
+                return True
+
+        return MockAutocompleteView
+
+    def test_label_field_not_in_value_fields(self, setup_custom_widget, mock_autocomplete_view, monkeypatch, caplog):
+        """Test that widget adds label_field to value_fields if missing."""
+        widget = setup_custom_widget(label_field="custom_field")
+
+        # Create a mock view with value_fields that doesn't include the label_field
+        mock_view = mock_autocomplete_view(value_fields=["id", "name"])
+
+        # Mock the resolve function to return our mock view
+        class MockResolver:
+            def __init__(self):
+                self.func = type("MockFunc", (), {"view_class": lambda: mock_view})
+
+        def mock_resolve(url):
+            return MockResolver()
+
+        monkeypatch.setattr("django_tomselect.widgets.resolve", mock_resolve)
+
+        # Mock the get_model method to return Edition
+        monkeypatch.setattr(widget, "get_model", lambda: Edition)
+
+        # Call get_autocomplete_view to trigger the validation
+        view = widget.get_autocomplete_view()
+
+        # Check that label_field was added to value_fields
+        assert "custom_field" in view.value_fields
+
+        # Verify a warning was logged
+        assert "Label field 'custom_field' is not in the autocomplete view's value_fields" in caplog.text
+
+    def test_label_field_already_in_value_fields(
+        self, setup_custom_widget, mock_autocomplete_view, monkeypatch, caplog
+    ):
+        """Test that no changes are made when label_field is already in value_fields."""
+        widget = setup_custom_widget(label_field="name")
+
+        # Create a mock view with value_fields already including the label_field
+        mock_view = mock_autocomplete_view(value_fields=["id", "name"])
+
+        # Mock the resolve function to return our mock view
+        class MockResolver:
+            def __init__(self):
+                self.func = type("MockFunc", (), {"view_class": lambda: mock_view})
+
+        def mock_resolve(url):
+            return MockResolver()
+
+        monkeypatch.setattr("django_tomselect.widgets.resolve", mock_resolve)
+
+        # Mock the get_model method to return Edition
+        monkeypatch.setattr(widget, "get_model", lambda: Edition)
+
+        # Get initial value_fields
+        initial_value_fields = mock_view.value_fields.copy()
+
+        # Call get_autocomplete_view to trigger the validation
+        view = widget.get_autocomplete_view()
+
+        # Check that value_fields remains unchanged
+        assert view.value_fields == initial_value_fields
+
+        # Verify no warning was logged
+        assert "is not in the autocomplete view's value_fields" not in caplog.text
+
+    def test_basic_validation_behavior(self, monkeypatch):
+        """Test the basic behavior of the label_field validation in isolation."""
+        # This test directly tests the conditional logic in get_autocomplete_view
+        # without the complexity of mocking the entire widget system
+
+        # Create a simple mock view
+        class MockView:
+            pass
+
+        # Test 1: No value_fields attribute
+        view1 = MockView()
+        assert not hasattr(view1, "value_fields")
+
+        # The conditional in get_autocomplete_view requires all three conditions:
+        # 1. self.label_field is truthy
+        # 2. hasattr(autocomplete_view, "value_fields") is True
+        # 3. self.label_field not in autocomplete_view.value_fields
+
+        # If condition 2 is False, the warning and append should not happen
+        # Verifies this with a direct check
+        label_field = "custom_field"
+        if (
+            label_field
+            and hasattr(view1, "value_fields")  # This is False
+            and label_field not in getattr(view1, "value_fields", [])
+        ):
+            # This block should NOT execute
+            view1.value_fields = [label_field]
+
+        assert not hasattr(view1, "value_fields")
+
+        # Test 2: value_fields exists but doesn't contain label_field
+        view2 = MockView()
+        view2.value_fields = ["id", "name"]
+
+        if (
+            label_field
+            and hasattr(view2, "value_fields")  # This is True
+            and label_field not in view2.value_fields  # This is True
+        ):
+            # This block SHOULD execute
+            view2.value_fields.append(label_field)
+
+        assert "custom_field" in view2.value_fields

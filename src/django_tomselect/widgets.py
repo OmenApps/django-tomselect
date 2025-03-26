@@ -587,6 +587,19 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         if hasattr(self, "skip_authorization"):
             autocomplete_view.skip_authorization = self.skip_authorization
 
+        # Validate label_field is in value_fields
+        if (
+            self.label_field
+            and hasattr(autocomplete_view, "value_fields")
+            and self.label_field not in autocomplete_view.value_fields
+        ):
+            package_logger.warning(
+                f"Label field '{self.label_field}' is not in the autocomplete view's value_fields. "
+                f"This may result in 'undefined' labels."
+            )
+            # Automatically add it to value_fields
+            autocomplete_view.value_fields.append(self.label_field)
+
         package_logger.debug("Autocomplete view set up: %s", autocomplete_view)
         return autocomplete_view
 
