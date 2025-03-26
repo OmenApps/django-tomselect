@@ -12,5 +12,7 @@
 {% endblock %}
 
 {% block content %}
-    <div class="card" hx-get="{%  url 'demo-htmx-form-fragment' %}" hx-trigger="load" hx-swap="innerHTML">
+    <div class="card" hx-get="{%  url 'demo-htmx-form-fragment' %}" hx-trigger="load" hx-swap="innerHTML"></div>
+
+    <button class="btn btn-primary mt-5" hx-get="{%  url 'demo-htmx-form-fragment' %}" hx-target=".card" hx-swap="innerHTML">Re-render</button>
 {% endblock %}
