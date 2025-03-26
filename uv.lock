@@ -532,7 +532,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "django", specifier = ">=4.2.15" },
+    { name = "django", specifier = ">=4.2.20" },
     { name = "django-htmx", specifier = ">=1.21.0" },
     { name = "pytest-asyncio", specifier = ">=0.25.0" },
 ]

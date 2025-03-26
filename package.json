@@ -1,14 +1,14 @@
 {
-  "devDependencies": {
-    "bootstrap": "^5.3.3",
-    "bootstrap-legacy": "npm:bootstrap@4.6.2",
-    "esbuild": "^0.24.0",
-    "standard": "^17.1.2",
-    "tom-select": "^2.4.1"
-  },
-  "scripts": {
-    "build": "esbuild client/django-tomselect.js --bundle --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.js",
-    "buildsmall": "esbuild client/django-tomselect.js --bundle --minify --sourcemap --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.min.js",
-    "lint": "npx standard client/"
-  }
+    "devDependencies": {
+        "bootstrap": "^5.3.3",
+        "bootstrap-legacy": "npm:bootstrap@4.6.2",
+        "esbuild": "^0.25.0",
+        "standard": "^17.1.2",
+        "tom-select": "^2.4.1"
+    },
+    "scripts": {
+        "build": "esbuild client/django-tomselect.js --bundle --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.js",
+        "buildsmall": "esbuild client/django-tomselect.js --bundle --minify --sourcemap --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.min.js",
+        "lint": "npx standard client/"
+    }
 }
