@@ -21,7 +21,10 @@ from django.db.models import (
 from django.db.models.functions import Now
 from django.utils import timezone
 
-from django_tomselect.autocompletes import AutocompleteIterablesView, AutocompleteModelView
+from django_tomselect.autocompletes import (
+    AutocompleteIterablesView,
+    AutocompleteModelView,
+)
 from example_project.example.models import (
     Article,
     ArticlePriority,
@@ -64,6 +67,25 @@ class WordCountAutocompleteView(AutocompleteIterablesView):
     """Autocomplete view for word_count_range tuple."""
 
     iterable = word_count_range
+
+    def get_iterable(self) -> list[dict[str, str | int]]:
+        """Customize formatting of value and label."""
+        if not self.iterable:
+            logger.warning("No iterable provided")
+            return []
+
+        try:
+            # Handle tuple iterables of ranges
+            return [
+                {
+                    "value": str(item),  # Store the full tuple as a string for value
+                    "label": f"{item[0]:,} - {item[1]:,} words",  # Formatted label for display
+                }
+                for item in self.iterable
+            ]
+        except Exception as e:
+            logger.error("Error getting iterable: %s", str(e))  # Fixed error printing format
+            return []
 
 
 class EditionAutocompleteView(AutocompleteModelView):

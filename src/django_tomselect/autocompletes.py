@@ -471,11 +471,11 @@ class AutocompleteIterablesView(View):
                 ]
 
             # Handle tuple iterables
-            if isinstance(self.iterable, (tuple, list)) and self.iterable and isinstance(self.iterable[0], (tuple)):
+            if isinstance(self.iterable, (tuple, list)) and isinstance(self.iterable[0], (tuple, list)):
                 return [
                     {
-                        "value": str(item),  # Store the full tuple as a string for value
-                        "label": f"{item[0]:,} - {item[1]:,} words",  # Format with commas for readability
+                        "value": str(item[0]),
+                        "label": str(item[1]),
                     }
                     for item in self.iterable
                 ]
@@ -483,7 +483,7 @@ class AutocompleteIterablesView(View):
             # Handle simple iterables
             return [{"value": str(item), "label": str(item)} for item in self.iterable]
         except Exception as e:
-            package_logger.error("Error getting iterable: %s", e)
+            package_logger.error("Error getting iterable: %s", str(e))  # Fixed error printing format
             return []
 
     def search(self, items: list[dict[str, str]]) -> list[dict[str, str]]:

@@ -1,13 +1,44 @@
 """Tests for django_tomselect AutocompleteIterablesView functionality."""
 
 import json
+import logging
 
 import pytest
 from django.db.models import IntegerChoices, TextChoices
 from django.http import JsonResponse
 
 from django_tomselect.autocompletes import AutocompleteIterablesView
-from example_project.example.models import ArticlePriority, ArticleStatus, Edition, word_count_range
+from example_project.example.models import (
+    ArticlePriority,
+    ArticleStatus,
+    Edition,
+    word_count_range,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class CustomRangeAutocompleteView(AutocompleteIterablesView):
+    """Autocomplete view for range tuple display."""
+
+    def get_iterable(self) -> list[dict[str, str | int]]:
+        """Get the choices from the iterable."""
+        if not self.iterable:
+            logger.warning("No iterable provided")
+            return []
+
+        try:
+            # Handle tuple iterables of ranges
+            return [
+                {
+                    "value": str(item),  # Store the full tuple as a string for value
+                    "label": f"{item[0]:,} - {item[1]:,} words",
+                }
+                for item in self.iterable
+            ]
+        except Exception as e:
+            logger.error("Error getting iterable: %s", str(e))  # Fixed error printing format
+            return []
 
 
 @pytest.fixture
@@ -87,7 +118,7 @@ class TestAutocompleteIterablesView:
         """Test get_iterable with tuple range like word_count_range."""
         test_range = [(0, 100), (100, 200), (200, 300)]
 
-        view = AutocompleteIterablesView()
+        view = CustomRangeAutocompleteView()
         view.iterable = test_range
         request = rf.get("")
         view.setup(request)
@@ -97,6 +128,24 @@ class TestAutocompleteIterablesView:
         assert items[0] == {"value": "(0, 100)", "label": "0 - 100 words"}
         assert items[1] == {"value": "(100, 200)", "label": "100 - 200 words"}
         assert items[2] == {"value": "(200, 300)", "label": "200 - 300 words"}
+
+    def test_get_iterable_with_int_str_tuples(self, rf):
+        """Test get_iterable with tuple range like word_count_range."""
+
+        class RangeAutocomplete(AutocompleteIterablesView):
+            """Custom autocomplete view for testing tuple ranges."""
+
+            iterable = [(1, "One"), (2, "Two"), (3, "Three")]
+
+        view = RangeAutocomplete()
+        request = rf.get("")
+        view.setup(request)
+
+        items = view.get_iterable()
+        assert len(items) == 3
+        assert items[0] == {"value": "1", "label": "One"}
+        assert items[1] == {"value": "2", "label": "Two"}
+        assert items[2] == {"value": "3", "label": "Three"}
 
     def test_get_iterable_simple_list(self, rf):
         """Test get_iterable with simple list."""
@@ -232,7 +281,7 @@ class TestAutocompleteIterablesView:
 
     def test_get_iterable_tuple_list(self, rf):
         """Test get_iterable with tuple list."""
-        view = AutocompleteIterablesView()
+        view = CustomRangeAutocompleteView()
         test_tuples = [(1, 100), (101, 200), (201, 300)]
         view.iterable = test_tuples
         request = rf.get("")
@@ -442,7 +491,7 @@ class TestAutocompleteIterablesViewEdgeCases:
 
     def test_word_count_range_formatting(self, rf):
         """Test formatting of word count range tuples."""
-        view = AutocompleteIterablesView()
+        view = CustomRangeAutocompleteView()
         view.iterable = word_count_range
         request = rf.get("")
         view.setup(request)
