@@ -10,7 +10,7 @@ sphinx-togglebutton==0.3.2
 sphinxcontrib-mermaid==1.0.0
 
 # Django and related packages (for autodoc)
-Django==5.1.2
+Django==5.1.7
 django-crispy-forms==2.3
 crispy-bootstrap5==2024.10
 django_extensions==3.2.3
