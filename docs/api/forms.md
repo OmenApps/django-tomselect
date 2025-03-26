@@ -64,17 +64,19 @@ class BookForm(forms.Form):
 
 #### Example Usage
 
+Assuming an autocomplete view is set up to return choices for the field, you can use `TomSelectChoiceField` like this:
+
 ```python
 class ColorForm(forms.Form):
+    """Form demonstrating the use of TomSelectChoiceField with a color selection."""
     color = TomSelectChoiceField(
-        choices=[
-            ('red', 'Red'),
-            ('blue', 'Blue'),
-            ('green', 'Green')
-        ],
         config=TomSelectConfig(
-            plugin_clear_button=PluginClearButton()
-        )
+            url='autocomplete-colors',
+            value_field='value',
+            label_field='label',
+            placeholder='Select a color...',
+        ),
+        help_text="Select a color from the list"
     )
 ```
 
@@ -89,20 +91,20 @@ class ColorForm(forms.Form):
 
 #### Example Usage
 
+Example usage for `TomSelectMultipleChoiceField`, assuming you have an autocomplete view set up to return choices:
+
 ```python
-from django.db.models import TextChoices
-
-class Sizes(TextChoices):
-    SMALL = 'S', 'Small'
-    MEDIUM = 'M', 'Medium'
-    LARGE = 'L', 'Large'
-
 class ProductForm(forms.Form):
+    """Form demonstrating the use of TomSelectMultipleChoiceField for selecting product sizes."""
     available_sizes = TomSelectMultipleChoiceField(
-        choices=Sizes.choices,
         config=TomSelectConfig(
-            plugin_checkbox_options=PluginCheckboxOptions()
-        )
+            url='autocomplete-sizes',
+            placeholder='Select sizes...',
+            value_field='value',
+            label_field='label',
+            placeholder='Select sizes...',
+        ),
+        help_text="Select one or more sizes for the product"
     )
 ```
 
