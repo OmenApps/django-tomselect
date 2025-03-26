@@ -480,6 +480,16 @@ class AutocompleteIterablesView(View):
                     for item in self.iterable
                 ]
 
+            # Handle dictionary
+            if isinstance(self.iterable, dict) and self.iterable:
+                return [
+                    {
+                        "value": str(value),
+                        "label": str(label),
+                    }
+                    for value, label in self.iterable.items()
+                ]
+
             # Handle simple iterables
             return [{"value": str(item), "label": str(item)} for item in self.iterable]
         except Exception as e:
