@@ -383,3 +383,14 @@ AutocompleteModelView.invalidate_permissions(user=request.user)
 # Invalidate all cached permissions
 AutocompleteModelView.invalidate_permissions()
 ```
+
+## Security Considerations
+
+When creating custom templates and renderers for Tom Select widgets, always ensure proper escaping of user-provided values:
+
+1. Use the `escape()` function for any user data inserted into HTML content
+2. For URL attributes (href, src), always escape the URLs using the `escape()` function
+3. Avoid using `new Function()` with user-provided content whenever possible
+4. When customizing rendering templates, validate and sanitize all input
+
+This is particularly important when using custom rendering templates with `data_template_option` and `data_template_item`.

@@ -1,9 +1,11 @@
 """Form widgets for the django-tomselect package."""
 
+import json
 from typing import Any
 
 from django import forms
 from django.urls import NoReverseMatch, resolve, reverse, reverse_lazy
+from django.utils.html import escape
 
 from django_tomselect.app_settings import (
     GLOBAL_DEFAULT_CONFIG,
@@ -74,6 +76,11 @@ class TomSelectWidgetMixin:
         self.plugin_dropdown_footer = final_config.plugin_dropdown_footer
         self.plugin_dropdown_input = final_config.plugin_dropdown_input
         self.plugin_remove_button = final_config.plugin_remove_button
+
+        # Explicitly set self.attrs from config.attrs
+        # This is critical for attributes like data_custom_rendering to be properly passed to the widget
+        if hasattr(final_config, "attrs") and final_config.attrs:
+            self.attrs = final_config.attrs.copy()
 
         # Allow kwargs to override any config values
         for key, value in kwargs.items():
@@ -168,8 +175,11 @@ class TomSelectWidgetMixin:
         # Mark as TomSelect widget for dynamic initialization
         attrs["data-tomselect"] = "true"
 
-        attrs["data-template-option"] = attrs.get("data-template-option", "").replace('"', '\\"')
-        attrs["data-template-item"] = attrs.get("data-template-item", "").replace('"', '\\"')
+        # Ensure custom templates are JSON-encoded to prevent script injection
+        if "data-template-option" in attrs:
+            attrs["data-template-option"] = json.dumps(attrs["data-template-option"])
+        if "data-template-item" in attrs:
+            attrs["data-template-item"] = json.dumps(attrs["data-template-item"])
 
         return {**attrs, **(extra_attrs or {})}
 
@@ -194,7 +204,6 @@ class TomSelectWidgetMixin:
     @property
     def media(self):
         """Return the media for rendering the widget."""
-
         if self.css_framework.lower() == AllowedCSSFrameworks.BOOTSTRAP4.value:
             css = {
                 "all": [
@@ -364,7 +373,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         if self.show_detail and autocomplete_view.detail_url and autocomplete_view.has_permission(request, "view"):
             try:
-                urls["detail_url"] = reverse(autocomplete_view.detail_url, args=[obj.pk])
+                urls["detail_url"] = escape(reverse(autocomplete_view.detail_url, args=[obj.pk]))
             except NoReverseMatch:
                 package_logger.warning(
                     "Unable to reverse detail_url %s with pk %s",
@@ -374,7 +383,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         if self.show_update and autocomplete_view.update_url:
             try:
-                urls["update_url"] = reverse(autocomplete_view.update_url, args=[obj.pk])
+                urls["update_url"] = escape(reverse(autocomplete_view.update_url, args=[obj.pk]))
             except NoReverseMatch:
                 package_logger.warning(
                     "Unable to reverse update_url %s with pk %s",
@@ -384,7 +393,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         if self.show_delete and autocomplete_view.delete_url:
             try:
-                urls["delete_url"] = reverse(autocomplete_view.delete_url, args=[obj.pk])
+                urls["delete_url"] = escape(reverse(autocomplete_view.delete_url, args=[obj.pk]))
             except NoReverseMatch:
                 package_logger.warning(
                     "Unable to reverse delete_url %s with pk %s",
@@ -487,14 +496,22 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                     opt = {
                         "value": str(obj.get("pk", "")),
                         "label": self.get_label_for_object(obj, autocomplete_view),
-                        **self.get_instance_url_context(obj, autocomplete_view),
                     }
+                    # Safely add URLs with proper escaping
+                    for url_type in ["detail_url", "update_url", "delete_url"]:
+                        url = self.get_instance_url_context(obj, autocomplete_view).get(url_type)
+                        if url:
+                            opt[url_type] = escape(url)
                 else:
                     opt = {
                         "value": str(obj.pk),
                         "label": self.get_label_for_object(obj, autocomplete_view),
-                        **self.get_instance_url_context(obj, autocomplete_view),
                     }
+                    # Safely add URLs with proper escaping
+                    for url_type in ["detail_url", "update_url", "delete_url"]:
+                        url = self.get_instance_url_context(obj, autocomplete_view).get(url_type)
+                        if url:
+                            opt[url_type] = escape(url)
                 selected.append(opt)
 
             context["widget"]["selected_options"] = selected
@@ -517,8 +534,8 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             label_value = str(obj)
 
         label_for_object = label_value or str(obj)
-        package_logger.debug("Label for object %s: %s", obj, label_for_object)
-        return label_for_object
+
+        return escape(label_for_object)
 
     def get_model(self):
         """Get model from field's choices or queryset."""
@@ -703,10 +720,10 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                             choice_label,
                         ) in autocomplete_view.iterable.choices:
                             if str(val) == str(choice_value):
-                                selected.append({"value": str(val), "label": choice_label})
+                                selected.append({"value": str(val), "label": escape(str(choice_label))})
                                 break
                         else:
-                            selected.append({"value": str(val), "label": str(val)})
+                            selected.append({"value": str(val), "label": escape(str(val))})
 
                 elif (
                     isinstance(autocomplete_view.iterable, (tuple, list))
@@ -719,15 +736,15 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                     for val in values:
                         for item in autocomplete_view.iterable:
                             if str(item) == str(val):
-                                selected.append({"value": str(val), "label": f"{item[0]}-{item[1]}"})
+                                selected.append({"value": str(val), "label": escape(f"{item[0]}-{item[1]}")})
                                 break
                         else:
-                            selected.append({"value": str(val), "label": str(val)})
+                            selected.append({"value": str(val), "label": escape(str(val))})
 
                 else:
                     # Simple iterables
                     values = [value] if not isinstance(value, (list, tuple)) else value
-                    selected = [{"value": str(val), "label": str(val)} for val in values]
+                    selected = [{"value": str(val), "label": escape(str(val))} for val in values]
 
                 if selected:
                     context["widget"]["selected_options"] = selected
