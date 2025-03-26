@@ -470,6 +470,16 @@ class AutocompleteIterablesView(View):
                     for choice in self.iterable.choices
                 ]
 
+            # Handle dictionaries
+            if isinstance(self.iterable, dict):
+                return [
+                    {
+                        "value": str(key),
+                        "label": str(value),
+                    }
+                    for key, value in self.iterable.items()
+                ]
+
             # Handle tuple iterables
             if isinstance(self.iterable, (tuple, list)) and isinstance(self.iterable[0], (tuple, list)):
                 return [

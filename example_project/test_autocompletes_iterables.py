@@ -293,6 +293,50 @@ class TestAutocompleteIterablesView:
             assert item["value"] == str(original)
             assert item["label"] == f"{original[0]:,} - {original[1]:,} words"
 
+    def test_get_iterable_dict(self, rf):
+        """Test get_iterable with dictionary of class standings."""
+        class_standings = {
+            "FR": "Freshman",
+            "SO": "Sophomore",
+            "JR": "Junior",
+            "SR": "Senior",
+            "GR": "Graduate",
+        }
+
+        view = AutocompleteIterablesView()
+        view.iterable = class_standings
+        request = rf.get("")
+        view.setup(request)
+
+        items = view.get_iterable()
+        assert len(items) == 5
+        assert all(isinstance(item["value"], str) for item in items)
+        assert all(isinstance(item["label"], str) for item in items)
+
+        # Check specific items
+        assert {"value": "FR", "label": "Freshman"} in items
+        assert {"value": "SR", "label": "Senior"} in items
+        assert {"value": "GR", "label": "Graduate"} in items
+
+    def test_get_iterable_mixed_type_dict(self, rf):
+        """Test get_iterable with dictionary containing mixed types."""
+        mixed_dict = {1: "One", "two": 2, 3.5: "Three Point Five"}
+
+        view = AutocompleteIterablesView()
+        view.iterable = mixed_dict
+        request = rf.get("")
+        view.setup(request)
+
+        items = view.get_iterable()
+        assert len(items) == 3
+        assert all(isinstance(item["value"], str) for item in items)
+        assert all(isinstance(item["label"], str) for item in items)
+
+        # Check specific conversions
+        assert {"value": "1", "label": "One"} in items
+        assert {"value": "two", "label": "2"} in items
+        assert {"value": "3.5", "label": "Three Point Five"} in items
+
     def test_search_in_value_and_label(self, rf):
         """Test search matches in both value and label fields."""
         view = AutocompleteIterablesView()

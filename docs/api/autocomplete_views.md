@@ -290,24 +290,42 @@ class StatusAutocomplete(AutocompleteIterablesView):
 #### Custom Iterables
 
 ```python
-class RangeAutocomplete(AutocompleteIterablesView):
+class YearAutocomplete(AutocompleteIterablesView):
     iterable = [
-        (1, 'One'),
-        (2, 'Two'),
-        (3, 'Three')
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025,
+    ]
+
+class TiersAutocomplete(AutocompleteIterablesView):
+    iterable = [
+        (1, "Tier 1"),
+        (2, "Tier 2"),
+        (3, "Tier 3"),
     ]
 ```
 
-#### With Tuple Ranges
+#### With Dictionary
 
 ```python
-class WordCountAutocomplete(AutocompleteIterablesView):
-    iterable = [
-        (0, 100),    # 0-100 words
-        (101, 500),  # 101-500 words
-        (501, 1000)  # 501-1000 words
-    ]
+class ClassStandingsAutocomplete(AutocompleteIterablesView):
+    iterable = {
+        "FR": "Freshman",
+        "SO": "Sophomore",
+        "JR": "Junior",
+        "SR": "Senior",
+        "GR": "Graduate",
+    }
 ```
+
+#### Custom Iterable Formatting
+
+Autocompletes can be customized to modify formatting by overriding the `get_iterable` method.
+
+For an example where we use this to display tuples as ranges, see the [autcompletes.py code](https://github.com/OmenApps/django-tomselect/blob/main/example_project/example/autocompletes.py#L66) in the example app.
 
 ## Response Format
 
