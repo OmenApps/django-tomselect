@@ -74,10 +74,12 @@ def htmx_form_fragment_view(request: HttpRequest) -> HttpResponse:
 def formset_demo(request: HttpRequest) -> HttpResponse:
     """View for demonstrating TomSelect with formsets."""
     template = "example/basic_demos/formset.html"
-    context = {}
+
+    # While not necessary in this example, adding a prefix to the formset helps avoid conflicts with other forms on
+    # the page and is a good practice when using formsets with other forms/formsets on the same page.
+    formset = EditionFormset(request.POST or None, prefix="edition")
 
     if request.method == "POST":
-        formset = EditionFormset(request.POST)
         if formset.is_valid():
             # Process the valid formset data
             for form in formset:
@@ -91,10 +93,8 @@ def formset_demo(request: HttpRequest) -> HttpResponse:
             messages.success(request, "Editions saved successfully!")
             return HttpResponseRedirect(request.path)
         messages.error(request, "Please correct the errors below.")
-    else:
-        formset = EditionFormset()
 
-    context["formset"] = formset
+    context = {"formset": formset}
     return TemplateResponse(request, template, context)
 
 
@@ -106,8 +106,11 @@ def model_formset_demo(request: HttpRequest) -> HttpResponse:
     # This keeps the initial load light while still allowing selection of any category
     initial_queryset = Category.objects.filter(parent__isnull=True)
 
+    # While not necessary in this example, adding a prefix to the formset helps avoid conflicts with other forms on
+    # the page and is a good practice when using formsets with other forms/formsets on the same page.
+    formset = CategoryModelFormset(request.POST or None, queryset=initial_queryset, prefix="category")
+
     if request.method == "POST":
-        formset = CategoryModelFormset(request.POST, queryset=initial_queryset)
         if formset.is_valid():
             instances = formset.save()
             formset.save()
@@ -119,13 +122,10 @@ def model_formset_demo(request: HttpRequest) -> HttpResponse:
             return redirect(reverse("demo-model-formset"))
 
         messages.error(request, "Please correct the errors below.")
-    else:
-        formset = CategoryModelFormset(queryset=initial_queryset)
 
     context = {
         "formset": formset,
         "total_count": Category.objects.count(),
         "root_count": initial_queryset.count(),
     }
-
     return TemplateResponse(request, template, context)

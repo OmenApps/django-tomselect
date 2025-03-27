@@ -124,7 +124,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const addButton = document.getElementById('add-form');
             const formContainer = document.getElementById('form-container');
-            const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+            const totalForms = document.getElementById('id_category-TOTAL_FORMS');
             const initialCount = parseInt(totalForms.value);
 
             // Store the initial TomSelect config from the first form
@@ -147,7 +147,7 @@
                 // Update form indices
                 container.innerHTML = container.innerHTML
                     .replace(/form-(\d+)/g, `form-${formCount}`)
-                    .replace(/id_form-(\d+)/g, `id_form-${formCount}`);
+                    .replace(/id_category-(\d+)/g, `id_category-${formCount}`);
 
                 // Clear values and any error messages
                 container.querySelectorAll('input[type="text"]').forEach(input => input.value = '');

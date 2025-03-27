@@ -82,7 +82,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const addButton = document.getElementById('add-form');
             const formContainer = document.getElementById('form-container');
-            const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+            const totalForms = document.getElementById('id_edition-TOTAL_FORMS');
 
             // Store the initial TomSelect config from the first form
             const initialSelect = document.querySelector('select[data-tomselect]');
@@ -103,7 +103,7 @@
                 // Update form indices
                 container.innerHTML = container.innerHTML
                     .replace(/form-(\d+)/g, `form-${formCount}`)
-                    .replace(/id_form-(\d+)/g, `id_form-${formCount}`);
+                    .replace(/id_edition-(\d+)/g, `id_edition-${formCount}`);
 
                 // Clear values
                 container.querySelectorAll('input[type="text"]').forEach(input => input.value = '');

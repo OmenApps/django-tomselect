@@ -12,7 +12,10 @@ from django_tomselect.app_settings import (
     PluginRemoveButton,
     TomSelectConfig,
 )
-from django_tomselect.forms import TomSelectModelChoiceField, TomSelectModelMultipleChoiceField
+from django_tomselect.forms import (
+    TomSelectModelChoiceField,
+    TomSelectModelMultipleChoiceField,
+)
 from example_project.example.models import Category
 
 
@@ -512,9 +515,17 @@ class Bootstrap5StylingHTMXForm(Bootstrap5StylingForm):
 class EditionFormsetForm(forms.Form):
     """Form for managing multiple editions with their magazines using TomSelect."""
 
-    name = forms.CharField(max_length=50, required=True, widget=forms.TextInput(attrs={"class": "form-control mb-3"}))
+    name = forms.CharField(
+        max_length=50,
+        required=True,
+        widget=forms.TextInput(attrs={"class": "form-control mb-3"}),
+    )
 
-    year = forms.CharField(max_length=50, required=True, widget=forms.TextInput(attrs={"class": "form-control mb-3"}))
+    year = forms.CharField(
+        max_length=50,
+        required=True,
+        widget=forms.TextInput(attrs={"class": "form-control mb-3"}),
+    )
 
     magazine = TomSelectModelChoiceField(
         config=TomSelectConfig(
