@@ -52,6 +52,7 @@ from example_project.example.views import (
     filter_by_magazine_demo,
     formset_demo,
     htmx_form_fragment_view,
+    htmx_tabs_view,
     htmx_view,
     index_view,
     magazine_create_view,
@@ -74,6 +75,7 @@ urlpatterns = [
     path("demo-bs4/", bootstrap4_demo, name="demo-bs4"),
     path("demo-bs5/", bootstrap5_demo, name="demo-bs5"),
     path("demo-htmx/", htmx_view, name="demo-htmx"),
+    path("demo-htmx-tabs/", htmx_tabs_view, name="demo-htmx-tabs"),
     path(
         "demo-htmx-form-fragment/",
         htmx_form_fragment_view,

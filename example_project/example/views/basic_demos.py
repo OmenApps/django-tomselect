@@ -52,6 +52,14 @@ def htmx_view(request: HttpRequest) -> HttpResponse:
     return TemplateResponse(request, template, context)
 
 
+def htmx_tabs_view(request: HttpRequest) -> HttpResponse:
+    """View for the htmx tabs demo page."""
+    template = "example/basic_demos/htmx_tabs.html"
+    context = {}
+
+    return TemplateResponse(request, template, context)
+
+
 def htmx_form_fragment_view(request: HttpRequest) -> HttpResponse:
     """View for the htmx form fragment page."""
     template = "example/basic_demos/htmx_fragment.html"
@@ -67,7 +75,12 @@ def htmx_form_fragment_view(request: HttpRequest) -> HttpResponse:
 
         return HttpResponseRedirect("/")
 
+    # Get the tab parameter to customize content if needed
+    tab = request.GET.get("tab", "1")
     context["form"] = form
+    context["tab_id"] = tab
+    context["tab_title"] = f"Tab {tab} Content"
+
     return TemplateResponse(request, template, context)
 
 

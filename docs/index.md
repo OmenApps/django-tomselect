@@ -35,6 +35,7 @@ api/widgets.md
 example_app/introduction
 example_app/styling
 example_app/htmx
+example_app/htmx_in_tabs
 example_app/filter_by_magazine
 example_app/filter_by_category
 example_app/exclude_by_primary_author

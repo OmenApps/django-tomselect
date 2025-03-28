@@ -1,0 +1,71 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+{% load django_tomselect %}
+
+{% block extra_header %}
+    {% tomselect_media css_framework="bootstrap5" %}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card card-action mb-4">
+        <div class="card-body p-0">
+            <div class="nav-align-top">
+                <ul class="nav nav-tabs nav-fill tabs-line border-bottom-0" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active"
+                           data-bs-toggle="tab"
+                           aria-selected="true"
+                           data-hx-get="{% url 'demo-htmx-form-fragment' %}?tab=1"
+                           data-hx-trigger="click"
+                           data-hx-target="#tabContent"
+                           role="tab">Tab 1</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link"
+                           data-bs-toggle="tab"
+                           aria-selected="false"
+                           data-hx-get="{% url 'demo-htmx-form-fragment' %}?tab=2"
+                           data-hx-trigger="click"
+                           data-hx-target="#tabContent"
+                           role="tab">Tab 2</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link"
+                           data-bs-toggle="tab"
+                           aria-selected="false"
+                           data-hx-get="{% url 'demo-htmx-form-fragment' %}?tab=3"
+                           data-hx-trigger="click"
+                           data-hx-target="#tabContent"
+                           role="tab">Tab 3</a>
+                    </li>
+                </ul>
+                <div class="tab-content border-0 px-4 pt-5 mt-2 mx-1" id="tabContent">
+                    <div class="tab-pane fade show active"
+                         role="tabpanel"
+                         data-hx-get="{% url 'demo-htmx-form-fragment' %}?tab=1"
+                         data-hx-trigger="load"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
+
+{% block page_js %}
+    {{ block.super }}
+    <script>
+        document.addEventListener('htmx:afterSwap', function(event) {
+            if (event.detail.target.id === 'tabContent') {
+                // Initialize any components after content is loaded
+                console.log('Tab content loaded via htmx');
+
+                // If you need to initialize any form elements or other components
+                // that are part of the loaded content, you would do it here
+            }
+        });
+    </script>
+{% endblock page_js %}
