@@ -384,7 +384,9 @@ class CategoryAutocompleteView(AutocompleteModelView):
         - Number of direct articles
         - Number of articles including subcategories
         """
-        queryset = super().get_queryset().distinct()  # Add distinct to base queryset
+        queryset = (
+            super().get_queryset().distinct().order_by(F("parent_id").asc(nulls_first=True), "name")
+        )  # Use distinct categories, with root categories (those with no parent) listed first
 
         # Filter by parent if specified
         parent_id = self.request.GET.get("parent")
