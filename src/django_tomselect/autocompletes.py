@@ -3,6 +3,7 @@
 from typing import Any
 from urllib.parse import unquote
 
+from django.conf import settings
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import FieldError, PermissionDenied
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
@@ -415,16 +416,21 @@ class AutocompleteModelView(View):
             data = self.paginate_queryset(queryset)
             return JsonResponse(data)
         except Exception as e:
-            return JsonResponse(
-                {
-                    "error": str(e),
-                    "results": [],
-                    "page": 1,
-                    "has_more": False,
-                    "show_create_option": False,
-                },
-                status=200,
-            )
+            package_logger.error("Error in autocomplete request: %s", str(e))
+
+            # Create empty results response
+            empty_response = {
+                "results": [],
+                "page": 1,
+                "has_more": False,
+                "show_create_option": False,
+            }
+
+            # Only include error details when DEBUG is True
+            if settings.DEBUG:
+                empty_response["error"] = str(e)
+
+            return JsonResponse(empty_response, status=200)
 
     def post(self, request, *args, **kwargs) -> JsonResponse:
         """Handle POST requests."""
@@ -539,10 +545,26 @@ class AutocompleteIterablesView(View):
         if self.iterable is None:
             return JsonResponse({"results": [], "page": 1, "has_more": False})
 
-        items = self.get_iterable()
-        filtered = self.search(items)
-        data = self.paginate_iterable(filtered)
-        return JsonResponse(data)
+        try:
+            items = self.get_iterable()
+            filtered = self.search(items)
+            data = self.paginate_iterable(filtered)
+            return JsonResponse(data)
+        except Exception as e:
+            package_logger.error("Error in autocomplete iterables request: %s", str(e))
+
+            # Create empty results response
+            empty_response = {
+                "results": [],
+                "page": 1,
+                "has_more": False,
+            }
+
+            # Only include error details when DEBUG is True
+            if settings.DEBUG:
+                empty_response["error"] = str(e)
+
+            return JsonResponse(empty_response, status=200)
 
     def post(self, request, *args, **kwargs) -> JsonResponse:
         """Handle POST requests."""

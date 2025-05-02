@@ -4,6 +4,7 @@ import json
 import logging
 
 import pytest
+from django.conf import settings
 from django.db.models import IntegerChoices, TextChoices
 from django.http import JsonResponse
 
@@ -565,3 +566,39 @@ class TestAutocompleteIterablesViewEdgeCases:
         response = view.get(request)
         data = json.loads(response.content.decode())
         assert data["page"] == expected_page
+
+
+@pytest.mark.django_db
+class TestAutocompleteIterablesViewErrorHandling:
+    """Tests that errors in the iterables view obey DEBUG."""
+
+    @pytest.mark.parametrize("debug", [True, False])
+    def test_get_with_iterables_error(self, rf, monkeypatch, debug):
+        """If get_iterable() raises, we still return 200 and only include 'error' when DEBUG."""
+
+        class ErrorIterablesView(AutocompleteIterablesView):
+            def get_iterable(self):
+                raise Exception("Iterable boom")
+
+        # must set iterable to something so we hit the try/except
+        view = ErrorIterablesView()
+        view.iterable = [1, 2, 3]
+        request = rf.get("")
+        view.setup(request)
+
+        # override settings.DEBUG
+        monkeypatch.setattr(settings, "DEBUG", debug)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+
+        assert response.status_code == 200
+        # always empty results/page/has_more
+        assert data["results"] == []
+        assert data["page"] == 1
+        assert data["has_more"] is False
+
+        if debug:
+            assert data["error"] == "Iterable boom"
+        else:
+            assert "error" not in data

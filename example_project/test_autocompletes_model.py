@@ -659,7 +659,8 @@ class TestAutocompleteModelViewErrorHandling:
 class TestAutocompleteModelViewGetRequestErrorHandling:
     """Tests for error handling in AutocompleteModelView GET requests."""
 
-    def test_get_with_database_error(self, rf, user):
+    @pytest.mark.parametrize("debug", [True, False])
+    def test_get_with_database_error(self, rf, user, monkeypatch, debug):
         """Test handling of database errors during GET request."""
 
         class ErrorView(AutocompleteModelView):
@@ -674,17 +675,27 @@ class TestAutocompleteModelViewGetRequestErrorHandling:
         request.user = user
         view.setup(request)
 
+        # override settings.DEBUG
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "DEBUG", debug)
+
         response = view.get(request)
         data = json.loads(response.content.decode())
 
         assert response.status_code == 200  # Should still return 200
-        assert "error" in data
+        if debug:
+            assert data["error"] == "Database error"
+        else:
+            assert "error" not in data
+
         assert data["results"] == []
         assert data["page"] == 1
         assert data["has_more"] is False
         assert data["show_create_option"] is False
 
-    def test_get_with_filter_error(self, rf, user):
+    @pytest.mark.parametrize("debug", [True, False])
+    def test_get_with_filter_error(self, rf, user, monkeypatch, debug):
         """Test handling of filter errors during GET request."""
 
         class ErrorView(AutocompleteModelView):
@@ -699,12 +710,22 @@ class TestAutocompleteModelViewGetRequestErrorHandling:
         request.user = user
         view.setup(request)
 
+        # override settings.DEBUG
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "DEBUG", debug)
+
         response = view.get(request)
         data = json.loads(response.content.decode())
 
         assert response.status_code == 200
-        assert "error" in data
+        if debug:
+            assert data["error"] == "Filter error"
+        else:
+            assert "error" not in data
+
         assert data["results"] == []
+        assert data["show_create_option"] is False
 
 
 @pytest.mark.django_db
