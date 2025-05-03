@@ -30,11 +30,7 @@ classifiers = [
 ]
 requires-python = ">=3.10,<4.0"
 
-dependencies = [
-    "django-htmx>=1.21.0",
-    "django>=4.2.20",
-    "pytest-asyncio>=0.25.0",
-]
+dependencies = ["django-htmx>=1.21.0", "django>=4.2.20"]
 keywords = [
     "django",
     "autocomplete",
@@ -73,6 +69,7 @@ dev-dependencies = [
     "pre-commit>=3.7.1",
     "psycopg2-binary>=2.9.9",
     "Pygments>=2.18.0",
+    "pytest-asyncio>=0.25.0",
     "pytest-cov>=5.0.0",
     "pytest-django>=4.9.0",
     "pytest>=8.3.3",
