@@ -30,6 +30,7 @@ class AutocompleteModelView(View):
     ordering: str | list[str] | tuple[str] | None = None
     page_size: int = 20
     value_fields: list[str] = []
+    virtual_fields: list[str] = []
 
     list_url: str | None = None  # URL name for list view
     create_url: str | None = None  # URL name for create view
@@ -44,6 +45,19 @@ class AutocompleteModelView(View):
 
     create_field: str = ""  # The field to create a new object with. Set by the request.
     q: str = ""  # The search term. Set by the request.
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        """Initialize subclass with default value_fields if not already set."""
+        # Check if the subclass has its own value_fields list
+        # If not, create a new list object to avoid shared state across subclasses
+        if "value_fields" not in cls.__dict__:
+            # Explicitly create a new list object for each subclass
+            cls.value_fields = []
+        if "virtual_fields" not in cls.__dict__:
+            # Explicitly create a new list object for each subclass
+            cls.virtual_fields = []
+        super().__init_subclass__(**kwargs)
 
     def setup(self, request, *args, **kwargs):
         """Set up the view with request parameters."""
@@ -222,7 +236,10 @@ class AutocompleteModelView(View):
         fields = [pk_name]
 
         if self.value_fields:
-            fields.extend(self.value_fields)
+            # Filter out virtual fields for the database query
+            virtual_fields = getattr(self, "virtual_fields", [])
+            real_fields = [f for f in self.value_fields if f not in virtual_fields]
+            fields.extend(real_fields)
         else:
             for field in self.model._meta.fields:
                 if field.name in ["name", "title", "label"]:

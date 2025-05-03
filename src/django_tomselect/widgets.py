@@ -605,17 +605,36 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             autocomplete_view.skip_authorization = self.skip_authorization
 
         # Validate label_field is in value_fields
-        if (
-            self.label_field
-            and hasattr(autocomplete_view, "value_fields")
-            and self.label_field not in autocomplete_view.value_fields
-        ):
+        if self.label_field and self.label_field not in autocomplete_view.value_fields:
             package_logger.warning(
                 f"Label field '{self.label_field}' is not in the autocomplete view's value_fields. "
                 f"This may result in 'undefined' labels."
             )
             # Automatically add it to value_fields
             autocomplete_view.value_fields.append(self.label_field)
+
+            # Check if it's a model field
+            if self.model is not None:
+                try:
+                    model_fields = [f.name for f in self.model._meta.fields]
+                    is_related_field = "__" in self.label_field  # Allow double-underscore pattern
+
+                    # If it's not a real field or relation, add to virtual_fields
+                    if not (self.label_field in model_fields or is_related_field):
+                        # Initialize virtual_fields if needed
+                        if not hasattr(autocomplete_view, "virtual_fields"):
+                            autocomplete_view.virtual_fields = []
+
+                        # Add to virtual_fields
+                        if self.label_field not in autocomplete_view.virtual_fields:
+                            autocomplete_view.virtual_fields.append(self.label_field)
+                            package_logger.info(
+                                f"Label field '{self.label_field}' is not a model field. "
+                                f"Added to virtual_fields to prevent database query errors."
+                            )
+                except (AttributeError, TypeError):
+                    # Handle cases where model is None or doesn't have _meta
+                    pass
 
         package_logger.debug("Autocomplete view set up: %s", autocomplete_view)
         return autocomplete_view

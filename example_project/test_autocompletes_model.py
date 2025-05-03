@@ -9,9 +9,10 @@ from django.db import models
 from django.db.models import Value
 from django.db.models.functions import Concat
 from django.http import JsonResponse
-from django.utils.translation import gettext_lazy as _
 
+from django_tomselect.app_settings import TomSelectConfig
 from django_tomselect.autocompletes import AutocompleteModelView
+from django_tomselect.widgets import TomSelectModelWidget
 from example_project.example.models import Edition
 
 
@@ -1152,3 +1153,283 @@ class TestAutocompleteModelViewURLHandling:
         response = view.post(request)
         assert response.status_code == 405
         assert json.loads(response.content)["error"] == "Method not allowed"
+
+
+@pytest.mark.django_db
+class TestVirtualFields:
+    """Tests for virtual fields functionality in AutocompleteModelView."""
+
+    def test_init_subclass_creates_new_lists(self):
+        """Test that __init_subclass__ creates a new value_fields list for each subclass."""
+
+        # Create two subclasses with different value_fields
+        class FirstAutocompleteView(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "name"]
+
+        class SecondAutocompleteView(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "year"]
+
+        # Modify the value_fields of one subclass
+        FirstAutocompleteView.value_fields.append("pages")
+
+        # Verify each class has its own value_fields list
+        assert FirstAutocompleteView.value_fields == ["id", "name", "pages"]
+        assert SecondAutocompleteView.value_fields == ["id", "year"]
+        assert AutocompleteModelView.value_fields == []
+
+    def test_virtual_fields_excluded_from_query(self, rf):
+        """Test that virtual fields are excluded from database queries."""
+
+        class CustomAutocompleteView(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "name", "display_name"]
+            virtual_fields = ["display_name"]
+
+            def hook_prepare_results(self, results):
+                for result in results:
+                    result["display_name"] = f"{result['name']} (Edition)"
+                return results
+
+        view = CustomAutocompleteView()
+        request = rf.get("")
+        view.setup(request)
+
+        # This should not raise a FieldError, since display_name should be excluded from the query
+        fields = view.get_value_fields()
+        assert "display_name" not in fields
+        assert set(fields) == {"id", "name"}
+
+    def test_hook_prepare_results_with_virtual_field(self, rf, test_editions):
+        """Test that hook_prepare_results can add virtual fields."""
+
+        class CustomAutocompleteView(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "name", "year"]
+            virtual_fields = ["combined"]
+
+            def hook_prepare_results(self, results):
+                for result in results:
+                    result["combined"] = f"{result['name']} ({result['year']})"
+                return results
+
+        view = CustomAutocompleteView()
+        request = rf.get("")
+        view.setup(request)
+
+        # Get the results directly from hook_prepare_results
+        queryset = view.get_queryset()
+        results = list(queryset.values(*view.get_value_fields()))
+        modified_results = view.hook_prepare_results(results)
+
+        # Check that the virtual field is added
+        assert len(modified_results) > 0
+        assert "combined" in modified_results[0]
+        assert modified_results[0]["combined"] == f"{modified_results[0]['name']} ({modified_results[0]['year']})"
+
+
+@pytest.mark.django_db
+class TestLabelFieldHandling:
+    """Tests for label field handling in TomSelectModelWidget."""
+
+    def test_label_field_added_to_value_fields(self, monkeypatch):
+        """Test that label_field is added to value_fields if missing."""
+
+        class LabelAutocompleteView(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "name"]
+
+        # Create the view instance
+        view = LabelAutocompleteView()
+
+        # Create a widget that uses a custom label field
+        config = TomSelectConfig(url="autocomplete-editions", label_field="custom_label")
+        widget = TomSelectModelWidget(config=config)
+
+        # Mock the get_autocomplete_url method to return a simple string
+        monkeypatch.setattr(widget, "get_autocomplete_url", lambda: "/test-url/")
+
+        # Mock the resolve function
+        def mock_resolve(url):
+            class MockFunc:
+                @staticmethod
+                def view_class():
+                    return view
+
+            class MockResolverMatch:
+                def __init__(self):
+                    self.func = MockFunc
+
+            return MockResolverMatch()
+
+        monkeypatch.setattr("django_tomselect.widgets.resolve", mock_resolve)
+
+        # Mock the get_model method
+        monkeypatch.setattr(widget, "get_model", lambda: Edition)
+
+        # Call get_autocomplete_view to trigger label field handling
+        autocomplete_view = widget.get_autocomplete_view()
+
+        # Check that label_field was added to value_fields
+        assert "custom_label" in autocomplete_view.value_fields
+
+        # Check that warning was logged (this behavior should be preserved)
+        # We can't easily test logging in this scenario, but the functionality should be there
+
+    def test_label_field_added_to_virtual_fields(self, monkeypatch):
+        """Test that non-existent label_field is added to virtual_fields."""
+
+        class CustomAutocompleteView(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "name"]
+
+        view = CustomAutocompleteView()
+
+        # Create a widget with a non-existent label field
+        config = TomSelectConfig(url="autocomplete-editions", label_field="nonexistent_label")
+        widget = TomSelectModelWidget(config=config)
+
+        # Mock the get_autocomplete_url method
+        monkeypatch.setattr(widget, "get_autocomplete_url", lambda: "/test-url/")
+
+        # Mock the resolve function
+        def mock_resolve(url):
+            class MockFunc:
+                @staticmethod
+                def view_class():
+                    return view
+
+            class MockResolverMatch:
+                def __init__(self):
+                    self.func = MockFunc
+
+            return MockResolverMatch()
+
+        monkeypatch.setattr("django_tomselect.widgets.resolve", mock_resolve)
+
+        # Mock the get_model method
+        monkeypatch.setattr(widget, "get_model", lambda: Edition)
+
+        # Call get_autocomplete_view to trigger our fix
+        autocomplete_view = widget.get_autocomplete_view()
+
+        # Check that the label field was added to value_fields
+        assert "nonexistent_label" in autocomplete_view.value_fields
+
+        # Check that the label field was added to virtual_fields
+        assert hasattr(autocomplete_view, "virtual_fields")
+        assert "nonexistent_label" in autocomplete_view.virtual_fields
+
+        # Check that virtual fields are excluded from database query
+        fields = autocomplete_view.get_value_fields()
+        assert "nonexistent_label" not in fields
+
+
+@pytest.mark.django_db
+class TestNullModelHandling:
+    """Tests for handling of None models in widgets and views."""
+
+    def test_widget_with_null_model(self, monkeypatch):
+        """Test that widget doesn't crash when model is None."""
+        config = TomSelectConfig(url="autocomplete-editions", label_field="custom_label")
+        widget = TomSelectModelWidget(config=config)
+
+        # Mock the get_model method to return None
+        monkeypatch.setattr(widget, "get_model", lambda: None)
+
+        # Mock the get_autocomplete_url method
+        monkeypatch.setattr(widget, "get_autocomplete_url", lambda: "/test-url/")
+
+        # Mock the resolve function
+        def mock_resolve(url):
+            view = AutocompleteModelView()
+            view.model = Edition
+
+            class MockFunc:
+                @staticmethod
+                def view_class():
+                    return view
+
+            class MockResolverMatch:
+                def __init__(self):
+                    self.func = MockFunc
+
+            return MockResolverMatch()
+
+        monkeypatch.setattr("django_tomselect.widgets.resolve", mock_resolve)
+
+        # This should not raise an AttributeError
+        autocomplete_view = widget.get_autocomplete_view()
+
+        # Check that it worked without error
+        assert autocomplete_view is not None
+
+
+@pytest.mark.django_db
+class TestRealWorldScenario:
+    """Test case that mimics Issues 34 & 35."""
+
+    def test_label_creation_in_hook_prepare_results(self, monkeypatch, rf):
+        """Test the scenario where label is created in hook_prepare_results."""
+
+        # Create a view class similar to the one in the issue #34 (and 35)
+        class PersonCodeAutocompleteView(AutocompleteModelView):
+            model = Edition
+            search_lookups = ["name__icontains"]
+            ordering = "name"
+            page_size = 5
+            value_fields = ["id", "name", "year"]
+            virtual_fields = ["label"]  # Add this to fix the issue
+
+            def hook_prepare_results(self, results):
+                """Create a label field from name and year."""
+                for result in results:
+                    result["label"] = f"{result['name']} ({result['year']})"
+                return results
+
+        # Create the view instance
+        view = PersonCodeAutocompleteView()
+        request = rf.get("")
+        view.setup(request)
+
+        # Create a widget with label_field="label"
+        config = TomSelectConfig(url="author-autocomplete", label_field="label")
+        widget = TomSelectModelWidget(config=config)
+
+        # Mock the get_autocomplete_url method
+        monkeypatch.setattr(widget, "get_autocomplete_url", lambda: "/test-url/")
+
+        # Mock the resolve function
+        def mock_resolve(url):
+            class MockFunc:
+                @staticmethod
+                def view_class():
+                    return view
+
+            class MockResolverMatch:
+                def __init__(self):
+                    self.func = MockFunc
+
+            return MockResolverMatch()
+
+        monkeypatch.setattr("django_tomselect.widgets.resolve", mock_resolve)
+
+        # Mock the get_model method
+        monkeypatch.setattr(widget, "get_model", lambda: Edition)
+
+        # Get the autocomplete view
+        autocomplete_view = widget.get_autocomplete_view()
+
+        # Verify label is in value_fields but not in get_value_fields output
+        assert "label" in autocomplete_view.value_fields
+        assert "label" in autocomplete_view.virtual_fields
+        assert "label" not in autocomplete_view.get_value_fields()
+
+        # Test that hook_prepare_results adds the label
+        queryset = autocomplete_view.get_queryset()
+        values = list(queryset.values(*autocomplete_view.get_value_fields()))
+        results = autocomplete_view.hook_prepare_results(values)
+
+        # Check that label field was added to results
+        assert all("label" in result for result in results)
