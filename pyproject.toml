@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-tomselect"
-version = "2025.3.4"
+version = "2025.5.1"
 description = "Django autocomplete widgets and views using Tom Select"
 authors = [{ name = "Jack Linke", email = "jacklinke@gmail.com" }]
-license = { text = "MIT" }
+license = "MIT"
 readme = "README.md"
 classifiers = [
     "Environment :: Web Environment",
@@ -17,7 +17,6 @@ classifiers = [
     "Framework :: Django :: 5.1",
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
