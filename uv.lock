@@ -492,7 +492,6 @@ source = { editable = "." }
 dependencies = [
     { name = "django" },
     { name = "django-htmx" },
-    { name = "pytest-asyncio" },
 ]
 
 [package.dev-dependencies]
@@ -517,6 +516,7 @@ dev = [
     { name = "psycopg2-binary" },
     { name = "pygments" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-django" },
     { name = "python-environ" },
@@ -534,7 +534,6 @@ dev = [
 requires-dist = [
     { name = "django", specifier = ">=4.2.20" },
     { name = "django-htmx", specifier = ">=1.21.0" },
-    { name = "pytest-asyncio", specifier = ">=0.25.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -559,6 +558,7 @@ dev = [
     { name = "psycopg2-binary", specifier = ">=2.9.9" },
     { name = "pygments", specifier = ">=2.18.0" },
     { name = "pytest", specifier = ">=8.3.3" },
+    { name = "pytest-asyncio", specifier = ">=0.25.0" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "pytest-django", specifier = ">=4.9.0" },
     { name = "python-environ", specifier = "~=0.4" },
