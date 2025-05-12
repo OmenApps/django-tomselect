@@ -536,6 +536,35 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 }
             )
 
+        # Handle model instances directly, if they are provided
+        if value and hasattr(value, "_meta") and hasattr(value, "pk") and value.pk is not None:
+            # Extract just the label field value
+            label = getattr(value, self.label_field, None)
+            if label is None:
+                # Fallback to using get_label_for_object if available
+                if autocomplete_view and hasattr(self, "get_label_for_object"):
+                    label = self.get_label_for_object(value, autocomplete_view)
+                else:
+                    # If nothing else, use the model name instead of full string representation
+                    label = str(getattr(value, "name", value))
+            else:
+                label = str(label)
+
+            opt = {
+                "value": str(value.pk),
+                "label": escape(label),
+            }
+
+            # Add URLs if autocomplete_view is available
+            if autocomplete_view and request and self.validate_request(request):
+                for url_type in ["detail_url", "update_url", "delete_url"]:
+                    url = self.get_instance_url_context(value, autocomplete_view).get(url_type)
+                    if url:
+                        opt[url_type] = escape(url)
+
+            base_context["widget"]["selected_options"] = [opt]
+            return base_context
+
         if not autocomplete_view or not request or not self.validate_request(request):
             package_logger.warning("Autocomplete view or request not available, returning base context")
             return base_context
@@ -554,31 +583,34 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         context["widget"].update(self.get_permissions_context(autocomplete_view))
 
         # Add selected options if value is provided
-        if value and self.get_queryset() is not None:
-            selected_objects = self.get_queryset().filter(
-                pk__in=[value] if not isinstance(value, (list, tuple)) else value
-            )
-
+        if value and value != "":
             selected: list[dict[str, Any]] = []
-            for obj in selected_objects:
-                # Handle the case where obj is a dictionary (e.g., cleaned_data)
-                if isinstance(obj, dict):
-                    opt: dict[str, str] = {
-                        "value": str(obj.get("pk", "")),
-                        "label": self.get_label_for_object(obj, autocomplete_view),
-                    }
-                else:
-                    opt = {
-                        "value": str(obj.pk),
-                        "label": self.get_label_for_object(obj, autocomplete_view),
-                    }
 
-                # Safely add URLs with proper escaping
-                for url_type in ["detail_url", "update_url", "delete_url"]:
-                    url = self.get_instance_url_context(obj, autocomplete_view).get(url_type)
-                    if url:
-                        opt[url_type] = escape(url)
-                selected.append(opt)
+            # Value is an ID or list of IDs
+            if self.get_queryset() is not None:
+                selected_objects = self.get_queryset().filter(
+                    pk__in=[value] if not isinstance(value, (list, tuple)) else value
+                )
+
+                for obj in selected_objects:
+                    # Handle the case where obj is a dictionary (e.g., cleaned_data)
+                    if isinstance(obj, dict):
+                        opt: dict[str, str] = {
+                            "value": str(obj.get("pk", "")),
+                            "label": self.get_label_for_object(obj, autocomplete_view),
+                        }
+                    else:
+                        opt = {
+                            "value": str(obj.pk),
+                            "label": self.get_label_for_object(obj, autocomplete_view),
+                        }
+
+                    # Safely add URLs with proper escaping
+                    for url_type in ["detail_url", "update_url", "delete_url"]:
+                        url = self.get_instance_url_context(obj, autocomplete_view).get(url_type)
+                        if url:
+                            opt[url_type] = escape(url)
+                    selected.append(opt)
 
             context["widget"]["selected_options"] = selected
 
@@ -588,20 +620,28 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         """Get the label for an object using the configured label field."""
         label_field = self.label_field
         try:
-            # Try to get value as field or property
-            label_value = getattr(obj, label_field, None)
-            if label_value is None:
-                # Check for prepare method on autocomplete view
-                prepare_method = getattr(autocomplete_view, f"prepare_{label_field}", None)
-                if prepare_method:
-                    label_value = prepare_method(obj)
-        except AttributeError:
-            # Fallback to string representation
-            label_value = str(obj)
+            # Handle dictionary case
+            if isinstance(obj, dict) and label_field in obj:
+                return escape(str(obj[label_field]))
 
-        label_for_object = label_value or str(obj)
+            # Handle model instance - get the field value directly
+            if hasattr(obj, label_field):
+                label_value = getattr(obj, label_field)
+                if label_value is not None:
+                    return escape(str(label_value))
 
-        return escape(label_for_object)
+            # Check for prepare method on autocomplete view
+            prepare_method = getattr(autocomplete_view, f"prepare_{label_field}", None)
+            if prepare_method:
+                label_value = prepare_method(obj)
+                if label_value is not None:
+                    return escape(str(label_value))
+
+        except Exception as e:
+            package_logger.error("Error getting label for object: %s", e)
+
+        # Fallback to string representation
+        return escape(str(obj))
 
     def get_model(self) -> type[Model] | None:
         """Get model from field's choices or queryset."""

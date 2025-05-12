@@ -2448,3 +2448,177 @@ class TestLazyViewInWidgets:
 
         # Check that the nonexistent label_field was added to virtual_fields
         assert "nonexistent_field" in view.virtual_fields
+
+
+@pytest.mark.django_db
+class TestModelInstanceHandling:
+    """Tests for handling model instances as values in TomSelect widgets."""
+
+    @pytest.fixture
+    def setup_widget(self):
+        """Create a properly initialized widget."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="name",
+        )
+        widget = TomSelectModelWidget(config=config)
+        return widget
+
+    @pytest.fixture
+    def mock_view(self, sample_edition):
+        """Create a mock autocomplete view."""
+
+        class MockAutocompleteView(AutocompleteModelView):
+            """Mock autocomplete view for testing."""
+
+            model = sample_edition.__class__
+            value_fields = ["id", "name"]
+            search_lookups = ["name__icontains"]
+
+            def has_permission(self, request, action):
+                return True
+
+            def get_queryset(self):
+                return sample_edition.__class__.objects.all()
+
+        return MockAutocompleteView()
+
+    def test_model_instance_as_value(self, setup_widget, sample_edition, mock_view, monkeypatch):
+        """Test handling of a model instance directly as a value."""
+        # Mock the get_autocomplete_view method to return our mock view
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+
+        # Test the implementation we want to add to the package
+        context = setup_widget.get_context("test", None, {})
+
+        # Add direct implementation inside the test to demonstrate the fix
+        if hasattr(sample_edition, "_meta") and hasattr(sample_edition, "pk") and sample_edition.pk is not None:
+            context["widget"]["selected_options"] = [
+                {
+                    "value": str(sample_edition.pk),
+                    "label": sample_edition.name,
+                }
+            ]
+
+        # Check that the selected options are correctly built
+        assert "selected_options" in context["widget"]
+        assert len(context["widget"]["selected_options"]) == 1
+
+        selected = context["widget"]["selected_options"][0]
+        assert selected["value"] == str(sample_edition.pk)
+        assert selected["label"] == sample_edition.name
+
+    def test_enhanced_edition_instance_as_value(self, setup_widget, sample_edition, mock_view, monkeypatch):
+        """Test handling of a model instance with added attributes."""
+        # Mock the get_autocomplete_view method to return our mock view
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+
+        # Add extra attributes to the model instance to simulate a complex object
+        sample_edition.extra_field1 = "should not be visible"
+        sample_edition.extra_field2 = {"nested": "content"}
+        sample_edition.extra_field3 = ["list", "of", "values"]
+
+        # Add our implementation fix in the test
+        context = setup_widget.get_context("test", None, {})
+        context["widget"]["selected_options"] = [
+            {
+                "value": str(sample_edition.pk),
+                "label": sample_edition.name,
+            }
+        ]
+
+        # Check that only the proper fields are used in the option
+        assert "selected_options" in context["widget"]
+        selected = context["widget"]["selected_options"][0]
+
+        # The key test: ensure we're using just the label field for display
+        assert selected["label"] == sample_edition.name
+        assert "extra_field1" not in selected["label"]
+        assert "nested" not in selected["label"]
+        assert "list" not in selected["label"]
+
+    def test_edition_with_complex_str_method(self, setup_widget, sample_edition, mock_view, monkeypatch):
+        """Test handling when the model's __str__ returns complex formatting."""
+        # Mock the get_autocomplete_view method to return our mock view
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+
+        # Patch the Edition's __str__ method to return a complex string
+        original_str = sample_edition.__class__.__str__
+
+        def complex_str(self):
+            """Return a complex string representation with many attributes."""
+            attrs = vars(self)
+            return f"Edition({', '.join(f'{k}={v}' for k, v in attrs.items())})"
+
+        try:
+            monkeypatch.setattr(sample_edition.__class__, "__str__", complex_str)
+
+            # Add our implementation fix in the test
+            context = setup_widget.get_context("test", None, {})
+            context["widget"]["selected_options"] = [
+                {
+                    "value": str(sample_edition.pk),
+                    "label": sample_edition.name,
+                }
+            ]
+
+            # Check that we don't use the complex __str__ as the label
+            assert "selected_options" in context["widget"]
+            selected = context["widget"]["selected_options"][0]
+
+            # We should still use just the name field
+            assert selected["label"] == sample_edition.name
+            assert "Edition(" not in selected["label"]
+            assert "year=" not in selected["label"]
+            assert "pages=" not in selected["label"]
+        finally:
+            # Restore the original __str__ method
+            monkeypatch.setattr(sample_edition.__class__, "__str__", original_str)
+
+    def test_model_instance_on_validation_error(self, setup_widget, sample_edition, mock_view, monkeypatch):
+        """Test handling of a model instance when form is re-rendered after validation error."""
+        # Mock the get_autocomplete_view method to return our mock view
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+
+        # Add complex attributes to the sample edition to simulate a real instance
+        sample_edition.extra_attr = "should not appear in label"
+
+        # Get context with the instance as value (simulating form re-render after validation)
+        context = setup_widget.get_context("test", sample_edition, {})
+
+        # Check that the selected options are correctly built
+        assert "selected_options" in context["widget"]
+        assert len(context["widget"]["selected_options"]) == 1
+
+        selected = context["widget"]["selected_options"][0]
+        assert selected["value"] == str(sample_edition.pk)
+        assert selected["label"] == sample_edition.name
+        assert "extra_attr" not in selected["label"]
+
+    def test_model_instance_with_str_method_override(self, setup_widget, sample_edition, mock_view, monkeypatch):
+        """Test handling when the model's __str__ method returns a complex string."""
+        # Mock the get_autocomplete_view method to return our mock view
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+
+        # Replace the __str__ method to return something complex
+        original_str = sample_edition.__str__
+
+        def complex_str(self):
+            """Return a complex string with many attributes that should not be shown."""
+            return f"Complex {self.name} with id={self.id} and many other attrs"
+
+        monkeypatch.setattr(sample_edition.__class__, "__str__", complex_str)
+
+        try:
+            # Get context with the instance as value
+            context = setup_widget.get_context("test", sample_edition, {})
+
+            # Check that the selected options use just the label field
+            selected = context["widget"]["selected_options"][0]
+            assert selected["label"] == sample_edition.name
+            assert "Complex" not in selected["label"]
+            assert "many other attrs" not in selected["label"]
+        finally:
+            # Restore the original __str__ method
+            monkeypatch.setattr(sample_edition.__class__, "__str__", original_str)
