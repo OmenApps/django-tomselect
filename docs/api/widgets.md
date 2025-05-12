@@ -87,12 +87,14 @@ class BookForm(forms.ModelForm):
 #### Example Usage
 
 ```python
+from django_tomselect.app_settings import TomSelectConfig, PluginCheckboxOptions
+
 class BookForm(forms.ModelForm):
     categories = forms.ModelMultipleChoiceField(
         widget=TomSelectModelMultipleWidget(
             config=TomSelectConfig(
                 url='category-autocomplete',
-                plugin_checkbox_options=True
+                plugin_checkbox_options=PluginCheckboxOptions()
             )
         )
     )
@@ -144,12 +146,14 @@ class ArticleForm(forms.Form):
 #### Example Usage
 
 ```python
+from django_tomselect.app_settings import TomSelectConfig, PluginRemoveButton
+
 class ArticleForm(forms.Form):
     tags = forms.MultipleChoiceField(
         choices=[('python', 'Python'), ('django', 'Django'), ('web', 'Web Development')],
         widget=TomSelectIterablesMultipleWidget(
             config=TomSelectConfig(
-                plugin_remove_button=True
+                plugin_remove_button=PluginRemoveButton()
             )
         )
     )
@@ -177,11 +181,20 @@ This mixin provides the core functionality for all TomSelect widgets, including:
 
 You can override the default rendering templates by creating your own templates in your project's template directory under `django_tomselect/render/`. The available templates are:
 
-- `option.html`: Renders dropdown options
+- `clear_button.html`: Renders the clear button plugin HTML
+- `dropdown_footer.html`: Renders the dropdown footer plugin HTML
+- `dropdown_header.html`: Renders the dropdown header plugin HTML
 - `item.html`: Renders selected items
-- `loading.html`: Loading indicator
-- `no_results.html`: No results message
-- `option_create.html`: Create new item option
+- `loading_more.html`: Renders the "Loading more results..." message
+- `loading.html`: Renders the loading spinner/indicator
+- `no_more_results.html`: Renders the message when no more results are available
+- `no_results.html`: Renders the message when no search results are found
+- `not_loading.html`: Renders content when not loading
+- `optgroup_header.html`: Renders the header for an option group
+- `optgroup.html`: Renders an option group container
+- `option_create.html`: Renders the "Create new option" element
+- `option.html`: Renders dropdown options
+- `select.html`: Renders the underlying select element
 
 ### Custom Attributes
 
@@ -193,7 +206,6 @@ widget = TomSelectModelWidget(
     attrs={
         'class': 'custom-select',
         'data-custom': 'value',
-        'data_custom_rendering': True,
         'data_template_option': '`<div>${data.name} (${data.id})</div>`',
         'data_template_item': '`<div>${data.name}</div>`'
     }

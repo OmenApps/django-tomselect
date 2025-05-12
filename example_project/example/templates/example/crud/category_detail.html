@@ -1,0 +1,24 @@
+{% extends "example/base_with_bootstrap5.html" %}
+
+{% load static %}
+
+{% block content %}
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Category Detail</h2>
+        </div>
+
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col">
+                    {{ category.name }}
+                </div>
+                <div class="col">
+                    {{ category.parent }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock content %}

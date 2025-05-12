@@ -95,6 +95,16 @@ def article_create_view(request: HttpRequest) -> HttpResponse:
     return TemplateResponse(request, template, context)
 
 
+def article_detail_view(request: HttpRequest, pk: int) -> HttpResponse:
+    """View for the article detail page."""
+    template = "example/advanced_demos/article_detail.html"
+    context = {}
+
+    article = get_object_or_404(Article, pk=pk)
+    context["article"] = article
+    return TemplateResponse(request, template, context)
+
+
 def article_update_view(request: HttpRequest, pk: int) -> HttpResponse:
     """View for the article update page."""
     template = "example/advanced_demos/article_form.html"

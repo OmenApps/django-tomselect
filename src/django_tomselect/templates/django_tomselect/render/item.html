@@ -2,17 +2,22 @@
 Renders each selected item in the TomSelect input.
 {% endcomment %}
 {% load i18n %}
+
 item: function(data, escape) {
-    {% if 'data_custom_rendering' in widget.attrs.keys and widget.attrs.data_custom_rendering|default:False %}
+    {% include "django_tomselect/helpers/decode_if_needed.html" %}
+
+    {% if 'data_template_item' in widget.attrs.keys and widget.attrs.data_template_item %}
         // Use safe Function constructor with escape function provided
         var template = {{ widget.attrs.data_template_item|safe }};
         // Always use escape function
         return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
     {% else %}
-        let item = ''
-        item += '<div role="option">' + escape(data.{{ widget.label_field }});
+        let item = '';
+        const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
+        
+        item += `<div role="option">${safeValue}`;
 
-        {% if "show_detail" in widget.keys and widget.show_detail %}
+        {% if "show_detail" in widget and widget.show_detail %}
             if (data.detail_url) {
                 item += `
                 <a href="${escape(data.detail_url)}"
@@ -26,7 +31,7 @@ item: function(data, escape) {
             }
         {% endif %}
 
-        {% if "show_delete" in widget.keys and widget.show_delete %}
+        {% if "show_delete" in widget and widget.show_delete %}
             if (data.delete_url) {
                 item += `
                 <a href="${escape(data.delete_url)}"
@@ -40,7 +45,7 @@ item: function(data, escape) {
             }
         {% endif %}
 
-        {% if "show_update" in widget.keys and widget.show_update %}
+        {% if "show_update" in widget and widget.show_update %}
             if (data.update_url) {
                 item += `
                 <a href="${escape(data.update_url)}"

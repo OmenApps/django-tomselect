@@ -2,6 +2,7 @@
 Renders the loading spinner/message while initial results load.
 {% endcomment %}
 {% load i18n %}
+
 loading: function(data, escape){
     return '<div class="spinner" role="status" aria-label="{% translate 'Loading' %}" aria-live="polite"></div>';
 },

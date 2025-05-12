@@ -2,5 +2,9 @@
 Renders the header for an option group.
 {% endcomment %}
 optgroup_header: function(data, escape) {
-    return '<div class="optgroup-header" role="presentation">' + escape(data.label) + '</div>';
+    {% include "django_tomselect/helpers/decode_if_needed.html" %}
+
+    const safeLabel = escape(decodeIfNeeded(data.label));
+
+    return `<div class="optgroup-header" role="presentation">${safeLabel}</div>`;
 },

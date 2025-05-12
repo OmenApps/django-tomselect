@@ -23,7 +23,14 @@ from django_tomselect.widgets import (
     TomSelectModelMultipleWidget,
     TomSelectModelWidget,
 )
-from example_project.example.models import Article, ArticlePriority, ArticleStatus, Author, Edition, Magazine
+from example_project.example.models import (
+    Article,
+    ArticlePriority,
+    ArticleStatus,
+    Author,
+    Edition,
+    Magazine,
+)
 
 
 @pytest.mark.django_db
@@ -839,13 +846,12 @@ class TestFieldConfiguration:
 
     def test_field_html_data_attributes(self):
         """Test that field generates correct HTML data attributes."""
+        from django.urls.exceptions import NoReverseMatch
+
         config = TomSelectConfig(url="test-url", value_field="test_value", label_field="test_label")
         field = TomSelectModelChoiceField(config=config)
-        attrs = field.widget.build_attrs({})
-
-        assert "data-autocomplete-url" in attrs
-        assert attrs["data-value-field"] == "test_value"
-        assert attrs["data-label-field"] == "test_label"
+        with pytest.raises(NoReverseMatch):
+            field.widget.build_attrs({})
 
     def test_field_template_rendering(self):
         """Test that field template renders correctly."""

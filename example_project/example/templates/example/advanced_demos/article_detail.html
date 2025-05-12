@@ -1,0 +1,73 @@
+{% extends "example/base_with_bootstrap5.html" %}
+
+{% load static %}
+
+{% block content %}
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Article Detail</h2>
+        </div>
+
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col">
+                    {{ article.title }}
+                </div>
+                <div class="col">
+                    {{ article.word_count }}
+                </div>
+            </div>
+            <div class="row mb-4">
+                <div class="col">
+                    <strong>Authors:</strong>
+                    {% for author in article.authors.all %}
+                        {{ author }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="col">
+                    <strong>Categories:</strong>
+                    {% for category in article.categories.all %}
+                        {{ category }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="col">
+                    <strong>Magazine:</strong>
+                    {{ article.magazine }} - {{ article.magazine.get_type_display }}
+                </div>
+                <div class="col">
+                    <strong>Edition:</strong>
+                    {% if article.edition %}
+                        {{ article.edition }}
+                    {% else %}
+                        None
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <strong>Status:</strong>
+                    {{ article.get_status_display }}
+                </div>
+                <div class="col">
+                    <strong>Priority:</strong>
+                    {{ article.get_priority_display }}
+                </div>
+                <div class="col">
+                    <strong>Created At:</strong>
+                    {{ article.created_at }}
+                </div>
+                <div class="col">
+                    <strong>Updated At:</strong>
+                    {% if article.updated_at %}
+                        {{ article.updated_at }}
+                    {% else %}
+                        None
+                    {% endif %}
+                </div>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'example:article_update' article.pk %}" class="btn btn-primary">Edit</a>
+            <a href="{% url 'example:article_delete' article.pk %}" class="btn btn-danger">Delete</a>
+            <a href="{% url 'example:article_list' %}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+{% endblock %}

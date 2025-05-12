@@ -8,8 +8,8 @@ from django.core.exceptions import ValidationError
 
 import django_tomselect.app_settings as app_settings
 from django_tomselect.app_settings import (
+    DEFAULT_CSS_FRAMEWORK,
     AllowedCSSFrameworks,
-    DefaultProxyRequest,
     PluginCheckboxOptions,
     PluginClearButton,
     PluginDropdownFooter,
@@ -18,9 +18,12 @@ from django_tomselect.app_settings import (
     PluginRemoveButton,
     TomSelectConfig,
     bool_or_callable,
+    currently_in_production_mode,
     get_plugin_config,
+    merge_configs,
     validate_proxy_request_class,
 )
+from django_tomselect.request import DefaultProxyRequest
 from example_project.example.models import Edition, Magazine
 
 
@@ -64,7 +67,7 @@ class TestAppSettings:
         """Test that production mode is correctly detected based on DEBUG setting."""
         monkeypatch.setattr(settings, "DEBUG", debug_value)
         # No reload needed since currently_in_production_mode reads settings.DEBUG directly
-        assert app_settings.currently_in_production_mode() == expected
+        assert currently_in_production_mode() == expected
 
     def test_merge_configs_with_nested_plugins(self):
         """Test merging configs with nested plugin structures."""
@@ -75,7 +78,7 @@ class TestAppSettings:
         override = TomSelectConfig(
             plugin_dropdown_header=PluginDropdownHeader(title="Override", extra_columns={"key2": "Value2"})
         )
-        result = app_settings.merge_configs(base, override)
+        result = merge_configs(base, override)
         assert result.plugin_dropdown_header.title == "Override"
         assert result.plugin_dropdown_header.extra_columns == {"key2": "Value2"}
         assert result.plugin_dropdown_footer.title == "Base Footer"
@@ -112,7 +115,7 @@ class TestAppSettings:
 
         # Test default value when css_framework is not provided
         config = TomSelectConfig()  # Don't specify css_framework at all
-        assert config.css_framework == app_settings.DEFAULT_CSS_FRAMEWORK
+        assert config.css_framework == DEFAULT_CSS_FRAMEWORK
 
         # Test that None is passed through
         config = TomSelectConfig(css_framework=None)
@@ -134,7 +137,7 @@ class TestAppSettings:
             highlight=False,  # Should override
             plugin_dropdown_header=None,  # Should not override
         )
-        result = app_settings.merge_configs(base, override)
+        result = merge_configs(base, override)
         assert result.url == "base-url"  # Maintained from base
         assert result.highlight is False  # Updated from override
         assert result.plugin_dropdown_header.title == "Base Title"  # Maintained from base
@@ -166,7 +169,7 @@ class TestAppSettings:
         )
 
         # Create new config inheriting from base
-        merged = app_settings.merge_configs(
+        merged = merge_configs(
             base_config,
             TomSelectConfig(
                 plugin_clear_button=PluginClearButton(
@@ -221,7 +224,7 @@ class TestAppSettings:
         )
 
         # Merge configs
-        result = app_settings.merge_configs(base, override)
+        result = merge_configs(base, override)
 
         # The explicitly set field should be overridden
         assert result.url == "override-url"
@@ -248,7 +251,7 @@ class TestAppSettings:
         override = TomSelectConfig()
 
         # Merge configs
-        result = app_settings.merge_configs(base, override)
+        result = merge_configs(base, override)
 
         # Default values from override should not replace explicit values from base
         assert result.url == "base-url"
@@ -275,7 +278,7 @@ class TestAppSettings:
         )
 
         # Merge configs
-        result = app_settings.merge_configs(base, override)
+        result = merge_configs(base, override)
 
         # Explicitly overridden plugin field should be updated
         assert result.plugin_clear_button.title == "Override Title"
@@ -300,7 +303,7 @@ class TestAppSettings:
         )
 
         # Merge configs
-        result = app_settings.merge_configs(global_config, field_config)
+        result = merge_configs(global_config, field_config)
 
         # Field-specific settings should be applied
         assert result.url == "autocomplete:gender"
@@ -657,7 +660,7 @@ class TestTomSelectConfig:
     def test_merge_configs_with_none(self):
         """Test merging configs when override is None."""
         base = TomSelectConfig(url="test-url", highlight=True)
-        result = app_settings.merge_configs(base, None)
+        result = merge_configs(base, None)
         assert result == base
         assert result.url == "test-url"
         assert result.highlight is True
@@ -687,7 +690,7 @@ class TestTomSelectConfig:
                 title="Override Title", extra_columns={"override": "Override Column"}
             )
         )
-        result = app_settings.merge_configs(base, override)
+        result = merge_configs(base, override)
         assert result.plugin_dropdown_header.title == "Override Title"
         assert result.plugin_dropdown_header.extra_columns == {"override": "Override Column"}
 
@@ -695,7 +698,7 @@ class TestTomSelectConfig:
         """Test merging configs with partial override."""
         base = TomSelectConfig(url="base-url", highlight=True, create=False)
         override = TomSelectConfig(url="override-url")
-        result = app_settings.merge_configs(base, override)
+        result = merge_configs(base, override)
         assert result.url == "override-url"
         assert result.highlight is True  # Maintained from base
         assert result.create is False  # Maintained from base

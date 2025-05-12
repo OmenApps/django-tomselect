@@ -3,28 +3,35 @@ Renders each option (search result) in the dropdown.
 If is_tabular is true, renders a row of columns.
 If not, checks for custom rendering templates.
 {% endcomment %}
+{% load i18n %}
+
 option: function(data, escape) {
-    {% if 'data_custom_rendering' in widget.attrs.keys and widget.attrs.data_custom_rendering|default:False %}
+    {% include "django_tomselect/helpers/decode_if_needed.html" %}
+
+    {% if 'data_template_option' in widget.attrs.keys and widget.attrs.data_template_option %}
         // Use safe Function constructor with escape function provided
         var template = {{ widget.attrs.data_template_option|safe }};
         // Always use escape function
         return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
     {% elif widget.is_tabular %}
-        let columns = ''
+        // For tabular display, show in rows and columns
+        let columns = '';
 
         {% if widget.plugins.dropdown_header.show_value_field %}
             columns += `<div class="col" role="gridcell">${escape(data[this.settings.valueField])}</div>
-            <div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`
+            <div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`;
         {% else %}
-            columns += `<div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`
+            columns += `<div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`;
         {% endif %}
 
         {% for item in widget.plugins.dropdown_header.extra_values %}
-            columns += `<div class="col" role="gridcell">${escape(data['{{ item }}'] || '')}</div>`
+            columns += `<div class="col" role="gridcell">${escape(data['{{ item }}'] || '')}</div>`;
         {% endfor %}
 
-        return `<div class="row" role="row">${columns}</div>`
+        return `<div class="row" role="row">${columns}</div>`;
     {% else %}
-        return `<div role="option">${escape(data.{{ widget.label_field }})}</div>`;
+        const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
+        
+        return `<div role="option">${safeValue}</div>`;
     {% endif %}
 },

@@ -344,6 +344,11 @@ def cache_permission(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(self, request, action="view"):
         try:
+            # Check if caching is enabled
+            if not permission_cache.is_enabled():
+                package_logger.debug("Permission caching is disabled. Skipping cache.")
+                return func(self, request, action)
+
             # Skip cache for anonymous users
             if not hasattr(request, "user") or not request.user.is_authenticated:
                 package_logger.debug("Skipping permission cache for anonymous user")
@@ -352,10 +357,6 @@ def cache_permission(func: Callable) -> Callable:
             # Skip cache if auth overrides are in effect
             if getattr(self, "skip_authorization", False) or getattr(self, "allow_anonymous", False):
                 package_logger.debug("Skipping permission cache for auth override")
-                return func(self, request, action)
-
-            if not permission_cache.is_enabled():
-                package_logger.debug("Permission caching is disabled. Skipping cache.")
                 return func(self, request, action)
 
             # Ensure we have valid model information

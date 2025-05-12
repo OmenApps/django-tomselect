@@ -1,10 +1,10 @@
 {% comment %}
 Renders the Dropdown Header plugin's HTML.
 {% endcomment %}
+{% load i18n %}
 
-{% block code %}
 html: function (data) {
-    let header = ''
+    let header = '';
 
     {% if widget.plugins.dropdown_header.show_value_field %}
         header += `
@@ -14,25 +14,24 @@ html: function (data) {
         <div class="col">
             <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
         </div>
-        `
+        `;
     {% else %}
         header += `
         <div class="col">
             <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
         </div>
-        `
+        `;
     {% endif %}
 
-    {% for header in widget.plugins.dropdown_header.extra_headers %}
+    {% for header_text in widget.plugins.dropdown_header.extra_headers %}
         header += `
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ header|escapejs }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ header_text|escapejs }}</span>
         </div>
-        `
+        `;
     {% endfor %}
 
     return `<div class="{{ widget.plugins.dropdown_header.header_class }}" title="{{ widget.plugins.dropdown_header.title|escapejs }}" role="row">
                 <div class="{{ widget.plugins.dropdown_header.title_row_class }}">${header}</div>
-            </div>`
+            </div>`;
 },
-{% endblock code %}

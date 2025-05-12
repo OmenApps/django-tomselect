@@ -63,38 +63,48 @@ config = TomSelectConfig(
     # Core Settings
     url='book-autocomplete',
     value_field='id',
-    label_field='title',
-    create_field='name',
+    label_field='name',
+    create_field='',
+
+    # Additional Core Settings
+    filter_by=('category__id', 'id'),  # Filter by category.id = id
+    exclude_by=('author__id', 'id'),    # Exclude where author.id = id
+    use_htmx=False,  # Enable HTMX integration
+    attrs={},  # Additional HTML attributes
 
     # Display Settings
-    placeholder='Select a book...',
+    placeholder='Select a value',
     minimum_query_length=2,
-    max_items=5,
-    max_options=50,
+    max_items=None,
+    max_options=None,
 
     # Behavior Settings
     preload='focus',  # Can be 'focus', True, or False
     highlight=True,
     open_on_focus=True,
-    close_after_select=True,
-    hide_placeholder=True,
+    close_after_select=None,
+    hide_selected=False,
+    hide_placeholder=None,
+    create=False,  # Enable item creation
+    create_filter=None,  # Filter for new items
+    create_with_htmx=False,  # Use HTMX for item creation
 
     # Performance Settings
     load_throttle=300,
     loading_class='loading',
 
-    # Feature Toggles
-    show_list=True,
-    show_create=True,
-    show_detail=True,
-    show_update=True,
-    show_delete=True,
+    # Feature Toggles (all default to False)
+    show_list=False,
+    show_create=False,
+    show_detail=False,
+    show_update=False,
+    show_delete=False,
 
     # Framework Settings
-    css_framework='bootstrap5',  # 'default', 'bootstrap4', or 'bootstrap5'
+    css_framework='bootstrap5',
     use_minified=True,
 
-    # Plugins (covered in detail below)
+    # Plugins
     plugin_checkbox_options=PluginCheckboxOptions(),
     plugin_clear_button=PluginClearButton(),
     plugin_dropdown_header=PluginDropdownHeader(),
@@ -135,8 +145,8 @@ Adds a button to clear all selections.
 ```python
 config = TomSelectConfig(
     plugin_clear_button=PluginClearButton(
-        title="Clear All",
-        class_name="btn-clear"
+        title="Clear Selections",
+        class_name="clear-button",
     )
 )
 ```
@@ -154,16 +164,17 @@ Configures the dropdown header display.
 ```python
 config = TomSelectConfig(
     plugin_dropdown_header=PluginDropdownHeader(
-        title="Select Books",
-        header_class="dropdown-header bg-light",
-        title_row_class="header-row",
-        label_class="header-label",
-        value_field_label="ID",
-        label_field_label="Title",
-        show_value_field=True,
+        title="Autocomplete",
+        header_class="container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header",
+        title_row_class="row",
+        label_class="form-label",
+        value_field_label="Value",
+        label_field_label="Label",
+        label_col_class="col-6",
+        show_value_field=False,
         extra_columns={
             'author__name': 'Author',
-            'publication_year': 'Year'
+            'publication_year': 'Year',
         }
     )
 )
@@ -182,12 +193,12 @@ Configures the dropdown footer display.
 ```python
 config = TomSelectConfig(
     plugin_dropdown_footer=PluginDropdownFooter(
-        title="Options",
-        footer_class="dropdown-footer",
-        list_view_label="View All",
-        list_view_class="btn btn-sm btn-primary",
-        create_view_label="Add New",
-        create_view_class="btn btn-sm btn-success"
+        title="Autocomplete Footer",
+        footer_class="container-fluid mt-1 px-2 border-top dropdown-footer",
+        list_view_label="List View",
+        list_view_class="btn btn-primary btn-sm m-2 p-1 float-end float-right",
+        create_view_label="Create New",
+        create_view_class="btn btn-primary btn-sm m-2 p-1 float-end float-right",
     )
 )
 ```
@@ -221,9 +232,9 @@ Adds a remove button to selected items.
 ```python
 config = TomSelectConfig(
     plugin_remove_button=PluginRemoveButton(
-        title="Remove",
-        label="×",
-        class_name="remove-button"
+        title="Remove this item",
+        label="&times;",
+        class_name="remove",
     )
 )
 ```
@@ -268,6 +279,19 @@ TOMSELECT = {
             'title': 'Remove',
             'label': '×'
         }
+    },
+
+    # Logging configuration
+    'ENABLE_LOGGING': True,  # Set to False to disable logging
+
+    # Custom proxy request class
+    'PROXY_REQUEST_CLASS': 'path.to.CustomProxyRequest',
+
+    # Permission cache settings (optional)
+    'PERMISSION_CACHE': {
+        'TIMEOUT': 3600,  # Cache timeout in seconds
+        'KEY_PREFIX': 'myapp',  # Prefix for cache keys
+        'NAMESPACE': 'tomselect'  # Namespace for cache keys
     }
 }
 ```
@@ -298,7 +322,7 @@ TOMSELECT = {
 }
 ```
 
-Better, you can customize the logging level configuration by updating your Django settings to skip debug messages, but still see more important messages:
+You can customize the logging level configuration by updating your Django settings:
 
 ```python
 LOGGING = {
@@ -355,8 +379,11 @@ from django_tomselect.app_settings import TomSelectConfig
 class CustomConfig(TomSelectConfig):
     def validate(self):
         super().validate()
-        if self.max_items and self.max_items < 1:
-            raise ValidationError("max_items must be greater than 0")
+        # Add custom validation logic
+        if self.placeholder and len(self.placeholder) > 100:
+            raise ValidationError("Placeholder text is too long")
+        if self.show_create and not self.create_field:
+            raise ValidationError("create_field must be set when show_create is enabled")
 ```
 
 ### Dynamic Configuration

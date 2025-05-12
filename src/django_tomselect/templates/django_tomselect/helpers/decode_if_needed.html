@@ -1,0 +1,16 @@
+{% comment %}
+Helper function to safely decode HTML entities only if they exist.
+{% endcomment %}
+function decodeIfNeeded(str) {
+    if (!str || typeof str !== 'string') return '';
+    
+    // Check if string contains HTML entities
+    if (/&[a-z]+;|&#[0-9]+;/i.test(str)) {
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = str;
+        return textarea.value;
+    }
+    
+    // No HTML entities, return as is
+    return str;
+}

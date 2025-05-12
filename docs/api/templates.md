@@ -6,22 +6,25 @@ Django TomSelect uses a flexible template system that allows for customization a
 
 ```
 django_tomselect/templates/django_tomselect/
-├── tomselect.html             # Main template
-└── render/                    # Individual rendering components
-    ├── clear_button.html      # Clear selection button
-    ├── dropdown_footer.html   # Footer with actions
-    ├── dropdown_header.html   # Header with column titles
-    ├── item.html             # Selected item display
-    ├── loading_more.html     # Loading more results indicator
-    ├── loading.html          # Initial loading indicator
-    ├── no_more_results.html  # End of results message
-    ├── no_results.html       # No matches found message
-    ├── not_loading.html      # Non-loading state
-    ├── optgroup_header.html  # Option group header
-    ├── optgroup.html         # Option group container
-    ├── option_create.html    # Create new item option
-    ├── option.html           # Individual option display
-    └── select.html           # Base select element
+├── helpers/                  # Helper templates
+│   └── decode_if_needed.html # HTML entity decoding helper
+├── render/                   # Individual rendering components
+│   ├── clear_button.html     # Clear selection button
+│   ├── dropdown_footer.html  # Footer with actions
+│   ├── dropdown_header.html  # Header with column titles
+│   ├── item.html             # Selected item display
+│   ├── loading_more.html     # Loading more results indicator
+│   ├── loading.html          # Initial loading indicator
+│   ├── no_more_results.html  # End of results message
+│   ├── no_results.html       # No matches found message
+│   ├── not_loading.html      # Non-loading state
+│   ├── optgroup_header.html  # Option group header
+│   ├── optgroup.html         # Option group container
+│   ├── option_create.html    # Create new item option
+│   ├── option.html           # Individual option display
+│   └── select.html           # Base select element
+├── tomselect_setup.html      # Global setup and initialization
+└── tomselect.html            # Main template
 ```
 
 ## Main Template
@@ -39,9 +42,21 @@ The main template that orchestrates the Tom Select initialization and rendering.
     {# Tom Select initialization code #}
 {% endblock tomselect_init %}
 
+{% block tomselect_url_setup %}
+    {# URL construction logic #}
+{% endblock tomselect_url_setup %}
+
+{% block tomselect_config %}
+    {# TomSelect configuration object #}
+{% endblock tomselect_config %}
+
 {% block tomselect_plugins %}
     {# Plugin configuration #}
 {% endblock tomselect_plugins %}
+
+{% block tomselect_render %}
+    {# Render functions for different components #}
+{% endblock tomselect_render %}
 
 {% block tomselect_extra_js %}
     {# Additional JavaScript #}
@@ -63,6 +78,68 @@ The main template that orchestrates the Tom Select initialization and rendering.
 {% endblock %}
 ```
 
+## Global Setup Template
+
+### tomselect_setup.html
+
+This template is used to set up the global TomSelect configuration and initialization logic once per page, including an observer for dynamic content.
+
+```django
+{% extends "django_tomselect/tomselect.html" %}
+
+{% load i18n %}
+{% load django_tomselect %}
+
+<script>
+    {% block tomselect_global_setup %}
+        // Global namespace for django-tomselect
+        if (!window.djangoTomSelect) {
+            window.djangoTomSelect = {
+                configs: new Map(),
+                instances: new Map(),
+                initialized: false,
+                // ... other configuration
+
+                // Setup MutationObserver for dynamic content
+                setupObserver: function() {
+                    // ... observer setup code
+                },
+
+                // Setup HTMX event handlers
+                setupHtmxHandlers: function() {
+                    // ... htmx event handlers
+                }
+            };
+        }
+    {% endblock tomselect_global_setup %}
+</script>
+```
+
+## Helper Templates
+
+### decode_if_needed.html
+
+A utility helper that safely decodes HTML entities only when needed.
+
+```django
+{% comment %}
+Helper function to safely decode HTML entities only if they exist.
+{% endcomment %}
+function decodeIfNeeded(str) {
+    if (!str || typeof str !== 'string') return '';
+
+    // Check if string contains HTML entities
+    if (/&[a-z]+;|&#[0-9]+;/i.test(str)) {
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = str;
+        return textarea.value;
+    }
+
+    // No HTML entities, return as is
+    return str;
+}
+```
+
 ## Rendering Components
 
 ### select.html
@@ -71,9 +148,10 @@ Base `<select>` element template. Override this to modify the fundamental HTML s
 
 ```django
 <select name="{{ widget.name }}"
-        id="{% if 'id' in widget.attrs.keys %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}"
-        {% include "django/forms/widgets/attrs.html" %}
+        id="{% if 'id' in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}"
+        {% include "django/forms/widgets/attrs.html" with widget=widget %}
         aria-label="{% translate 'Select option' %}"
+        aria-expanded="false"
         role="combobox">
 </select>
 ```
@@ -83,23 +161,43 @@ Base `<select>` element template. Override this to modify the fundamental HTML s
 Defines how individual options are rendered in the dropdown.
 
 ```django
-{% block code %}
+{% comment %}
+Renders each option (search result) in the dropdown.
+If is_tabular is true, renders a row of columns.
+If not, checks for custom rendering templates.
+{% endcomment %}
+{% load i18n %}
+
 option: function(data, escape) {
-    {% if widget.is_tabular %}
-        {# Tabular layout with columns #}
-        let columns = ''
+    {% include "django_tomselect/helpers/decode_if_needed.html" %}
+
+    {% if 'data_template_option' in widget.attrs.keys and widget.attrs.data_template_option %}
+        // Use safe Function constructor with escape function provided
+        var template = {{ widget.attrs.data_template_option|safe }};
+        // Always use escape function
+        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
+    {% elif widget.is_tabular %}
+        // For tabular display, show in rows and columns
+        let columns = '';
+
         {% if widget.plugins.dropdown_header.show_value_field %}
-            columns += `<div class="col">${data[this.settings.valueField]}</div>
-                       <div class="col">${data[this.settings.labelField]}</div>`
+            columns += `<div class="col" role="gridcell">${escape(data[this.settings.valueField])}</div>
+            <div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`;
         {% else %}
-            columns += `<div class="col">${data[this.settings.labelField]}</div>`
+            columns += `<div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`;
         {% endif %}
-        return `<div class="row">${columns}</div>`
+
+        {% for item in widget.plugins.dropdown_header.extra_values %}
+            columns += `<div class="col" role="gridcell">${escape(data['{{ item }}'] || '')}</div>`;
+        {% endfor %}
+
+        return `<div class="row" role="row">${columns}</div>`;
     {% else %}
-        return `<div>${data.{{ widget.label_field }}}</div>`;
+        const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
+
+        return `<div role="option">${safeValue}</div>`;
     {% endif %}
 },
-{% endblock code %}
 ```
 
 ### item.html
@@ -107,24 +205,72 @@ option: function(data, escape) {
 Controls how selected items are displayed.
 
 ```django
-{% block code %}
+{% comment %}
+Renders each selected item in the TomSelect input.
+{% endcomment %}
+{% load i18n %}
+
 item: function(data, escape) {
-    let item = `<div>${data.{{ widget.label_field }}}`;
+    {% include "django_tomselect/helpers/decode_if_needed.html" %}
 
-    {% if widget.show_detail %}
-        if (data.detail_url) {
-            item += `<a href="${escape(data.detail_url)}"
-                       class="details-link"
-                       title="{% translate 'View Details' %}">
-                        <i class="icon-info"></i>
-                    </a>`;
-        }
+    {% if 'data_template_item' in widget.attrs.keys and widget.attrs.data_template_item %}
+        // Use safe Function constructor with escape function provided
+        var template = {{ widget.attrs.data_template_item|safe }};
+        // Always use escape function
+        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
+    {% else %}
+        let item = '';
+        const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
+
+        item += `<div role="option">${safeValue}`;
+
+        {% if "show_detail" in widget and widget.show_detail %}
+            if (data.detail_url) {
+                item += `
+                <a href="${escape(data.detail_url)}"
+                   class="update"
+                   title="{% translate 'Detail' %}"
+                   tabindex="-1"
+                   aria-label="{% translate 'View Detail' %}"
+                   onclick="event.stopPropagation(); return true;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-info" role="img" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="8"></line></svg>
+                </a>`;
+            }
+        {% endif %}
+
+        {% if "show_delete" in widget and widget.show_delete %}
+            if (data.delete_url) {
+                item += `
+                <a href="${escape(data.delete_url)}"
+                   class="update"
+                   title="{% translate 'Delete' %}"
+                   tabindex="-1"
+                   aria-label="{% translate 'Delete item' %}"
+                   onclick="event.stopPropagation(); return true;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" role="img" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                </a>`;
+            }
+        {% endif %}
+
+        {% if "show_update" in widget and widget.show_update %}
+            if (data.update_url) {
+                item += `
+                <a href="${escape(data.update_url)}"
+                   class="update"
+                   title="{% translate 'Update' %}"
+                   target="_blank"
+                   tabindex="-1"
+                   aria-label="{% translate 'Update item' %}"
+                   onclick="event.stopPropagation(); return true;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" role="img" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                </a>`;
+            }
+        {% endif %}
+
+        item += '</div>';
+        return item;
     {% endif %}
-
-    item += '</div>';
-    return item;
 },
-{% endblock code %}
 ```
 
 ### dropdown_header.html
@@ -132,17 +278,43 @@ item: function(data, escape) {
 Configures the dropdown header display.
 
 ```django
-{% block code %}
-html: function(data) {
+{% comment %}
+Renders the Dropdown Header plugin's HTML.
+{% endcomment %}
+{% load i18n %}
+
+html: function (data) {
     let header = '';
+
     {% if widget.plugins.dropdown_header.show_value_field %}
-        header += `<div class="col">
-            <span class="label">{{ widget.plugins.dropdown_header.value_field_label }}</span>
-        </div>`;
+        header += `
+        <div class="col">
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.value_field_label|escapejs }}</span>
+        </div>
+        <div class="col">
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
+        </div>
+        `;
+    {% else %}
+        header += `
+        <div class="col">
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
+        </div>
+        `;
     {% endif %}
-    return `<div class="header">${header}</div>`;
+
+    {% for header_text in widget.plugins.dropdown_header.extra_headers %}
+        header += `
+        <div class="col">
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ header_text|escapejs }}</span>
+        </div>
+        `;
+    {% endfor %}
+
+    return `<div class="{{ widget.plugins.dropdown_header.header_class }}" title="{{ widget.plugins.dropdown_header.title|escapejs }}" role="row">
+                <div class="{{ widget.plugins.dropdown_header.title_row_class }}">${header}</div>
+            </div>`;
 },
-{% endblock code %}
 ```
 
 ### dropdown_footer.html
@@ -150,14 +322,26 @@ html: function(data) {
 Configures the dropdown footer with action buttons.
 
 ```django
+{% comment %}
+Renders the Dropdown Footer plugin's HTML.
+{% endcomment %}
+{% load i18n %}
+
 {% block code %}
-html: function(data) {
-    let footer = '';
-    {% if widget.view_create_url %}
-        footer += `<a href="{{ widget.view_create_url }}"
-                     class="create-link">{{ widget.plugins.dropdown_footer.create_view_label }}</a>`;
-    {% endif %}
-    return `<div class="footer">${footer}</div>`;
+html: function (data) {
+    let footer = ''
+    footer += `
+    <div title="{{ widget.plugins.dropdown_footer.title|escapejs }}" class="{{ widget.plugins.dropdown_footer.footer_class }}">
+        {% if "view_create_url" in widget and widget.view_create_url %}
+            <a href="{{ widget.view_create_url|escapejs }}" title='{% translate "Go to Create View for these items" %}' class="{{ widget.plugins.dropdown_footer.create_view_class }}" target="_blank" rel="noopener noreferrer">{{ widget.plugins.dropdown_footer.create_view_label|escapejs }}</a>
+        {% endif %}
+
+        {% if "view_list_url" in widget and widget.view_list_url %}
+            <a href="{{ widget.view_list_url|escapejs }}" title='{% translate "Go to List View for these items" %}' class="{{ widget.plugins.dropdown_footer.list_view_class }}" target="_blank" rel="noopener noreferrer">{{ widget.plugins.dropdown_footer.list_view_label|escapejs }}</a>
+        {% endif %}
+    </div>
+    `
+    return footer
 },
 {% endblock code %}
 ```
@@ -169,11 +353,32 @@ html: function(data) {
 Shows loading state while fetching results.
 
 ```django
-{% block code %}
-loading: function(data, escape) {
-    return '<div class="spinner" role="status" aria-live="polite"></div>';
+{% comment %}
+Renders the loading spinner/message while initial results load.
+{% endcomment %}
+{% load i18n %}
+
+loading: function(data, escape){
+    return '<div class="spinner" role="status" aria-label="{% translate 'Loading' %}" aria-live="polite"></div>';
 },
-{% endblock code %}
+```
+
+### loading_more.html
+
+Shows the loading indicator when fetching more results.
+
+```django
+{% comment %}
+Renders the "Loading more results..." message.
+{% endcomment %}
+{% load i18n %}
+
+loading_more: function(data, escape) {
+    return `<div class="loading-more-results py-2 d-flex align-items-center" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        {% translate "Loading more results..." %}
+    </div>`;
+},
 ```
 
 ### no_results.html
@@ -181,13 +386,56 @@ loading: function(data, escape) {
 Displays when no matches are found.
 
 ```django
-{% block code %}
-no_results: function(data, escape) {
-    return `<div class="no-results">
+{% comment %}
+Renders the message when no search results are found.
+{% endcomment %}
+{% load i18n %}
+
+no_results: function(data, escape){
+    return `<div class="no-results" role="status" aria-live="polite">
         {% translate "No results found for" %} "${escape(data.input)}"
     </div>`;
 },
-{% endblock code %}
+```
+
+### no_more_results.html
+
+Displays when the end of results is reached.
+
+```django
+{% comment %}
+Renders the message when no more results are available.
+{% endcomment %}
+{% load i18n %}
+no_more_results: function(data, escape) {
+    return `<div class="no-more-results" role="status" aria-live="polite">{% translate "No more results" %}</div>`;
+},
+```
+
+### option_create.html
+
+Template for the "create new option" element.
+
+```django
+{% comment %}
+Renders the "Create new option" element if enabled.
+{% endcomment %}
+{% load i18n %}
+option_create: function(data, escape) {
+    {% if 'create_with_htmx' in widget.keys and widget.create_with_htmx %}
+        return `<div class="create"
+                    hx-post="{% url 'create' %}"
+                    hx-swap="outerHTML"
+                    hx-trigger="click"
+                    hx-target="#id_{{ name }}"
+                    role="option"
+                    aria-label="{% translate 'Create new item' %}">${escape(data.input)}</div>`;
+    {% else %}
+        return `<div class="create" role="option">
+            {% translate "Add" %} <strong>${escape(data.input)}</strong>&hellip;
+        </div>`;
+    {% endif %}
+},
 ```
 
 ## Custom Rendering Examples
@@ -243,6 +491,10 @@ The following context variables are available in all templates:
   - `config`: TomSelect configuration
   - `is_multiple`: Boolean indicating multiple selection
   - `selected_options`: List of currently selected options
+  - `plugins`: Configuration for all enabled plugins
+  - `show_detail`: Whether to show detail links
+  - `show_update`: Whether to show update links
+  - `show_delete`: Whether to show delete links
 
 ## Overriding Templates
 
@@ -272,12 +524,14 @@ TEMPLATES = [
 
 ## HTMX Integration
 
-For HTMX-enabled templates, additional attributes are available:
+For HTMX-enabled templates, additional attributes and functionality are available:
 
 ```django
 {% if widget.use_htmx %}
+    {# In option_create.html for creating new items #}
     hx-post="{{ widget.create_url }}"
+    hx-swap="outerHTML"
     hx-trigger="click"
-    hx-target="#{{ widget.name }}"
+    hx-target="#id_{{ widget.name }}"
 {% endif %}
 ```

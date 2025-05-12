@@ -4,8 +4,6 @@ import logging
 from functools import wraps
 from typing import Any, Callable
 
-from django_tomselect.app_settings import LOGGING_ENABLED
-
 
 class PackageLogger:
     """A wrapper around Python's logging module for the django-tomselect package.
@@ -21,6 +19,8 @@ class PackageLogger:
         Args:
             logger_name: The name to use for the logger, typically __name__
         """
+        from django_tomselect.app_settings import LOGGING_ENABLED
+
         self._logger = logging.getLogger(logger_name)
         self._enabled = LOGGING_ENABLED
 

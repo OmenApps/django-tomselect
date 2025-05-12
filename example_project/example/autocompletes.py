@@ -117,6 +117,8 @@ class MagazineAutocompleteView(AutocompleteModelView):
     delete_url = "magazine-delete"
 
     skip_authorization = True
+    permission_required = None
+    allow_anonymous = True
 
 
 class RegionAutocompleteView(AutocompleteModelView):
@@ -365,6 +367,8 @@ class CategoryAutocompleteView(AutocompleteModelView):
         "total_articles",
     ]
 
+    list_url = "category-list"
+    detail_url = "category-detail"
     create_url = "category-create"
     update_url = "category-update"
     delete_url = "category-delete"
@@ -482,7 +486,6 @@ class WeightedAuthorAutocompleteView(AutocompleteModelView):
 
     def search(self, queryset, query):
         """Implement weighted search ordering."""
-
         # Calculate individual scoring components
         now = timezone.now()
         month_ago = now - timedelta(days=30)

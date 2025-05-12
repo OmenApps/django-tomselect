@@ -9,8 +9,6 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.module_loading import import_string
 
-from django_tomselect.request import DefaultProxyRequest
-
 logger = logging.getLogger(__name__)
 
 
@@ -178,6 +176,8 @@ def validate_proxy_request_class():
     Returns:
         A subclass of DefaultProxyRequest.
     """
+    from django_tomselect.request import DefaultProxyRequest
+
     proxy_request_class = PROJECT_TOMSELECT.get("PROXY_REQUEST_CLASS", DefaultProxyRequest)
     if proxy_request_class is None:
         return DefaultProxyRequest
@@ -230,6 +230,7 @@ class TomSelectConfig(BaseConfig):
         close_after_select: if True, close the dropdown after selecting an item.
         hide_placeholder: if True, hide the placeholder when an item is selected.
         highlight: if True, highlight the matching text in the dropdown.
+        hide_selected: if True, hide the selected item in the dropdown.
         load_throttle: throttle time in milliseconds for loading items.
         loading_class: CSS class for the loading indicator.
         max_items: maximum number of items to display in the dropdown.
@@ -269,6 +270,7 @@ class TomSelectConfig(BaseConfig):
     close_after_select: bool | None = None
     hide_placeholder: bool | None = None
     highlight: bool = True
+    hide_selected: bool = False
     load_throttle: int = 300
     loading_class: str = "loading"
     max_items: int | None = None
@@ -322,7 +324,6 @@ class TomSelectConfig(BaseConfig):
 
     def verify_config_types(self):
         """Verify that the configuration types are correct."""
-        # Check the plugin config
         if not isinstance(self.plugin_checkbox_options, PluginCheckboxOptions):
             logger.warning("PluginCheckboxOptions is not of type PluginCheckboxOptions")
         if not isinstance(self.plugin_clear_button, PluginClearButton):

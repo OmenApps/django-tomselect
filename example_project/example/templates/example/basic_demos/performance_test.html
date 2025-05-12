@@ -1,0 +1,177 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+
+        .performance-stats {
+            background-color: #f8f9fa;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .tomselect-container {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+        }
+
+        .loading-indicator {
+            display: none;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            margin-bottom: 15px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 0.2em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border .75s linear infinite;
+            margin-right: 5px;
+        }
+
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h2>Performance Test: TomSelect with Many Selected Items</h2>
+            <div class="badge bg-primary">{{ total_count }} Total Items</div>
+        </div>
+        <div class="card-body">
+            <div class="performance-stats">
+                <h4>Performance Metrics</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>Total pre-selected items: <strong>{{ total_count }}</strong></li>
+                            <li>Group 1: <strong>{{ group_1_count }}</strong> items</li>
+                            <li>Group 2: <strong>{{ group_2_count }}</strong> items</li>
+                            <li>Group 3: <strong>{{ group_3_count }}</strong> items</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul id="timing-list">
+                            <li>DOM loaded: <span id="dom-loaded-time">measuring...</span></li>
+                            <li>Full initialization: <span id="full-init-time">measuring...</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading-message" class="loading-indicator">
+                <div class="spinner"></div> Loading TomSelect fields with {{ total_count }} pre-selected items...
+            </div>
+
+            <form>
+                {% csrf_token %}
+
+                <div class="tomselect-container">
+                    <label class="form-label" for="{{ form.editions_group_1.id_for_label }}">{{ form.editions_group_1.label }}</label>
+                    {{ form.editions_group_1 }}
+                    <div class="helptext">{{ form.editions_group_1.help_text }}</div>
+                    <div class="mt-2">
+                        <span class="badge bg-primary">{{ group_1_count }}</span> editions pre-selected
+                    </div>
+                </div>
+
+                <div class="tomselect-container">
+                    <label class="form-label" for="{{ form.editions_group_2.id_for_label }}">{{ form.editions_group_2.label }}</label>
+                    {{ form.editions_group_2 }}
+                    <div class="helptext">{{ form.editions_group_2.help_text }}</div>
+                    <div class="mt-2">
+                        <span class="badge bg-primary">{{ group_2_count }}</span> editions pre-selected
+                    </div>
+                </div>
+
+                <div class="tomselect-container">
+                    <label class="form-label" for="{{ form.editions_group_3.id_for_label }}">{{ form.editions_group_3.label }}</label>
+                    {{ form.editions_group_3 }}
+                    <div class="helptext">{{ form.editions_group_3.help_text }}</div>
+                    <div class="mt-2">
+                        <span class="badge bg-primary">{{ group_3_count }}</span> editions pre-selected
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Performance measurement
+        const startTime = performance.now();
+        let domLoadedTime, fullInitTime;
+        const selectIds = [
+            "id_editions_group_1",
+            "id_editions_group_2",
+            "id_editions_group_3"
+        ];
+        const initTimes = {
+            "id_editions_group_1": null,
+            "id_editions_group_2": null,
+            "id_editions_group_3": null
+        };
+
+        // Show loading indicator
+        document.getElementById('loading-message').style.display = 'block';
+
+        // Record initialization times for each TomSelect instance
+        function recordInitTime(id) {
+            initTimes[id] = ((performance.now() - startTime) / 1000).toFixed(2);
+        
+            // Check if all items have been initialized
+            if (Object.values(initTimes).every(time => time !== null)) {
+                // Hide loading indicator when all are done
+                document.getElementById('loading-message').style.display = 'none';
+        
+                // Record full initialization time
+                fullInitTime = ((performance.now() - startTime) / 1000).toFixed(2);
+                document.getElementById('full-init-time').textContent = `${fullInitTime} seconds`;
+            }
+        }
+
+        // Wait for DOM content to be loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Record DOM loaded time
+            domLoadedTime = ((performance.now() - startTime) / 1000).toFixed(2);
+            document.getElementById('dom-loaded-time').textContent = `${domLoadedTime} seconds`;
+
+            // Monitor TomSelect initialization
+            const checkTomSelect = setInterval(function() {
+                let allInitialized = true;
+
+                selectIds.forEach(id => {
+                    const select = document.getElementById(id);
+                    if (select && select.tomselect && !initTimes[id]) {
+                        // This select has been initialized, record the time
+                        recordInitTime(id);
+                    } else if (select && !select.tomselect) {
+                        // This select hasn't been initialized yet
+                        allInitialized = false;
+                    }
+                });
+
+                // If all selects are initialized, stop checking
+                if (allInitialized) {
+                    clearInterval(checkTomSelect);
+                }
+            }, 100);
+        });
+    </script>
+{% endblock %}

@@ -1,15 +1,17 @@
 """Form widgets for the django-tomselect package."""
 
 import json
-from typing import Any
+from typing import Any, Callable, cast
 
 from django import forms
-from django.urls import NoReverseMatch, resolve, reverse, reverse_lazy
+from django.db.models import Model, QuerySet
+from django.forms.renderers import BaseRenderer
+from django.http import HttpRequest
+from django.urls import NoReverseMatch, reverse, reverse_lazy
 from django.utils.html import escape
 
 from django_tomselect.app_settings import (
     GLOBAL_DEFAULT_CONFIG,
-    PROXY_REQUEST_CLASS,
     AllowedCSSFrameworks,
     TomSelectConfig,
     merge_configs,
@@ -18,16 +20,18 @@ from django_tomselect.autocompletes import (
     AutocompleteIterablesView,
     AutocompleteModelView,
 )
+from django_tomselect.lazy_utils import LazyView
 from django_tomselect.logging import package_logger
 from django_tomselect.middleware import get_current_request
+from django_tomselect.models import EmptyModel
 
 
 class TomSelectWidgetMixin:
     """Mixin to provide methods and properties for all TomSelect widgets."""
 
-    template_name = "django_tomselect/tomselect.html"
+    template_name: str = "django_tomselect/tomselect.html"
 
-    def __init__(self, config=None, **kwargs):
+    def __init__(self, config: TomSelectConfig | dict[str, Any] | None = None, **kwargs: Any) -> None:
         """Initialize shared TomSelect configuration.
 
         Args:
@@ -35,7 +39,7 @@ class TomSelectWidgetMixin:
             **kwargs: additional keyword arguments that override config values
         """
         # Merge user provided config with global defaults
-        base_config = GLOBAL_DEFAULT_CONFIG
+        base_config: TomSelectConfig = GLOBAL_DEFAULT_CONFIG
         if config is not None:
             if isinstance(config, TomSelectConfig):
                 final_config = merge_configs(base_config, config)
@@ -47,40 +51,49 @@ class TomSelectWidgetMixin:
             final_config = base_config
 
         # Set common configuration attributes
-        self.url = final_config.url
-        self.value_field = final_config.value_field
-        self.label_field = final_config.label_field
-        self.filter_by = final_config.filter_by
-        self.exclude_by = final_config.exclude_by
-        self.use_htmx = final_config.use_htmx
+        self.url: str = final_config.url
+        self.value_field: str = final_config.value_field
+        self.label_field: str = final_config.label_field
+        self.filter_by: tuple[str, str] | None = final_config.filter_by
+        self.exclude_by: tuple[str, str] | None = final_config.exclude_by
+        self.use_htmx: bool = final_config.use_htmx
 
-        self.minimum_query_length = final_config.minimum_query_length
-        self.preload = final_config.preload
-        self.highlight = final_config.highlight
-        self.open_on_focus = final_config.open_on_focus
-        self.placeholder = final_config.placeholder
-        self.max_items = final_config.max_items
-        self.max_options = final_config.max_options
-        self.css_framework = final_config.css_framework
-        self.use_minified = final_config.use_minified
-        self.close_after_select = final_config.close_after_select
-        self.hide_placeholder = final_config.hide_placeholder
-        self.load_throttle = final_config.load_throttle
-        self.loading_class = final_config.loading_class
-        self.create = final_config.create
+        self.minimum_query_length: int = final_config.minimum_query_length
+        self.preload: bool = final_config.preload
+        self.highlight: bool = final_config.highlight
+        self.hide_selected: bool = final_config.hide_selected
+        self.open_on_focus: bool = final_config.open_on_focus
+        self.placeholder: str | None = final_config.placeholder
+        self.max_items: int | None = final_config.max_items
+        self.max_options: int | None = final_config.max_options
+        self.css_framework: str = final_config.css_framework
+        self.use_minified: bool = final_config.use_minified
+        self.close_after_select: bool = final_config.close_after_select
+        self.hide_placeholder: bool = final_config.hide_placeholder
+        self.load_throttle: int = final_config.load_throttle
+        self.loading_class: str = final_config.loading_class
+        self.create: bool = final_config.create
 
         # Initialize plugin configurations
-        self.plugin_checkbox_options = final_config.plugin_checkbox_options
-        self.plugin_clear_button = final_config.plugin_clear_button
-        self.plugin_dropdown_header = final_config.plugin_dropdown_header
-        self.plugin_dropdown_footer = final_config.plugin_dropdown_footer
-        self.plugin_dropdown_input = final_config.plugin_dropdown_input
-        self.plugin_remove_button = final_config.plugin_remove_button
+        self.plugin_checkbox_options: Any = final_config.plugin_checkbox_options
+        self.plugin_clear_button: Any = final_config.plugin_clear_button
+        self.plugin_dropdown_header: Any = final_config.plugin_dropdown_header
+        self.plugin_dropdown_footer: Any = final_config.plugin_dropdown_footer
+        self.plugin_dropdown_input: Any = final_config.plugin_dropdown_input
+        self.plugin_remove_button: Any = final_config.plugin_remove_button
 
-        # Explicitly set self.attrs from config.attrs
-        # This is critical for attributes like data_custom_rendering to be properly passed to the widget
+        # Explicitly set self.attrs from config.attrsto ensure attributes are properly passed to the widget
         if hasattr(final_config, "attrs") and final_config.attrs:
-            self.attrs = final_config.attrs.copy()
+            self.attrs: dict[str, Any] = final_config.attrs.copy()
+
+            # Handle 'render' attribute if present
+            if "render" in self.attrs:
+                render_data = self.attrs.pop("render")
+                if isinstance(render_data, dict):
+                    if "option" in render_data:
+                        self.attrs["data_template_option"] = render_data["option"]
+                    if "item" in render_data:
+                        self.attrs["data_template_item"] = render_data["item"]
 
         # Allow kwargs to override any config values
         for key, value in kwargs.items():
@@ -98,17 +111,22 @@ class TomSelectWidgetMixin:
         name: str,
         value: Any,
         attrs: dict[str, str] | None = None,
-        renderer=None,
+        renderer: BaseRenderer | None = None,
     ) -> str:
         """Render the widget."""
         context = self.get_context(name, value, attrs)
 
-        package_logger.debug(f"Rendering TomSelect widget with context: {context} and template: {self.template_name}")
+        package_logger.debug(
+            "Rendering TomSelect widget with context: %s and template: %s using %s",
+            context,
+            self.template_name,
+            renderer,
+        )
         return self._render(self.template_name, context, renderer)
 
     def get_plugin_context(self) -> dict[str, Any]:
         """Get context for plugins."""
-        plugins = {}
+        plugins: dict[str, Any] = {}
 
         # Add plugin contexts only if plugin is enabled
         if self.plugin_clear_button:
@@ -142,24 +160,54 @@ class TomSelectWidgetMixin:
         package_logger.debug("Plugins in use: %s", ", ".join(plugins.keys() if plugins else ["None"]))
         return plugins
 
-    def get_autocomplete_url(self):
-        """Hook to specify the autocomplete URL."""
-        return self.get_url(self.url, "autocomplete URL")
+    def get_lazy_view(self) -> LazyView | None:
+        """Get lazy-loaded view for the TomSelect widget."""
+        if not hasattr(self, "_lazy_view") or self._lazy_view is None:
+            # Get current user from request if available
+            request = self.get_current_request()
+            user = getattr(request, "user", None) if request else None
 
-    def get_autocomplete_params(self):
+            # Create LazyView with the URL from config
+            self._lazy_view = LazyView(url_name=self.url, model=self.get_model(), user=user)
+        return self._lazy_view
+
+    def get_autocomplete_url(self) -> str:
+        """Hook to specify the autocomplete URL."""
+        # Special case for widgets that have a lazy view
+        if hasattr(self, "get_lazy_view") and callable(getattr(self, "get_lazy_view")):
+            lazy_view = self.get_lazy_view()
+            if lazy_view:
+                return lazy_view.get_url()
+
+        # Standard case for direct URL resolution
+        if not hasattr(self, "_cached_url"):
+            package_logger.debug("Resolving URL for the first time: %s", self.url)
+            try:
+                self._cached_url = reverse(self.url)
+                package_logger.debug("URL resolved in TomSelectWidgetMixin: %s", self._cached_url)
+            except NoReverseMatch as e:
+                package_logger.error("Could not reverse URL in TomSelectWidgetMixin:%s - %s", self.url, e)
+                raise
+        return self._cached_url
+
+    def get_autocomplete_params(self) -> str:
         """Hook to specify additional autocomplete parameters."""
-        params = []
+        params: list[str] = []
         autocomplete_view = self.get_autocomplete_view()
         if not autocomplete_view:
-            return params
+            return ""
 
         if params:
             return f"{'&'.join(params)}"
         return ""
 
-    def build_attrs(self, base_attrs, extra_attrs=None):
+    def build_attrs(self, base_attrs: dict[str, Any], extra_attrs: dict[str, Any] | None = None) -> dict[str, Any]:
         """Build HTML attributes for the widget."""
+        package_logger.debug("Building attrs with base_attrs: %s and extra_attrs: %s", base_attrs, extra_attrs)
+
         attrs = super().build_attrs(base_attrs, extra_attrs)
+
+        package_logger.debug("attrs after `super` in build_attrs: %s", attrs)
 
         # Add required data attributes
         if self.url:
@@ -181,17 +229,26 @@ class TomSelectWidgetMixin:
         if "data-template-item" in attrs:
             attrs["data-template-item"] = json.dumps(attrs["data-template-item"])
 
+        # Handle 'render' attribute if present in the input attributes
+        if "render" in attrs:
+            render_data = attrs.pop("render")
+            if isinstance(render_data, dict):
+                if "option" in render_data:
+                    attrs["data_template_option"] = render_data["option"]
+                if "item" in render_data:
+                    attrs["data_template_item"] = render_data["item"]
+
+        package_logger.debug("Returning final attrs: %s and extra_attrs: %s", attrs, extra_attrs)
         return {**attrs, **(extra_attrs or {})}
 
-    @staticmethod
-    def get_url(view_name, view_type: str = "", **kwargs):
+    def get_url(self, view_name: str, view_type: str = "", **kwargs: Any) -> str:
         """Reverse the given view name and return the path.
 
         Fail silently with logger warning if the url cannot be reversed.
         """
         if view_name:
             try:
-                return reverse_lazy(view_name, **kwargs)
+                return cast(str, reverse_lazy(view_name, **kwargs))
             except NoReverseMatch as e:
                 package_logger.warning(
                     "TomSelectIterablesWidget requires a resolvable '%s' attribute. Original error: %s",
@@ -202,7 +259,7 @@ class TomSelectWidgetMixin:
         return ""
 
     @property
-    def media(self):
+    def media(self) -> forms.Media:
         """Return the media for rendering the widget."""
         if self.css_framework.lower() == AllowedCSSFrameworks.BOOTSTRAP4.value:
             css = {
@@ -255,23 +312,25 @@ class TomSelectWidgetMixin:
 class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
     """A Tom Select widget with model object choices."""
 
-    def __init__(self, config=None, **kwargs):
+    def __init__(self, config: TomSelectConfig | dict[str, Any] | None = None, **kwargs: Any) -> None:
         """Initialize widget with model-specific attributes."""
-        self.model = None
+        self.model: type[Model] | None = None
 
         # Auth override settings
-        self.allow_anonymous = kwargs.pop("allow_anonymous", False)
-        self.skip_authorization = kwargs.pop("skip_authorization", False)
+        self.allow_anonymous: bool = kwargs.pop("allow_anonymous", False)
+        self.skip_authorization: bool = kwargs.pop("skip_authorization", False)
 
         # Initialize URL-related attributes
-        self.show_list = False
-        self.show_detail = False
-        self.show_create = False
-        self.show_update = False
-        self.show_delete = False
-        self.create_field = ""
-        self.create_filter = None
-        self.create_with_htmx = False
+        self.show_list: bool = False
+        self.show_detail: bool = False
+        self.show_create: bool = False
+        self.show_update: bool = False
+        self.show_delete: bool = False
+        self.create_field: str = ""
+        self.create_filter: Callable | None = None
+        self.create_with_htmx: bool = False
+
+        super().__init__(config=config, **kwargs)
 
         # Update from config if provided
         if config:
@@ -284,31 +343,29 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             self.create_filter = config.create_filter
             self.create_with_htmx = config.create_with_htmx
 
-        super().__init__(config=config, **kwargs)
-
-    def get_current_request(self):
+    def get_current_request(self) -> HttpRequest | None:
         """Get the current request from thread-local storage."""
         return get_current_request()
 
     def get_autocomplete_context(self) -> dict[str, Any]:
         """Get context for autocomplete functionality."""
-        autocomplete_context = {
-            "value_field": self.value_field or self.model._meta.pk.name,
-            "label_field": self.label_field or getattr(self.model, "name_field", "name"),
+        autocomplete_context: dict[str, Any] = {
+            "value_field": self.value_field or (self.model._meta.pk.name if self.model else ""),
+            "label_field": self.label_field or getattr(self.model, "name_field", "name") if self.model else "",
             "is_tabular": bool(self.plugin_dropdown_header),
             "use_htmx": self.use_htmx,
             "search_lookups": self.get_search_lookups(),
             "autocomplete_url": self.get_autocomplete_url(),
             "autocomplete_params": self.get_autocomplete_params(),
         }
-        package_logger.debug("Autocomplete context: %s", autocomplete_context)
+        package_logger.debug("Autocomplete context: %s in widget %s", autocomplete_context, self.__class__.__name__)
         return autocomplete_context
 
-    def get_permissions_context(self, autocomplete_view) -> dict[str, Any]:
+    def get_permissions_context(self, autocomplete_view: AutocompleteModelView) -> dict[str, Any]:
         """Get permission-related context for the widget."""
         request = self.get_current_request()
 
-        context = {
+        context: dict[str, Any] = {
             "can_create": autocomplete_view.has_permission(request, "create"),
             "can_view": autocomplete_view.has_permission(request, "view"),
             "can_update": autocomplete_view.has_permission(request, "update"),
@@ -326,10 +383,16 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             }
         )
 
-        package_logger.debug("Permissions context: %s", context)
+        package_logger.debug(
+            "Permissions context: %s for model %s with %s in widget %s",
+            context,
+            self.model.__class__.__name__ if self.model else None,
+            autocomplete_view,
+            self.__class__.__name__,
+        )
         return context
 
-    def get_model_url_context(self, autocomplete_view):
+    def get_model_url_context(self, autocomplete_view: AutocompleteModelView) -> dict[str, Any]:
         """Get URL-related context for a model object.
 
         We retrieve & store list and create URLs, because they are model-specific, not instance-specific.
@@ -339,7 +402,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         """
         request = self.get_current_request()
 
-        def is_valid_url(view, url_attr, permission):
+        def is_valid_url(view: AutocompleteModelView, url_attr: str, permission: str) -> bool:
             """Check if the URL attribute is valid and if the user has permission."""
             return (
                 hasattr(view, url_attr)
@@ -347,25 +410,31 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 and view.has_permission(request, permission)
             )
 
-        def get_url(view, url_attr, permission):
+        def get_url(view: AutocompleteModelView, url_attr: str, permission: str) -> str | None:
             """Get the URL for the specified attribute."""
             try:
-                return reverse(getattr(view, url_attr)) if is_valid_url(view, url_attr, permission) else None
+                if is_valid_url(view, url_attr, permission):
+                    return reverse(getattr(view, url_attr))
+                else:
+                    package_logger.warning("No valid %s URL available for model %s", url_attr, self.model)
+                    return None
             except NoReverseMatch:
                 package_logger.warning("Unable to reverse %s for model %s", url_attr, self.model)
                 return None
 
-        context = {
+        context: dict[str, Any] = {
             "view_list_url": get_url(autocomplete_view, "list_url", "view"),
             "view_create_url": get_url(autocomplete_view, "create_url", "create"),
         }
         package_logger.debug("Model URL context: %s", context)
         return context
 
-    def get_instance_url_context(self, obj, autocomplete_view):
+    def get_instance_url_context(
+        self, obj: Model | dict[str, Any], autocomplete_view: AutocompleteModelView
+    ) -> dict[str, Any]:
         """Get URL-related context for a selected object."""
         request = self.get_current_request()
-        urls = {}
+        urls: dict[str, str] = {}
 
         # If obj is a dictionary, it's likely a cleaned_data object
         if isinstance(obj, dict) or not hasattr(obj, "pk") or obj.pk is None:
@@ -408,6 +477,8 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         self.get_queryset()  # Ensure we have model info
 
         # Only include the global setup if it hasn't been rendered yet
+        autocomplete_view = self.get_autocomplete_view()
+
         request = get_current_request()
         if not getattr(request, "_tomselect_global_rendered", False):
             package_logger.debug("Rendering global TomSelect setup.")
@@ -416,32 +487,33 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 request._tomselect_global_rendered = True
 
         # Initial context without autocomplete view
-        base_context = {
+        base_context: dict[str, Any] = {
             "widget": {
-                "name": name,
-                "is_hidden": self.is_hidden,
-                "required": self.is_required,
-                "value": value,
-                "template_name": self.template_name,
-                "minimum_query_length": self.minimum_query_length,
-                "preload": self.preload,
-                "highlight": self.highlight,
-                "open_on_focus": self.open_on_focus,
-                "placeholder": self.placeholder,
-                "max_items": self.max_items,
-                "max_options": self.max_options,
+                "attrs": attrs or {},
                 "close_after_select": self.close_after_select,
-                "hide_placeholder": self.hide_placeholder,
-                "load_throttle": self.load_throttle,
-                "loading_class": self.loading_class,
                 "create": self.create,
                 "create_field": self.create_field,
                 "create_with_htmx": self.create_with_htmx,
-                "attrs": attrs or {},
+                "hide_placeholder": self.hide_placeholder,
+                "hide_selected": self.hide_selected,
+                "highlight": self.highlight,
+                "is_hidden": self.is_hidden,
                 "is_multiple": False,
-                **self.get_autocomplete_context(),
+                "load_throttle": self.load_throttle,
+                "loading_class": self.loading_class,
+                "max_items": self.max_items,
+                "max_options": self.max_options,
+                "minimum_query_length": self.minimum_query_length,
+                "name": name,
+                "open_on_focus": self.open_on_focus,
+                "placeholder": self.placeholder,
                 "plugins": self.get_plugin_context(),
+                "preload": self.preload,
+                "required": self.is_required,
                 "selected_options": [],
+                "template_name": self.template_name,
+                "value": value,
+                **self.get_autocomplete_context(),
             }
         }
 
@@ -464,15 +536,13 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 }
             )
 
-        autocomplete_view = self.get_autocomplete_view()
-        request = self.get_current_request()
         if not autocomplete_view or not request or not self.validate_request(request):
             package_logger.warning("Autocomplete view or request not available, returning base context")
             return base_context
 
         # Build full context with autocomplete view
         attrs = self.build_attrs(self.attrs, attrs)
-        context = {
+        context: dict[str, Any] = {
             "widget": {
                 **base_context["widget"],
                 "attrs": attrs,
@@ -489,36 +559,32 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 pk__in=[value] if not isinstance(value, (list, tuple)) else value
             )
 
-            selected = []
+            selected: list[dict[str, Any]] = []
             for obj in selected_objects:
                 # Handle the case where obj is a dictionary (e.g., cleaned_data)
                 if isinstance(obj, dict):
-                    opt = {
+                    opt: dict[str, str] = {
                         "value": str(obj.get("pk", "")),
                         "label": self.get_label_for_object(obj, autocomplete_view),
                     }
-                    # Safely add URLs with proper escaping
-                    for url_type in ["detail_url", "update_url", "delete_url"]:
-                        url = self.get_instance_url_context(obj, autocomplete_view).get(url_type)
-                        if url:
-                            opt[url_type] = escape(url)
                 else:
                     opt = {
                         "value": str(obj.pk),
                         "label": self.get_label_for_object(obj, autocomplete_view),
                     }
-                    # Safely add URLs with proper escaping
-                    for url_type in ["detail_url", "update_url", "delete_url"]:
-                        url = self.get_instance_url_context(obj, autocomplete_view).get(url_type)
-                        if url:
-                            opt[url_type] = escape(url)
+
+                # Safely add URLs with proper escaping
+                for url_type in ["detail_url", "update_url", "delete_url"]:
+                    url = self.get_instance_url_context(obj, autocomplete_view).get(url_type)
+                    if url:
+                        opt[url_type] = escape(url)
                 selected.append(opt)
 
             context["widget"]["selected_options"] = selected
 
         return context
 
-    def get_label_for_object(self, obj, autocomplete_view):
+    def get_label_for_object(self, obj: Model | dict[str, Any], autocomplete_view: AutocompleteModelView) -> str:
         """Get the label for an object using the configured label field."""
         label_field = self.label_field
         try:
@@ -537,17 +603,23 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         return escape(label_for_object)
 
-    def get_model(self):
+    def get_model(self) -> type[Model] | None:
         """Get model from field's choices or queryset."""
-        if hasattr(self.choices, "queryset"):
-            return self.choices.queryset.model
+        model = None
+        if hasattr(self.choices, "queryset") and hasattr(self.choices.queryset, "model"):
+            model = self.choices.queryset.model
         elif hasattr(self.choices, "model"):
-            return self.choices.model
+            model = self.choices.model
         elif isinstance(self.choices, list) and self.choices:
-            return None
-        return None
+            model = None
+        package_logger.debug(
+            "Model retrieved in %s: %s",
+            self.__class__.__name__,
+            model.__class__.__name__ if model else "None. Returning None",
+        )
+        return model or None
 
-    def validate_request(self, request) -> bool:
+    def validate_request(self, request: Any) -> bool:
         """Validate that a request object is valid for permission checking."""
         if not request:
             package_logger.warning("Request object is missing.")
@@ -574,82 +646,88 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         package_logger.debug("Request object is valid.")
         return True
 
-    def get_autocomplete_view(self):
+    def get_autocomplete_view(self) -> AutocompleteModelView | None:
         """Get instance of autocomplete view for accessing queryset and search_lookups."""
-        self.model = self.get_model()
+        lazy_view = self.get_lazy_view()
+        if lazy_view:
+            view = lazy_view.get_view()
+            self.model = lazy_view.get_model()
+            package_logger.debug("Lazy view model: %s", self.model)
+            if not self.model:
+                package_logger.warning("Model is not a valid Django model.")
+                return None
+            if not isinstance(view, AutocompleteModelView):
+                package_logger.warning("View is not an instance of AutocompleteModelView.")
+                return None
 
-        # Get request from thread-local storage
-        request = self.get_current_request()
-        user = None
-        if self.validate_request(request):
-            user = request.user
-        else:
-            package_logger.warning(
-                "Invalid or missing request object when creating proxy request. " "Permissions will be restricted."
-            )
+            # Add label_field to value_fields if needed
+            if view and self.label_field and self.label_field not in view.value_fields:
+                package_logger.warning(
+                    "Label field '%s' is not in the autocomplete view's value_fields. "
+                    "This may result in 'undefined' labels.",
+                    self.label_field,
+                )
+                view.value_fields.append(self.label_field)
 
-        proxy_request = PROXY_REQUEST_CLASS(model=self.model, user=user)
+                # Check if it's a model field
+                if self.model is not None:
+                    try:
+                        model_fields = [f.name for f in self.model._meta.fields]
+                        is_related_field = "__" in self.label_field  # Allow double-underscore pattern
 
-        autocomplete_view = resolve(self.get_autocomplete_url()).func.view_class()
-        if not issubclass(autocomplete_view.__class__, AutocompleteModelView):
-            raise ValueError(
-                "The autocomplete view for a model-type Tom Select widget must be a subclass of AutocompleteModelView"
-            )
+                        # If it's not a real field or relation, add to virtual_fields
+                        if not (self.label_field in model_fields or is_related_field):
+                            # Initialize virtual_fields if needed
+                            if not hasattr(view, "virtual_fields"):
+                                view.virtual_fields = []
 
-        autocomplete_view.setup(model=self.model, request=proxy_request)
+                            # Add to virtual_fields
+                            if self.label_field not in view.virtual_fields:
+                                view.virtual_fields.append(self.label_field)
+                                package_logger.info(
+                                    "Label field '%s' added to virtual_fields: %s",
+                                    self.label_field,
+                                    view.virtual_fields,
+                                )
+                    except (AttributeError, TypeError):
+                        # Cases where model is None or doesn't have _meta
+                        pass
 
-        # Apply widget-level auth settings to override view settings
-        if hasattr(self, "allow_anonymous"):
-            autocomplete_view.allow_anonymous = self.allow_anonymous
-        if hasattr(self, "skip_authorization"):
-            autocomplete_view.skip_authorization = self.skip_authorization
+            return view
+        return None
 
-        # Validate label_field is in value_fields
-        if self.label_field and self.label_field not in autocomplete_view.value_fields:
-            package_logger.warning(
-                f"Label field '{self.label_field}' is not in the autocomplete view's value_fields. "
-                f"This may result in 'undefined' labels."
-            )
-            # Automatically add it to value_fields
-            autocomplete_view.value_fields.append(self.label_field)
-
-            # Check if it's a model field
-            if self.model is not None:
-                try:
-                    model_fields = [f.name for f in self.model._meta.fields]
-                    is_related_field = "__" in self.label_field  # Allow double-underscore pattern
-
-                    # If it's not a real field or relation, add to virtual_fields
-                    if not (self.label_field in model_fields or is_related_field):
-                        # Initialize virtual_fields if needed
-                        if not hasattr(autocomplete_view, "virtual_fields"):
-                            autocomplete_view.virtual_fields = []
-
-                        # Add to virtual_fields
-                        if self.label_field not in autocomplete_view.virtual_fields:
-                            autocomplete_view.virtual_fields.append(self.label_field)
-                            package_logger.info(
-                                f"Label field '{self.label_field}' is not a model field. "
-                                f"Added to virtual_fields to prevent database query errors."
-                            )
-                except (AttributeError, TypeError):
-                    # Handle cases where model is None or doesn't have _meta
-                    pass
-
-        package_logger.debug("Autocomplete view set up: %s", autocomplete_view)
-        return autocomplete_view
-
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet | None:
         """Get queryset from autocomplete view."""
-        autocomplete_view = self.get_autocomplete_view()
-        return autocomplete_view.get_queryset()
+        try:
+            lazy_view = self.get_lazy_view()
+            if lazy_view:
+                queryset = lazy_view.get_queryset()
+                if queryset is not None:
+                    return queryset
 
-    def get_search_lookups(self):
+            # If we reach here, we need a fallback queryset
+            model = self.get_model()
+
+            # Explicitly check if model is a valid Django model with objects manager
+            if model and hasattr(model, "_meta") and hasattr(model, "objects"):
+                package_logger.warning("Using fallback empty queryset for model %s", model)
+                return model.objects.none()
+
+            package_logger.warning("Using EmptyModel.objects.none() as last resort")
+            return EmptyModel.objects.none()
+        except Exception as e:
+            # If anything fails, return an empty EmptyModel queryset
+            package_logger.error("Error in get_queryset: %s, falling back to EmptyModel.objects.none()", e)
+            return EmptyModel.objects.none()
+
+    def get_search_lookups(self) -> list[str]:
         """Get search lookups from autocomplete view."""
         autocomplete_view = self.get_autocomplete_view()
-        lookups = autocomplete_view.search_lookups
-        package_logger.debug("Search lookups: %s", lookups)
-        return lookups
+        if autocomplete_view:
+            lookups = autocomplete_view.search_lookups
+            package_logger.debug("Search lookups: %s", lookups)
+            return lookups
+        return []
 
 
 class TomSelectModelMultipleWidget(TomSelectModelWidget, forms.SelectMultiple):
@@ -661,7 +739,7 @@ class TomSelectModelMultipleWidget(TomSelectModelWidget, forms.SelectMultiple):
         context["widget"]["is_multiple"] = True
         return context
 
-    def build_attrs(self, base_attrs, extra_attrs=None):
+    def build_attrs(self, base_attrs: dict[str, Any], extra_attrs: dict[str, Any] | None = None) -> dict[str, Any]:
         """Build HTML attributes for the widget."""
         attrs = super().build_attrs(base_attrs, extra_attrs)
         attrs["is-multiple"] = True
@@ -671,13 +749,13 @@ class TomSelectModelMultipleWidget(TomSelectModelWidget, forms.SelectMultiple):
 class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
     """A Tom Select widget with iterables, TextChoices, or IntegerChoices choices."""
 
-    def set_request(self, request):
+    def set_request(self, request: HttpRequest) -> None:
         """Iterables do not require a request object."""
         package_logger.warning("Request object is not required for iterables-type Tom Select widgets.")
 
     def get_autocomplete_context(self) -> dict[str, Any]:
         """Get context for autocomplete functionality."""
-        autocomplete_context = {
+        autocomplete_context: dict[str, Any] = {
             "value_field": self.value_field,
             "label_field": self.label_field,
             "is_tabular": bool(self.plugin_dropdown_header),
@@ -698,29 +776,30 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                 request._tomselect_global_rendered = True
 
         attrs = self.build_attrs(self.attrs, attrs)
-        context = {
+        context: dict[str, Any] = {
             "widget": {
-                "name": name,
-                "is_hidden": self.is_hidden,
-                "required": self.is_required,
-                "value": value,
-                "template_name": self.template_name,
-                "minimum_query_length": self.minimum_query_length,
-                "preload": self.preload,
-                "highlight": self.highlight,
-                "open_on_focus": self.open_on_focus,
-                "placeholder": self.placeholder,
-                "max_items": self.max_items,
-                "max_options": self.max_options,
+                "attrs": attrs,
                 "close_after_select": self.close_after_select,
+                "create": self.create,
                 "hide_placeholder": self.hide_placeholder,
+                "hide_selected": self.hide_selected,
+                "highlight": self.highlight,
+                "is_hidden": self.is_hidden,
+                "is_multiple": False,
                 "load_throttle": self.load_throttle,
                 "loading_class": self.loading_class,
-                "create": self.create,
-                "attrs": attrs,
-                "is_multiple": False,
-                **self.get_autocomplete_context(),
+                "max_items": self.max_items,
+                "max_options": self.max_options,
+                "minimum_query_length": self.minimum_query_length,
+                "name": name,
+                "open_on_focus": self.open_on_focus,
+                "placeholder": self.placeholder,
                 "plugins": self.get_plugin_context(),
+                "preload": self.preload,
+                "required": self.is_required,
+                "template_name": self.template_name,
+                "value": value,
+                **self.get_autocomplete_context(),
             }
         }
 
@@ -732,7 +811,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                 if isinstance(autocomplete_view.iterable, type) and hasattr(autocomplete_view.iterable, "choices"):
                     # TextChoices/IntegerChoices
                     values = [value] if not isinstance(value, (list, tuple)) else value
-                    selected = []
+                    selected: list[dict[str, str]] = []
                     for val in values:
                         for (
                             choice_value,
@@ -770,39 +849,42 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
 
         return context
 
-    def get_autocomplete_view(self):
-        """Get instance of autocomplete view for accessing iterable."""
-        proxy_request = PROXY_REQUEST_CLASS()
+    def get_lazy_view(self) -> LazyView | None:
+        """Get lazy-loaded view for the TomSelect iterables widget."""
+        if not hasattr(self, "_lazy_view") or self._lazy_view is None:
+            # Create LazyView with the URL from config
+            self._lazy_view = LazyView(url_name=self.url)
+        return self._lazy_view
 
-        try:
-            autocomplete_view = resolve(self.get_autocomplete_url()).func.view_class()
-            autocomplete_view.setup(request=proxy_request)
+    def get_autocomplete_view(self) -> AutocompleteIterablesView | None:
+        """Get instance of autocomplete view for accessing iterable."""
+        lazy_view = self.get_lazy_view()
+        if lazy_view:
+            view = lazy_view.get_view()
 
             # Check if view has get_iterable method
-            if hasattr(autocomplete_view, "get_iterable"):
-                package_logger.debug("Autocomplete view set up: %s", autocomplete_view)
-                return autocomplete_view
+            if view and hasattr(view, "get_iterable"):
+                return view
 
             # If not iterables view but has get_iterable, it's compatible
-            if not issubclass(autocomplete_view.__class__, AutocompleteIterablesView):
-                if not hasattr(autocomplete_view, "get_iterable"):
+            if view and not issubclass(view.__class__, AutocompleteIterablesView):
+                if not hasattr(view, "get_iterable"):
                     raise ValueError(
                         "The autocomplete view must either be a subclass of "
                         "AutocompleteIterablesView or implement get_iterable()"
                     )
-            package_logger.debug("Autocomplete view set up: %s", autocomplete_view)
-            return autocomplete_view
+            return view
 
-        except Exception as e:
-            package_logger.error("Error setting up autocomplete view: %s", e)
-            raise
+        return None
 
-    def get_iterable(self):
+    def get_iterable(self) -> list | tuple | type:
         """Get iterable or choices from autocomplete view."""
         autocomplete_view = self.get_autocomplete_view()
-        iterable = autocomplete_view.get_iterable()
-        package_logger.debug("Iterable: %s", iterable)
-        return iterable
+        if autocomplete_view:
+            iterable = autocomplete_view.get_iterable()
+            package_logger.debug("Iterable: %s", iterable)
+            return iterable
+        return []
 
 
 class TomSelectIterablesMultipleWidget(TomSelectIterablesWidget, forms.SelectMultiple):
@@ -814,7 +896,7 @@ class TomSelectIterablesMultipleWidget(TomSelectIterablesWidget, forms.SelectMul
         context["widget"]["is_multiple"] = True
         return context
 
-    def build_attrs(self, base_attrs, extra_attrs=None):
+    def build_attrs(self, base_attrs: dict[str, Any], extra_attrs: dict[str, Any] | None = None) -> dict[str, Any]:
         """Build HTML attributes for the widget."""
         attrs = super().build_attrs(base_attrs, extra_attrs)
         attrs["is-multiple"] = True

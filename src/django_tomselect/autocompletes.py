@@ -1,14 +1,15 @@
 """Views for handling queries from django-tomselect widgets."""
 
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import unquote
 
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import FieldError, PermissionDenied
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Model, Q, QuerySet
-from django.http import JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.urls import NoReverseMatch, reverse
 from django.views.generic import View
 
@@ -17,6 +18,9 @@ from django_tomselect.constants import EXCLUDEBY_VAR, FILTERBY_VAR, PAGE_VAR, SE
 from django_tomselect.logging import package_logger
 from django_tomselect.models import EmptyModel
 from django_tomselect.utils import safe_url, sanitize_dict
+
+T = TypeVar("T", bound=Model)
+IterableType = list[Any] | tuple[Any, ...] | dict[Any, Any] | type
 
 
 class AutocompleteModelView(View):
@@ -27,7 +31,7 @@ class AutocompleteModelView(View):
 
     model: type[Model] | None = None
     search_lookups: list[str] = []
-    ordering: str | list[str] | tuple[str] | None = None
+    ordering: str | list[str] | tuple[str, ...] | None = None
     page_size: int = 20
     value_fields: list[str] = []
     virtual_fields: list[str] = []
@@ -39,15 +43,23 @@ class AutocompleteModelView(View):
     delete_url: str | None = None  # URL name for delete view
 
     # Permission settings
-    permission_required = None  # Single permission or tuple of permissions required
-    allow_anonymous = False  # Whether to allow unauthenticated users
-    skip_authorization = False  # Whether to skip all permission checks
+    permission_required: str | list[str] | tuple[str, ...] | None = None
+    allow_anonymous: bool = False  # Whether to allow unauthenticated users
+    skip_authorization: bool = False  # Whether to skip all permission checks
 
     create_field: str = ""  # The field to create a new object with. Set by the request.
-    q: str = ""  # The search term. Set by the request.
+
+    # Instance variables
+    request: HttpRequest | Any
+    user: User | AnonymousUser | None
+    query: str
+    page: str | int
+    filter_by: str | None
+    exclude_by: str | None
+    ordering_from_request: str | None
 
     @classmethod
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         """Initialize subclass with default value_fields if not already set."""
         # Check if the subclass has its own value_fields list
         # If not, create a new list object to avoid shared state across subclasses
@@ -59,11 +71,20 @@ class AutocompleteModelView(View):
             cls.virtual_fields = []
         super().__init_subclass__(**kwargs)
 
-    def setup(self, request, *args, **kwargs):
+    def setup(self, request: HttpRequest | Any, *args: Any, **kwargs: Any) -> None:
         """Set up the view with request parameters."""
+        # Save class-level auth settings before calling super()
+        skip_auth = getattr(self.__class__, "skip_authorization", False) or getattr(self, "skip_authorization", False)
+        allow_anon = getattr(self.__class__, "allow_anonymous", False) or getattr(self, "allow_anonymous", False)
+
         super().setup(request, *args, **kwargs)
+
         self.request = request
         self.user = getattr(request, "user", None)
+
+        # Explicitly set instance attributes from class attributes to prevent them from being overridden
+        self.skip_authorization = skip_auth
+        self.allow_anonymous = allow_anon
 
         if self.model is None:
             self.model = kwargs.get("model")
@@ -73,8 +94,8 @@ class AutocompleteModelView(View):
                 raise ValueError("Model must be specified")
 
             if not (isinstance(self.model, type) and issubclass(self.model, Model)):
-                package_logger.error("Unknown model type specified in AutocompleteModelView")
-                raise ValueError("Unknown model type specified in AutocompleteModelView")
+                package_logger.error("Unknown model type specified in %s", self.__class__.__name__)
+                raise ValueError("Unknown model type specified in %s" % self.__class__.__name__)
 
             kwargs.pop("model", None)
 
@@ -94,9 +115,9 @@ class AutocompleteModelView(View):
         except (ValueError, TypeError):
             pass  # Keep default page_size for invalid values
 
-        package_logger.debug("AutocompleteModelView setup complete")
+        package_logger.debug("%s setup complete", self.__class__.__name__)
 
-    def hook_queryset(self, queryset: QuerySet) -> QuerySet:
+    def hook_queryset(self, queryset: QuerySet[T]) -> QuerySet[T]:
         """Hook to allow for additional queryset manipulation before filtering, searching, and ordering.
 
         For example, this could be used to prefetch related objects or add annotations that will later be used in
@@ -171,11 +192,17 @@ class AutocompleteModelView(View):
         if not query or not self.search_lookups:
             return queryset
 
-        q_objects = Q()
-        for lookup in self.search_lookups:
-            q_objects |= Q(**{lookup: query})
-        package_logger.debug("Applying search query %s", q_objects)
-        return queryset.filter(q_objects)
+        try:
+            q_objects = Q()
+            for lookup in self.search_lookups:
+                q_objects |= Q(**{lookup: query})
+            package_logger.debug("Applying search query %s", q_objects)
+            return queryset.filter(q_objects)
+        except FieldError:
+            package_logger.warning("Invalid search lookup field in %s", self.search_lookups)
+        except Exception as e:
+            package_logger.error("Error applying search query: %s", str(e))
+        return queryset
 
     def order_queryset(self, queryset: QuerySet) -> QuerySet:
         """Apply ordering to the queryset.
@@ -200,10 +227,16 @@ class AutocompleteModelView(View):
         if not ordering:
             return queryset
 
-        package_logger.debug("Applying ordering %s", ordering)
-        return queryset.order_by(*ordering)
+        try:
+            package_logger.debug("Applying ordering %s", ordering)
+            return queryset.order_by(*ordering)
+        except FieldError:
+            package_logger.warning("Invalid ordering field in %s", ordering)
+        except Exception as e:
+            package_logger.error("Error applying ordering: %s", str(e))
+        return queryset
 
-    def paginate_queryset(self, queryset) -> dict[str, Any]:
+    def paginate_queryset(self, queryset: QuerySet) -> dict[str, Any]:
         """Paginate the queryset with improved page handling."""
         try:
             page_number = int(self.page)
@@ -255,7 +288,7 @@ class AutocompleteModelView(View):
         This method:
         1. Gets values for specified fields
         2. Ensures each result has an 'id' key
-        3. Adds update/delete URLs if configured
+        3. Adds view/update/delete URLs if configured
         4. Calls hook_prepare_results for any custom processing
 
         Important: This method should not reorder results, as order is already established by order_queryset.
@@ -315,7 +348,7 @@ class AutocompleteModelView(View):
         """
         return results
 
-    def get_permission_required(self):
+    def get_permission_required(self) -> list[str]:
         """Get the permissions required for this view.
 
         If permission_required is None, no permissions are required.
@@ -327,29 +360,40 @@ class AutocompleteModelView(View):
         if isinstance(self.permission_required, str):
             return [self.permission_required]
 
-        return self.permission_required or []
+        return list(self.permission_required) if self.permission_required else []
 
     @cache_permission
-    def has_permission(self, request, action="view"):
+    def has_permission(self, request: HttpRequest | Any, action: str = "view") -> bool:
         """Check if user has all required permissions.
 
         Supports custom auth backends via Django's auth system.
         """
-        # Skip all checks if configured to do so
-        if self.skip_authorization:
+        if hasattr(request, "user"):
+            self.user = request.user
+
+        # Get directly from instance first, not from class
+        skip_auth = getattr(self.__class__, "skip_authorization", False) or getattr(self, "skip_authorization", False)
+        allow_anon = getattr(self.__class__, "allow_anonymous", False) or getattr(self, "allow_anonymous", False)
+
+        # Check for authorization bypass first
+        if skip_auth is True:
+            package_logger.debug("Skipping authorization checks due to skip_authorization=True")
             return True
 
-        # Allow anonymous access if configured
-        if self.allow_anonymous:
+        # Then check anonymous access
+        if allow_anon is True:
+            package_logger.debug("Allowing anonymous access due to allow_anonymous=True")
             return True
 
-        # Otherwise use standard permission checking
+        # Standard auth checks
         if not self.user or not self.user.is_authenticated:
+            package_logger.debug("User is not authenticated in %s", self.__class__.__name__)
             return False
 
         # Get base permissions
         perms = self.get_permission_required()
         if not perms:  # No permissions required
+            package_logger.debug("No permissions required in %s", self.__class__.__name__)
             return True
 
         # Handle both string and iterable permission_required
@@ -360,19 +404,19 @@ class AutocompleteModelView(View):
 
         # Add action-specific permissions
         opts = self.model._meta
-        if action == "create" and self.create_url:
+        if action == "create" and getattr(self.__class__, "create_url", ""):
             perms.append(f"{opts.app_label}.add_{opts.model_name}")
-        elif action == "update" and self.update_url:
+        elif action == "update" and getattr(self.__class__, "update_url", ""):
             perms.append(f"{opts.app_label}.change_{opts.model_name}")
-        elif action == "delete" and self.delete_url:
+        elif action == "delete" and getattr(self.__class__, "delete_url", ""):
             perms.append(f"{opts.app_label}.delete_{opts.model_name}")
 
         # Check permissions using auth backend
         has_perms = self.user.has_perms(perms)
-        package_logger.debug("Checking permissions %s", has_perms)
+        package_logger.debug("User has permissions '%s'? %s", perms, has_perms)
         return has_perms
 
-    def has_object_permission(self, request, obj, action="view"):
+    def has_object_permission(self, request: HttpRequest | Any, obj: Model, action: str = "view") -> bool:
         """Check object-level permissions.
 
         Can be overridden for custom object-level permissions.
@@ -385,7 +429,7 @@ class AutocompleteModelView(View):
         package_logger.debug("Using default object-level permission handler")
         return True
 
-    def has_add_permission(self, request) -> bool:
+    def has_add_permission(self, request: HttpRequest | Any) -> bool:
         """Check if the user has permission to add objects."""
         if not self.user.is_authenticated:
             return False
@@ -395,9 +439,9 @@ class AutocompleteModelView(View):
         return self.user.has_perm(f"{opts.app_label}.{codename}")
 
     @classmethod
-    def invalidate_permissions(cls, user=None):
-        """
-        Invalidate cached permissions.
+    def invalidate_permissions(cls, user: User | None = None) -> None:
+        """Invalidate cached permissions.
+
         If user is provided, only invalidate that user's permissions.
         """
         if user is not None:
@@ -406,14 +450,13 @@ class AutocompleteModelView(View):
             permission_cache.invalidate_all()
         package_logger.debug("Invalidated permissions cache")
 
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         """Check permissions before dispatching request."""
-        if not self.has_permission(request):
-            if not self.allow_anonymous:
-                raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
+        if self.has_permission(request) or self.allow_anonymous:
+            return super().dispatch(request, *args, **kwargs)
+        raise PermissionDenied("Permission denied. Cannot dispatch request. User does not have required permissions.")
 
-    def handle_no_permission(self, request):
+    def handle_no_permission(self, request: HttpRequest) -> HttpResponse:
         """Handle cases where permission is denied.
 
         Can be overridden to customize behavior.
@@ -421,9 +464,9 @@ class AutocompleteModelView(View):
         if not self.user.is_authenticated:
             package_logger.warning("User is not authenticated. Redirecting to login.")
             return redirect_to_login(request.get_full_path())
-        raise PermissionDenied
+        raise PermissionDenied("Permission denied. User does not have any required permissions.")
 
-    def get(self, request, *args, **kwargs) -> JsonResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle GET requests."""
         package_logger.debug("Handling GET request")
         try:
@@ -449,7 +492,7 @@ class AutocompleteModelView(View):
 
             return JsonResponse(empty_response, status=200)
 
-    def post(self, request, *args, **kwargs) -> JsonResponse:
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
         package_logger.debug("Handling POST request")
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -458,10 +501,14 @@ class AutocompleteModelView(View):
 class AutocompleteIterablesView(View):
     """Autocomplete view for iterables and django choices classes."""
 
-    iterable = None
+    iterable: IterableType | None = None
     page_size: int = 20
 
-    def setup(self, request, *args, **kwargs):
+    # Instance variables
+    query: str
+    page: str | int
+
+    def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> None:
         """Set up the view with request parameters."""
         super().setup(request, *args, **kwargs)
 
@@ -556,7 +603,7 @@ class AutocompleteIterablesView(View):
             "next_page": page_number + 1 if has_more else None,
         }
 
-    def get(self, request, *args, **kwargs) -> JsonResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle GET requests."""
         package_logger.debug("Handling GET request")
         if self.iterable is None:
@@ -583,7 +630,7 @@ class AutocompleteIterablesView(View):
 
             return JsonResponse(empty_response, status=200)
 
-    def post(self, request, *args, **kwargs) -> JsonResponse:
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
         package_logger.debug("Handling POST request")
         return JsonResponse({"error": "Method not allowed"}, status=405)

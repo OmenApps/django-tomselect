@@ -66,6 +66,7 @@ class BookAutocomplete(AutocompleteModelView):
     page_size = 20
     # Important: Include any fields you'll use as label_field in the widget
     value_fields = ['id', 'title', 'author__name']
+    virtual_fields = ['computed_field']  # Fields that should not be queried from the database
 ```
 
 #### URL Configuration
@@ -151,9 +152,12 @@ class AuthorAutocomplete(AutocompleteModelView):
         'profile_picture',   # Optional additional field
         'books__count',      # Can include annotations
     ]
+    virtual_fields = [
+        'books__count',      # Computed or annotated fields
+    ]
 ```
 
-⚠️ **Important**: Always include the field specified as `label_field` in your widget configuration. If a field is used as `label_field` but not included in `value_fields`, labels could display as "undefined" in the widget.
+⚠️ **Important**: The `value_fields` attribute should include all fields you need in your results, but for fields that don't exist in the database (computed properties, annotations added later, etc.), add them to `virtual_fields` to prevent database query errors. The widget will automatically add your `label_field` to `value_fields` and detect if it should be in `virtual_fields`.
 
 For example, if your widget uses:
 ```python
@@ -167,10 +171,15 @@ Use `hook_queryset` to optimize or customize the queryset:
 
 ```python
 def hook_queryset(self, queryset):
+    """Customize the base queryset before filtering and searching.
+
+    This is the ideal place to add select_related, prefetch_related,
+    or annotations that should apply to all results.
+    """
     return queryset.select_related('publisher')\
-                  .prefetch_related('categories')\
-                  .annotate(book_count=Count('books'))\
-                  .filter(is_active=True)
+                   .prefetch_related('categories')\
+                   .annotate(book_count=Count('books'))\
+                   .filter(is_active=True)
 ```
 
 4. **Permission Handling**
@@ -337,9 +346,12 @@ Both view types return JSON responses in this format:
         {
             "id": "1",
             "name": "Example Item",
+            "can_view": true,    # Permission flags for the current user
+            "can_update": true,
+            "can_delete": false,
             "detail_url": "/items/1/",
             "update_url": "/items/1/update/",
-            "delete_url": "/items/1/delete/",
+            # No delete_url since can_delete is false
             # ... additional fields from hook_prepare_results
         }
     ],
@@ -385,6 +397,14 @@ AutocompleteModelView.invalidate_permissions()
 ```
 
 ## Security Considerations
+
+The package already includes built-in protections:
+
+1. All user-provided values are automatically escaped using Django's `escape()` function
+2. URLs are sanitized through the `safe_url()` utility which prevents unsafe schemes
+3. Dictionary values are recursively sanitized via the `sanitize_dict()` utility
+
+These protections work together to prevent XSS vulnerabilities when customizing rendering templates.
 
 When creating custom templates and renderers for Tom Select widgets, always ensure proper escaping of user-provided values:
 

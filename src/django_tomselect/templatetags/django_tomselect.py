@@ -49,7 +49,7 @@ def to_static_url(path: str) -> str:
             return path
         return static(path)
     except Exception as e:
-        package_logger.error(f"Error converting path '{path}' to static URL: {e}")
+        package_logger.error("Error converting path '%s' to static URL: %s", path, e)
         # Return an empty string or the original path as fallback
         return path
 
@@ -77,20 +77,21 @@ def get_widget_with_config(
                 try:
                     framework = AllowedCSSFrameworks(css_framework.lower()).value
                     widget.css_framework = framework
-                    package_logger.debug(f"Using CSS framework: {framework}")
+                    package_logger.debug("Using CSS framework: %s", framework)
                 except ValueError:
                     package_logger.warning(
-                        f"Invalid CSS framework specified: '{css_framework}'. "
-                        f"Using default framework: {widget.css_framework}"
+                        "Invalid CSS framework specified: '%s'Using default framework: %s",
+                        css_framework,
+                        widget.css_framework,
                     )
 
             if use_minified is not None:
                 widget.use_minified = use_minified
-                package_logger.debug(f"Using minified assets: {use_minified}")
+                package_logger.debug("Using minified assets: %s", use_minified)
 
         return widget
     except Exception as e:
-        package_logger.error(f"Error creating widget with config: {e}")
+        package_logger.error("Error creating widget with config: %s", e)
         # Return a default widget as fallback
         return TomSelectIterablesWidget()
 
@@ -124,7 +125,7 @@ def render_css_links(css_dict: dict) -> str:
 
         return "\n".join(links)
     except Exception as e:
-        package_logger.error(f"Error rendering CSS links: {e}")
+        package_logger.error("Error rendering CSS links: %s", e)
         return ""
 
 
@@ -152,7 +153,7 @@ def render_js_scripts(js_list: list) -> str:
 
         return "\n".join(scripts)
     except Exception as e:
-        package_logger.error(f"Error rendering JS scripts: {e}")
+        package_logger.error("Error rendering JS scripts: %s", e)
         return ""
 
 
@@ -187,11 +188,13 @@ def tomselect_media(css_framework: str | None = None, use_minified: bool | None 
             result += js_html
 
         package_logger.debug(
-            f"Generated tomselect_media with css_framework={css_framework}, use_minified={use_minified}"
+            "Generated tomselect_media with css_framework: %s, use_minified: %s",
+            css_framework,
+            use_minified,
         )
         return mark_safe(result)
     except Exception as e:
-        package_logger.error(f"Error in tomselect_media: {e}")
+        package_logger.error("Error in tomselect_media: %s", e)
         return mark_safe("<!-- Error loading TomSelect media -->")
 
 
@@ -218,11 +221,13 @@ def tomselect_media_css(css_framework: str | None = None, use_minified: bool | N
         css_html = render_css_links(widget.media._css)
 
         package_logger.debug(
-            f"Generated tomselect_media_css with css_framework={css_framework}, use_minified={use_minified}"
+            "Generated tomselect_media_css with css_framework: %s, use_minified: %s",
+            css_framework,
+            use_minified,
         )
         return mark_safe(css_html)
     except Exception as e:
-        package_logger.error(f"Error in tomselect_media_css: {e}")
+        package_logger.error("Error in tomselect_media_css: %s", e)
         return mark_safe("<!-- Error loading TomSelect CSS -->")
 
 
@@ -247,8 +252,8 @@ def tomselect_media_js(use_minified: bool | None = None) -> str:
 
         js_html = render_js_scripts(widget.media._js)
 
-        package_logger.debug(f"Generated tomselect_media_js with use_minified={use_minified}")
+        package_logger.debug("Generated tomselect_media_js with use_minified: %s", use_minified)
         return mark_safe(js_html)
     except Exception as e:
-        package_logger.error(f"Error in tomselect_media_js: {e}")
+        package_logger.error("Error in tomselect_media_js: %s", e)
         return mark_safe("<!-- Error loading TomSelect JS -->")

@@ -15,7 +15,11 @@ from django_tomselect.app_settings import (
     PluginRemoveButton,
     TomSelectConfig,
 )
-from django_tomselect.forms import TomSelectChoiceField, TomSelectModelChoiceField, TomSelectModelMultipleChoiceField
+from django_tomselect.forms import (
+    TomSelectChoiceField,
+    TomSelectModelChoiceField,
+    TomSelectModelMultipleChoiceField,
+)
 from example_project.example.models import Article
 
 category_header = PluginDropdownHeader(
@@ -225,6 +229,8 @@ class DynamicArticleForm(forms.ModelForm):
         config=TomSelectConfig(
             url="autocomplete-category",
             show_list=True,
+            show_detail=True,
+            show_delete=True,
             show_create=True,
             show_update=True,
             value_field="id",
@@ -261,18 +267,20 @@ class DynamicArticleForm(forms.ModelForm):
 
         # Set help text for fields
         self.fields["status"].help_text = "This field is backed by ArticleStatus (models.TextChoices) in models.py"
-        self.fields["priority"].help_text = (
-            "This field is backed by ArticlePriority (models.IntegerChoices) in models.py"
-        )
+        self.fields[
+            "priority"
+        ].help_text = "This field is backed by ArticlePriority (models.IntegerChoices) in models.py"
         self.fields["magazine"].help_text = "This field is backed by the Magazine model"
         if "edition" in self.fields.keys():
-            self.fields["edition"].help_text = (
+            self.fields[
+                "edition"
+            ].help_text = (
                 "This field is backed by the Edition model, and is filtered by the currently selected magazine"
             )
         self.fields["primary_author"].help_text = "This field is backed by the Author model"
-        self.fields["contributing_authors"].help_text = (
-            "This field is backed by the Author model, and excludes the current selection in primary_author"
-        )
+        self.fields[
+            "contributing_authors"
+        ].help_text = "This field is backed by the Author model, and excludes the current selection in primary_author"
         self.fields["main_category"].help_text = "This field is backed by the Category model"
         self.fields["subcategories"].help_text = (
             "This field is backed by the Category model, and is filtered by the main_category, but it only allows "
@@ -562,7 +570,7 @@ class RichArticleSelectForm(forms.Form):
             attrs={
                 "render": {
                     "option": """
-                        return `<div class="article-option">
+                        `<div class="article-option">
                             <div class="article-avatar">
                                 ${data.authors.map(author => `
                                     <div class="author-avatar" title="${escape(author.name)}">
@@ -596,7 +604,7 @@ class RichArticleSelectForm(forms.Form):
                         </div>`
                     """,
                     "item": """
-                        return `<div class="selected-article d-flex align-items-center gap-2">
+                        `<div class="selected-article d-flex align-items-center gap-2">
                             <span class="freshness-indicator freshness-${data.freshness}"></span>
                             <span class="status-badge status-${data.status.toLowerCase()}">
                                 ${escape(data.status_display)}

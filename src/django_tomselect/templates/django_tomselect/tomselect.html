@@ -1,10 +1,10 @@
 {% comment %}
 Main Tom Select template.
 
-**Context Variables:**
+Context Variables:
 - widget: Contains configuration, plugin settings, URLs, selected items, etc.
 
-**Blocks:**
+Blocks:
 - block select_element: Override to change the way the <select> is included.
 - block tomselect_init: Override to alter the TomSelect initialization logic, including event handlers, fetch calls, and callback methods.
 - block tomselect_plugins: Insert or override plugin-related JS configuration.
@@ -13,23 +13,25 @@ Main Tom Select template.
 - block tomselect_render: Define the render object for customizing the appearance of options, items, and other elements.
 - block tomselect_extra_js: Add custom JS at the end of initialization.
 
-**Overriding Example:**
+Overriding Example:
 To override only the plugin configuration, you might create:
 `django_tomselect/tomselect.html`:
 
-{% block tomselect_plugins %}
-    // Your custom plugin code here
-{% endblock tomselect_plugins %}
+    {% block tomselect_plugins %}
+        // Your custom plugin code here
+    {% endblock tomselect_plugins %}
+
 This will append your changes to the default configuration.
 
 To completely replace initialization logic, you could:
-{% block tomselect_init %}
-    // Your entirely custom initialization code here
-{% endblock tomselect_init %}
+
+    {% block tomselect_init %}
+        // Your entirely custom initialization code here
+    {% endblock tomselect_init %}
+
 This will replace the original code block if you use `{% block ... %}{% endblock ... %}` without super.
 
 You can also extend and call `{{ block.super }}` to augment existing logic.
-
 {% endcomment %}
 
 {% load i18n %}
@@ -54,24 +56,56 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
             const resetVarName = 'wasReset_' + elementId.replace(/-/g, '_');
             window[resetVarName] = false;
 
+            // Used for resetting the TomSelect contents when a query is zeroed
+            let previousQuery = '';
+
             function logCallback(data) {
                 console.log("%c Received callback data:", "color:red;", data);
+            }
+
+            // Helper function to reset TomSelect state
+            function resetTomSelectState(tomSelect, originalFirstUrl) {
+                if (!tomSelect) return;
+                
+                tomSelect.clearOptions();
+                tomSelect.clearCache();
+                tomSelect.settings.pagination = {};
+
+                if (tomSelect.dropdown_content) {
+                    tomSelect.dropdown_content.scrollTop = 0;
+                }
+
+                tomSelect.settings.firstUrl = originalFirstUrl;
+                tomSelect.settings.setNextUrl = originalFirstUrl;
+                tomSelect.clearPagination();
+                tomSelect.load('', logCallback);
+                
+                // Mark the widget as reset
+                window[resetVarName] = true;
+            }
+
+            // Helper function to add a URL parameter
+            function addUrlParam(url, paramName, paramValue) {
+                return `${url}&${paramName}=${encodeURIComponent(paramValue)}`;
             }
 
             {% block tomselect_url_setup %}
                 // Constructing the originalFirstUrl function based on query and filters
                 var originalFirstUrl = function(query) {
-                    var url = '{{ widget.autocomplete_url }}' + '?q=' + encodeURIComponent(query){% if 'autocomplete_params' in widget.keys and not widget.autocomplete_params == '' %} + '&{{ widget.autocomplete_params|safe }}'{% endif %};
+                    var url = '{{ widget.autocomplete_url }}' + '?q=' + encodeURIComponent(query){% if 'autocomplete_params' in widget.keys and not widget.autocomplete_params == "" %} + '&{{ widget.autocomplete_params|safe }}'{% endif %};
+                    
                     {% if "dependent_field" in widget.keys %}
                         const dependentField = document.getElementById('id_{{ widget.dependent_field }}');
                         const dependentValue = dependentField ? dependentField.value : '';
-                        url = `${url}&f='{{ widget.dependent_field }}__{{ widget.dependent_field_lookup }}=${dependentValue}'`;
+                        url = addUrlParam(url, "f", `'{{ widget.dependent_field }}__{{ widget.dependent_field_lookup }}=${dependentValue}'`);
                     {% endif %}
+                    
                     {% if "exclude_field" in widget.keys %}
                         const excludeField = document.getElementById('id_{{ widget.exclude_field }}');
                         const excludeValue = excludeField ? excludeField.value : '';
-                        url = `${url}&e='{{ widget.exclude_field }}__{{ widget.exclude_field_lookup }}=${excludeValue}'`;
+                        url = addUrlParam(url, "e", `'{{ widget.exclude_field }}__{{ widget.exclude_field_lookup }}=${excludeValue}'`);
                     {% endif %}
+                    
                     return url;
                 };
             {% endblock tomselect_url_setup %}
@@ -81,8 +115,9 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     valueField: '{{ widget.value_field }}',
                     labelField: '{{ widget.label_field }}',
                     searchField: [],
-                    highlight: {% if widget.highlight %}true{% else %}false{% endif %},
-                    openOnFocus: {% if widget.open_on_focus %}true{% else %}false{% endif %},
+                    highlight: {{ widget.highlight|yesno:"true,false" }},
+                    openOnFocus: {{ widget.open_on_focus|yesno:"true,false" }},
+                    hideSelected: {{ widget.hide_selected|yesno:"true,false" }},
                     maxOptions: {% if widget.max_options %}{{ widget.max_options }}{% else %}null{% endif %},
                     preload: {% if widget.preload == "focus" %}'focus'{% elif widget.preload %}true{% else %}false{% endif %},
                     maxItems: {% if not widget.is_multiple %}1{% else %}{% if widget.max_items %}{{ widget.max_items }}{% else %}null{% endif %}{% endif %},
@@ -110,22 +145,6 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                 },
                             {% endif %}
 
-                            {% comment %} {% if 'dropdown_header' in widget.plugins.keys %}
-                                dropdown_header: {
-                                    title: '{{ widget.plugins.dropdown_header.title }}',
-                                    header_class: '{{ widget.plugins.dropdown_header.header_class }}',
-                                    title_row_class: '{{ widget.plugins.dropdown_header.title_row_class }}',
-                                    label_class: '{{ widget.plugins.dropdown_header.label_class }}',
-                                    value_field_label: '{{ widget.plugins.dropdown_header.value_field_label }}',
-                                    label_field_label: '{{ widget.plugins.dropdown_header.label_field_label }}',
-                                    label_col_class: '{{ widget.plugins.dropdown_header.label_col_class }}',
-                                    show_value_field: {% if widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
-                                    extra_columns: {{ widget.plugins.dropdown_header.extra_columns|safe }},
-                                    extra_headers: {{ widget.plugins.dropdown_header.extra_headers|safe }},
-                                    extra_values: {{ widget.plugins.dropdown_header.extra_values|safe }}
-                                },
-                            {% endif %} {% endcomment %}
-
                             {% if 'dropdown_header' in widget.plugins.keys %}
                                 dropdown_header:{
                                     title: '{% if widget.plugins.dropdown_header.title %}{{ widget.plugins.dropdown_header.title }}{% else %}Select an option{% endif %}',
@@ -133,18 +152,6 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                     {% include "django_tomselect/render/dropdown_header.html" with widget=widget %}
                                 },
                             {% endif %}
-
-
-                            {% comment %} {% if 'dropdown_footer' in widget.plugins.keys %}
-                                dropdown_footer: {
-                                    title: '{{ widget.plugins.dropdown_footer.title }}',
-                                    footer_class: '{{ widget.plugins.dropdown_footer.footer_class }}',
-                                    create_view_label: '{{ widget.plugins.dropdown_footer.create_view_label }}',
-                                    create_view_class: '{{ widget.plugins.dropdown_footer.create_view_class }}',
-                                    list_view_label: '{{ widget.plugins.dropdown_footer.list_view_label }}',
-                                    list_view_class: '{{ widget.plugins.dropdown_footer.list_view_class }}'
-                                },
-                            {% endif %} {% endcomment %}
 
                             {% if 'dropdown_footer' in widget.plugins.keys %}
                                 dropdown_footer:{
@@ -170,21 +177,51 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         },
                     {% endblock tomselect_plugins %}
 
-                    {% if widget.value %}
-                        onInitialize: function() {
+                    onInitialize: function() {
+                        {% if widget.value %}
+                            // Prepare all options in a single batch
+                            const allOptions = {};
+                            const allItems = [];
+                    
                             {% for option in widget.selected_options %}
-                                this.addOption({
+                                allOptions['{{ option.value }}'] = {
                                     {{ widget.value_field }}: '{{ option.value }}',
                                     {{ widget.label_field }}: '{{ option.label }}',
                                     {% if "create_url" in option.keys %}create_url: '{{ option.create_url }}',{% endif %}
                                     {% if "detail_url" in option.keys %}detail_url: '{{ option.detail_url }}',{% endif %}
                                     {% if "update_url" in option.keys %}update_url: '{{ option.update_url }}',{% endif %}
                                     {% if "delete_url" in option.keys %}delete_url: '{{ option.delete_url }}',{% endif %}
-                                });
-                                this.addItem('{{ option.value }}');
+                                };
+                                allItems.push('{{ option.value }}');
                             {% endfor %}
-                        },
-                    {% endif %}
+                    
+                            // Add all options at once
+                            this.addOptions(allOptions);
+                    
+                            // Use TomSelect's built-in setValue with silent=true
+                            this.setValue(allItems, true);
+                        {% endif %}
+                    },
+
+                    onBlur: function() {
+                        const tomSelect = element.tomselect;
+                        resetTomSelectState(tomSelect, originalFirstUrl);
+
+                        // Continue with the default tomselect blur functionality
+                        if (document.hasFocus() === false)
+                            return;
+                        var self = this;
+                        if (!self.isFocused)
+                            return;
+                        self.isFocused = false;
+                        self.ignoreFocus = false;
+                        var deactivate = () => {
+                            self.close();
+                            self.setActiveItem();
+                            self.setCaret(self.items.length);
+                        };
+                        deactivate();
+                    },
 
                     shouldLoad: function(query){
                         var shouldLoadValue;
@@ -193,6 +230,13 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         } else {
                             shouldLoadValue = query.length >= {{ widget.minimum_query_length }};
                         }
+
+                        if (previousQuery.length > 0 && (!query.trim() || query === undefined)) {
+                            const tomSelect = element.tomselect;
+                            resetTomSelectState(tomSelect, originalFirstUrl);
+                        }
+
+                        previousQuery = query;
                         return shouldLoadValue;
                     },
 
@@ -204,74 +248,110 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     },
 
                     load: function(query, callback) {
+                        var self = this;
                         var url = this.getUrl(query);
                         if (window[resetVarName] === true) {
                             url = originalFirstUrl(query);
                         }
 
+                        var currentPage = 1;
+
+                        // Helper function to check if all items are already selected and load more if needed
+                        const checkAndLoadMore = function(json, originalCallback, collectedResults = []) {
+                            // Store the pagination info for virtual scrolling regardless of selection status
+                            if (json.has_more && json.next_page) {
+                                let baseUrl = url.replace(/&p=\d+/g, '');
+                                if (!self.settings.pagination) {
+                                    self.settings.pagination = {};
+                                }
+
+                                // Update the pagination URL for this query
+                                self.settings.pagination[query] = baseUrl + '&p=' + json.next_page;
+                            }
+
+                            // If no results at all, return empty array
+                            if (!json.results || json.results.length === 0) {
+                                return originalCallback(collectedResults);
+                            }
+
+                            // Filter out already selected items
+                            const newResults = json.results.filter(item =>
+                                !self.items.includes(String(item[self.settings.valueField])));
+
+                            // Add new unselected results to our collection
+                            collectedResults = collectedResults.concat(newResults);
+
+                            // Set the current page
+                            currentPage = json.page;
+
+                            // Check if all items in the response were already selected and we need more
+                            const allSelected = newResults.length === 0;
+                            const needMoreItems = collectedResults.length < 20; // Ensure we have a minimum set of items to show
+
+                            // Use the pagination metadata to determine if we should continue auto-loading
+                            if ((allSelected || needMoreItems) && json.has_more && json.next_page && json.page < json.total_pages) {
+                                // All items are already selected, and there are more pages
+                                const nextPageUrl = self.settings.pagination[query]; // Use the stored URL
+
+                                // Fetch the next page
+                                fetch(nextPageUrl)
+                                    .then(response => response.json())
+                                    .then(nextJson => checkAndLoadMore(nextJson, originalCallback, collectedResults))
+                                    .catch(error => {
+                                        console.error("Error loading next page:", error);
+                                        originalCallback(collectedResults);
+                                    });
+                            } else {
+                                // Either we found enough unselected items, reached the end, or total pages
+                                originalCallback(collectedResults);
+                            }
+                        };
+
+                        // Main fetch call
                         fetch(url)
                             .then(response => response.json())
                             .then(json => {
-                                if (json.has_more) {
-                                    url = url.replace(/&p=\d+/g, '');
-                                    {% if "dependent_field" in widget.keys or "exclude_field" in widget.keys %}
-                                        if (window[resetVarName] === false) {
-                                            this.setNextUrl(query, url + '&p=' + (json.page + 1));
-                                        } else {
-                                            window[resetVarName] = false;
-                                            this.setNextUrl(query, url + '&p=1');
-                                        }
-                                    {% else %}
-                                        this.setNextUrl(query, url + '&p=' + (json.page + 1));
-                                    {% endif %}
-                                }
-
+                                // Temporarily disable scroll behavior for performance
                                 const _scrollToOption = this.scrollToOption;
                                 this.scrollToOption = () => {};
-                                callback(json.results);
-                                this.scrollToOption = _scrollToOption;
-                            }).catch(() => {
-                                console.log('%c Error loading data for {{ widget.name }}, url=', "color:red;", url);
-                                callback();
+
+                                // Start the check-and-load process
+                                checkAndLoadMore(json, result => {
+                                    callback(result);
+
+                                    // Set next url
+                                    if (json.total_pages > currentPage) {
+                                        url = url.replace(/&p=\d+/g, '');
+                                        this.setNextUrl(query, url + '&p=' + (currentPage + 1));
+                                    }
+
+                                    // If window[resetVarName] is true, we need to reset the page and set back to false
+                                    if (window[resetVarName] === true) {
+                                        window[resetVarName] = false;
+                                        this.setNextUrl(query, url + '&p=1');
+                                    }
+
+                                    // Restore scrollToOption after the callback
+                                    this.scrollToOption = _scrollToOption;
+                                }, []);
                             })
+                            .catch(error => {
+                                console.error(`Error loading data: '${error}' with url: ${url}`);
+                                callback([]);
+                            });
                     },
 
                     {% block tomselect_render %}
                         render: {
-                            {% with widget.attrs as attrs %}
-                                {% if 'data_custom_rendering' in attrs.keys and attrs.data_custom_rendering|default:False %}
-                                    option: function(data, escape) {
-                                        var template = {{ attrs.data_template_option|safe }};
-                                        // Always provide escape function to sanitize values
-                                        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
-                                    },
-                                    item: function(data, escape) {
-                                        var template = {{ attrs.data_template_item|safe }};
-                                        // Always provide escape function to sanitize values
-                                        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
-                                    },
-                                {% elif 'render' in attrs.keys %}
-                                    {% if attrs.render.option|default:False %}
-                                        option: function(data, escape) {
-                                            {{ attrs.render.option|safe }}
-                                        },
-                                    {% endif %}
-                                    {% if attrs.render.item|default:False %}
-                                        item: function(data, escape) {
-                                            {{ attrs.render.item|safe }}
-                                        },
-                                    {% endif %}
-                                {% else %}
-                                    {% include "django_tomselect/render/item.html" with widget=widget %}
-                                    {% include "django_tomselect/render/option.html" with widget=widget %}
-                                {% endif %}
-                            {% endwith %}
-
+                            {% include "django_tomselect/render/item.html" with widget=widget %}
+                            {% include "django_tomselect/render/option.html" with widget=widget %}
                             {% include "django_tomselect/render/loading.html" with widget=widget %}
                             {% include "django_tomselect/render/loading_more.html" with widget=widget %}
                             {% include "django_tomselect/render/no_more_results.html" with widget=widget %}
                             {% include "django_tomselect/render/no_results.html" with widget=widget %}
                             {% include "django_tomselect/render/not_loading.html" with widget=widget %}
+                            {% include "django_tomselect/render/optgroup_header.html" with widget=widget %}
+                            {% include "django_tomselect/render/optgroup.html" with widget=widget %}
                             {% if 'create' in widget.keys and widget.create %}
                                 {% include "django_tomselect/render/option_create.html" with widget=widget %}
                             {% endif %}
@@ -296,28 +376,6 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     });
                 });
             {% endif %}
-
-            // Dependent/exclude field change handling
-            var change_handler = function(value) {
-                const tomSelect = element.tomselect;
-                if (!tomSelect) return;
-
-                tomSelect.clear();
-                tomSelect.clearOptions();
-                tomSelect.clearCache();
-                tomSelect.settings.pagination = {};
-
-                if (tomSelect.dropdown_content) {
-                    tomSelect.dropdown_content.scrollTop = 0;
-                }
-
-                tomSelect.settings.firstUrl = originalFirstUrl;
-                tomSelect.settings.setNextUrl = originalFirstUrl;
-                tomSelect.clearPagination();
-                tomSelect.load('', logCallback);
-
-                window[resetVarName] = true;
-            };
 
             // Mark the select as a TomSelect widget
             element.setAttribute('data-tomselect', 'true');

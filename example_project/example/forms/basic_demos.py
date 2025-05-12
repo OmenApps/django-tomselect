@@ -512,6 +512,80 @@ class Bootstrap5StylingHTMXForm(Bootstrap5StylingForm):
     )
 
 
+class MultipleHeavySelectorsForm(forms.Form):
+    """Form with multiple TomSelect fields, each with many pre-selected items."""
+
+    editions_group_1 = TomSelectModelMultipleChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="name",
+            css_framework="bootstrap5",
+            highlight=True,
+            open_on_focus=True,
+            preload="focus",
+            max_items=None,  # Allow unlimited selections
+            placeholder="Select editions",
+            hide_selected=True,
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(),
+            plugin_remove_button=PluginRemoveButton(),
+        ),
+        label="First Group of Editions",
+        help_text="Basic configuration with many selected items",
+    )
+
+    editions_group_2 = TomSelectModelMultipleChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="name",
+            css_framework="bootstrap5",
+            highlight=True,
+            open_on_focus=True,
+            preload="focus",
+            max_items=None,
+            placeholder="Select editions",
+            hide_selected=True,
+            plugin_dropdown_header=PluginDropdownHeader(
+                show_value_field=False,
+                label_field_label="Edition",
+                value_field_label="Value",
+                extra_columns={
+                    "year": "Year",
+                    "pages": "Pages",
+                    "pub_num": "Publication Number",
+                },
+            ),
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(),
+            plugin_remove_button=PluginRemoveButton(),
+        ),
+        label="Second Group of Editions",
+        help_text="Tabular configuration with many selected items",
+    )
+
+    editions_group_3 = TomSelectModelMultipleChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="name",
+            css_framework="bootstrap5",
+            highlight=True,
+            open_on_focus=True,
+            preload="focus",
+            max_items=None,
+            placeholder="Select editions",
+            hide_selected=True,
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(),
+            plugin_remove_button=PluginRemoveButton(),
+        ),
+        label="Third Group of Editions",
+        help_text="Another configuration with many selected items",
+    )
+
+
 class EditionFormsetForm(forms.Form):
     """Form for managing multiple editions with their magazines using TomSelect."""
 

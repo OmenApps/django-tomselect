@@ -672,7 +672,7 @@ class Command(BaseCommand):
         total_seconds_2000_days = int((now - past_2000_days).total_seconds())
 
         for magazine in magazines:
-            for year in range(2020, 2025):
+            for year in range(2010, 2025):
                 for month in range(1, 13):
                     name = f"{magazine.name} - {year}/{month:02d}"
                     Edition.objects.create(
@@ -688,11 +688,15 @@ class Command(BaseCommand):
                 article_authors = random.sample(authors, random.randint(1, 4))
                 edition = Edition.objects.filter(magazine=magazine).order_by("?").first()
 
-                # Select categories as before
+                # Select categories
                 main_cat = random.choice(list(main_categories.keys()))
                 sub_cats = main_categories[main_cat]
                 selected_cats = [categories[main_cat]]
                 num_sub_cats = random.randint(1, 2)
+                self.stdout.write(f"Selected {num_sub_cats} sub-categories from {main_cat}")
+                if len(sub_cats) < num_sub_cats:
+                    num_sub_cats = len(sub_cats)
+                # Randomly select sub-categories
                 selected_sub_cats = random.sample(sub_cats, num_sub_cats)
                 for sub_cat in selected_sub_cats:
                     selected_cats.append(categories[sub_cat])

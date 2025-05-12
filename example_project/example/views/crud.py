@@ -6,8 +6,20 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 
-from example_project.example.forms import AuthorForm, CategoryForm, EditionForm, MagazineForm
-from example_project.example.models import Article, ArticleStatus, Author, Category, Edition, Magazine
+from example_project.example.forms import (
+    AuthorForm,
+    CategoryForm,
+    EditionForm,
+    MagazineForm,
+)
+from example_project.example.models import (
+    Article,
+    ArticleStatus,
+    Author,
+    Category,
+    Edition,
+    Magazine,
+)
 
 
 def index_view(request):
@@ -129,6 +141,17 @@ def category_create_view(request):
             messages.error(request, "Please correct the errors below.")
 
     context["form"] = form
+    return TemplateResponse(request, template, context)
+
+
+def category_detail_view(request, pk):
+    """View for displaying the details of a category."""
+    template = "example/crud/category_detail.html"
+    context = {}
+
+    category = get_object_or_404(Category, pk=pk)
+    context["category"] = category
+
     return TemplateResponse(request, template, context)
 
 

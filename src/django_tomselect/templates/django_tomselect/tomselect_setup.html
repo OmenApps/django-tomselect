@@ -3,26 +3,25 @@
 {% comment %}
 This template is used to set up the global TomSelect configuration and initialization logic once per page.
 
-**Blocks:**
+Blocks:
 - block tomselect_global_setup: Add global initialization logic, such as the MutationObserver for dynamic content.
 
-**Overriding Example:**
+Overriding Example:
 To override the global setup logic, you can create a custom template in your Django app. For example, create a file named
 `templates/django_tomselect/tomselect_setup.html` in your app's templates directory.
 Then, in that file, you can override the block:
 
+    {% load i18n %}
+    {% load django_tomselect %}
 
-{% load i18n %}
-{% load django_tomselect %}
+    <script>
+        {% block tomselect_global_setup %}
+            // Custom global setup code here
+            console.log('Custom TomSelect global setup');
+        {% endblock tomselect_global_setup %}
+    </script>
 
-<script>
-    {% block tomselect_global_setup %}
-        // Custom global setup code here
-        console.log('Custom TomSelect global setup');
-    {% endblock tomselect_global_setup %}
-</script>
 This will replace the original code block in the `tomselect_setup.html` template.
-
 {% endcomment %}
 
 {% load i18n %}
@@ -36,6 +35,13 @@ This will replace the original code block in the `tomselect_setup.html` template
                 configs: new Map(),
                 instances: new Map(),
                 initialized: false,  // Track if we've already set up global handlers
+                REINIT_DELAY: 100,   // Delay for reinitialization in ms
+                OBSERVER_DEBOUNCE: 50, // Debounce time for mutation observer
+
+                // Helper function to add a URL parameter
+                addUrlParam: function(url, paramName, paramValue) {
+                    return `${url}&${paramName}=${encodeURIComponent(paramValue)}`;
+                },
 
                 // Deep clone config while preserving functions
                 cloneConfig: function(config) {
@@ -60,6 +66,87 @@ This will replace the original code block in the `tomselect_setup.html` template
                     return cloned;
                 },
 
+                // Reset a TomSelect instance's state
+                resetTomSelectState: function(instance, config) {
+                    if (!instance) return;
+                    
+                    // Clear current state
+                    instance.clear();
+                    instance.clearOptions();
+                    instance.clearCache();
+                    instance.settings.pagination = {};
+
+                    if (instance.dropdown_content) {
+                        instance.dropdown_content.scrollTop = 0;
+                    }
+
+                    // Reset URLs
+                    const urlFunction = config.originalFirstUrl || instance.settings.originalFirstUrl;
+                    if (urlFunction) {
+                        instance.settings.firstUrl = urlFunction;
+                        instance.settings.setNextUrl = urlFunction;
+                    }
+                    
+                    instance.clearPagination();
+                    
+                    // Reload with empty query
+                    instance.load('', () => {
+                        console.log("%c Received callback data after reset", "color:red;");
+                    });
+
+                    // Set reset flag
+                    const resetVar = config.resetVarName || instance.settings.resetVarName;
+                    if (resetVar && typeof window[resetVar] !== 'undefined') {
+                        window[resetVar] = true;
+                    }
+                },
+
+                // Prepare the HTML element before initialization
+                prepareElement: function(element) {
+                    // Remove any existing TomSelect wrappers
+                    const wrappers = element.parentNode.querySelectorAll('.ts-wrapper');
+                    wrappers.forEach(wrapper => {
+                        if (wrapper.contains(element)) {
+                            wrapper.parentNode.insertBefore(element, wrapper);
+                            wrapper.remove();
+                        }
+                    });
+
+                    // Reset the select element to its original state
+                    element.className = element.className.replace(/\btomselected\b/g, '');
+                    element.style.display = '';
+                    element.removeAttribute('tabindex');
+                    element.removeAttribute('data-ts-hidden');
+                },
+
+                // Set up dependent/exclude field handlers
+                setupFieldHandlers: function(instance, config) {
+                    if (!config.dependentField && !config.excludeField) return;
+
+                    const self = this;
+                    const change_handler = function(value) {
+                        self.resetTomSelectState(instance, config);
+                    };
+
+                    // Set up dependent field handler
+                    if (config.dependentField) {
+                        const dependentField = document.getElementById(config.dependentField);
+                        const dependentInstance = this.instances.get(config.dependentField);
+                        if (dependentInstance) {
+                            dependentInstance.on('change', change_handler);
+                        }
+                    }
+
+                    // Set up exclude field handler
+                    if (config.excludeField) {
+                        const excludeField = document.getElementById(config.excludeField);
+                        const excludeInstance = this.instances.get(config.excludeField);
+                        if (excludeInstance) {
+                            excludeInstance.on('change', change_handler);
+                        }
+                    }
+                },
+
                 // Initialize a new TomSelect instance
                 initialize: function(element, config) {
                     if (!(element instanceof HTMLElement)) {
@@ -71,20 +158,8 @@ This will replace the original code block in the `tomselect_setup.html` template
                         // Clean up any existing instance
                         this.destroy(element);
 
-                        // Remove any existing TomSelect wrappers
-                        const wrappers = element.parentNode.querySelectorAll('.ts-wrapper');
-                        wrappers.forEach(wrapper => {
-                            if (wrapper.contains(element)) {
-                                wrapper.parentNode.insertBefore(element, wrapper);
-                                wrapper.remove();
-                            }
-                        });
-
-                        // Reset the select element to its original state
-                        element.className = element.className.replace(/\btomselected\b/g, '');
-                        element.style.display = '';
-                        element.removeAttribute('tabindex');
-                        element.removeAttribute('data-ts-hidden');
+                        // Prepare the element
+                        this.prepareElement(element);
 
                         // Create new instance
                         const instance = new TomSelect(element, config);
@@ -97,47 +172,7 @@ This will replace the original code block in the `tomselect_setup.html` template
                         }
 
                         // Set up dependent/exclude field handlers after initialization
-                        if (config.dependentField || config.excludeField) {
-                            const change_handler = function(value) {
-                                if (!instance) return;
-
-                                instance.clear();
-                                instance.clearOptions();
-                                instance.clearCache();
-                                instance.settings.pagination = {};
-
-                                if (instance.dropdown_content) {
-                                    instance.dropdown_content.scrollTop = 0;
-                                }
-
-                                instance.settings.firstUrl = config.originalFirstUrl;
-                                instance.settings.setNextUrl = config.originalFirstUrl;
-                                instance.clearPagination();
-                                instance.load('', () => {
-                                    console.log("%c Received callback data after handler", "color:red;");
-                                });
-
-                                window[config.resetVarName] = true;
-                            };
-
-                            // Set up dependent field handler
-                            if (config.dependentField) {
-                                const dependentField = document.getElementById(config.dependentField);
-                                const dependentInstance = this.instances.get(config.dependentField);
-                                if (dependentInstance) {
-                                    dependentInstance.on('change', change_handler);
-                                }
-                            }
-
-                            // Set up exclude field handler
-                            if (config.excludeField) {
-                                const excludeField = document.getElementById(config.excludeField);
-                                const excludeInstance = this.instances.get(config.excludeField);
-                                if (excludeInstance) {
-                                    excludeInstance.on('change', change_handler);
-                                }
-                            }
-                        }
+                        this.setupFieldHandlers(instance, config);
 
                         return instance;
                     } catch (error) {
@@ -168,8 +203,50 @@ This will replace the original code block in the `tomselect_setup.html` template
                     }
                 },
 
+                // Find a similar configuration based on ID pattern
+                findSimilarConfig: function(selectId) {
+                    const similarId = Array.from(this.configs.keys()).find(id =>
+                        id.replace(/form-\d+-/, '') === selectId.replace(/form-\d+-/, ''));
+                        
+                    if (!similarId) return null;
+                    
+                    // Clone the config
+                    const config = this.cloneConfig(this.configs.get(similarId));
+                    
+                    // Clean instance-specific settings
+                    delete config.items;
+                    delete config.renderCache;
+
+                    // Generate a new unique reset variable name for this instance
+                    const newResetVar = `wasReset_${selectId.replace(/-/g, '_')}`;
+                    window[newResetVar] = false;
+
+                    // Update the config's load function with the new reset variable
+                    if (typeof config.load === 'function') {
+                        const loadFuncStr = config.load.toString()
+                            .replace(/wasReset_[a-zA-Z0-9_]+/g, newResetVar);
+                        config.load = new Function('return ' + loadFuncStr)();
+                    }
+                    
+                    return config;
+                },
+
+                // Update hidden accessibility classes
+                fixAccessibilityClasses: function(container) {
+                    container.querySelectorAll('.ts-wrapper').forEach(wrapper => {
+                        const associatedSelects = wrapper.parentNode.querySelectorAll('select[data-tomselect]');
+                        associatedSelects.forEach(select => {
+                            if (!select.classList.contains('ts-hidden-accessible')) {
+                                select.classList.add('ts-hidden-accessible');
+                            }
+                        });
+                    });
+                },
+
                 // Reinitialize TomSelect on dynamic content
                 reinitialize: function(container) {
+                    const self = this;
+                    
                     // Increased timeout to ensure DOM is fully rendered
                     setTimeout(() => {
                         // Find all select elements that need initialization
@@ -177,28 +254,12 @@ This will replace the original code block in the `tomselect_setup.html` template
                         selects.forEach(select => {
                             // Get config from original instance if available
                             let config = this.configs.get(select.id);
+                            
+                            // If no stored config, try to get from a similar widget
                             if (!config) {
-                                // If no stored config, try to get from a similar widget
-                                const similarId = Array.from(this.configs.keys()).find(id =>
-                                    id.replace(/form-\d+-/, '') === select.id.replace(/form-\d+-/, ''));
-                                if (similarId) {
-                                    config = this.cloneConfig(this.configs.get(similarId));
-                                    // Clean instance-specific settings
-                                    delete config.items;
-                                    delete config.renderCache;
-
-                                    // Generate a new unique reset variable name for this instance
-                                    const newResetVar = `wasReset_${select.id.replace(/-/g, '_')}`;
-                                    window[newResetVar] = false;
-
-                                    // Update the config's load function with the new reset variable
-                                    if (typeof config.load === 'function') {
-                                        const loadFuncStr = config.load.toString()
-                                            .replace(/wasReset_[a-zA-Z0-9_]+/g, newResetVar);
-                                        config.load = new Function('return ' + loadFuncStr)();
-                                    }
-                                }
+                                config = this.findSimilarConfig(select.id);
                             }
+                            
                             if (config) {
                                 // Always reinitialize the widget for dynamically loaded content
                                 this.initialize(select, config);
@@ -206,71 +267,74 @@ This will replace the original code block in the `tomselect_setup.html` template
                         });
 
                         // Fix any remaining selects that might need the ts-hidden-accessible class
-                        container.querySelectorAll('.ts-wrapper').forEach(wrapper => {
-                            const associatedSelects = wrapper.parentNode.querySelectorAll('select[data-tomselect]');
-                            associatedSelects.forEach(select => {
-                                if (!select.classList.contains('ts-hidden-accessible')) {
-                                    select.classList.add('ts-hidden-accessible');
-                                }
-                            });
-                        });
-                    }, 100); // Increased from 0 to 100ms for better reliability
+                        this.fixAccessibilityClasses(container);
+                    }, this.REINIT_DELAY);
                 },
 
-                // Setup all global event handlers (called once)
-                setupHandlers: function() {
-                    if (this.initialized) return;
-
-                    // Debounced observer to prevent rapid consecutive calls
-                    const debounce = (fn, delay) => {
-                        let timeoutId;
-                        return (...args) => {
-                            clearTimeout(timeoutId);
-                            timeoutId = setTimeout(() => fn.apply(null, args), delay);
-                        };
+                // Create a debounced function
+                debounce: function(fn, delay) {
+                    let timeoutId;
+                    return function(...args) {
+                        clearTimeout(timeoutId);
+                        timeoutId = setTimeout(() => fn.apply(null, args), delay);
                     };
+                },
 
-                    // Observer for dynamic content
-                    const tomSelectObserver = new MutationObserver(debounce((mutations) => {
-                        // Track containers that need reinitialization
-                        const containersToInit = new Set();
+                // Process mutation records to find containers needing reinitialization
+                processObserverMutations: function(mutations) {
+                    const containersToInit = new Set();
 
-                        mutations.forEach(mutation => {
-                            mutation.addedNodes.forEach(node => {
-                                if (node.nodeType === 1) { // ELEMENT_NODE
-                                    // Check if this node contains select elements
-                                    if (node.querySelector('select[data-tomselect]')) {
-                                        containersToInit.add(node);
-                                    }
-
-                                    // Also check if this is a form or container that might need initialization
-                                    if (node.tagName === 'FORM' ||
-                                        node.classList.contains('tab-pane') ||
-                                        node.id === 'waterEntryFormContent' ||
-                                        node.classList.contains('tab-content')) {
-                                        containersToInit.add(node);
-                                    }
+                    mutations.forEach(mutation => {
+                        mutation.addedNodes.forEach(node => {
+                            if (node.nodeType === 1) { // ELEMENT_NODE
+                                // Check if this node contains select elements
+                                if (node.querySelector('select[data-tomselect]')) {
+                                    containersToInit.add(node);
                                 }
-                            });
 
-                            // Also check for attribute changes that might affect TomSelect
-                            if (mutation.type === 'attributes' &&
-                                mutation.target.nodeType === 1 &&
-                                mutation.attributeName === 'class') {
-                                const target = mutation.target;
-                                if (target.classList.contains('active') &&
-                                    (target.classList.contains('tab-pane') ||
-                                     target.parentNode.classList.contains('tab-content'))) {
-                                    containersToInit.add(target);
+                                // Also check if this is a form or container that might need initialization
+                                if (node.tagName === 'FORM' ||
+                                    node.classList.contains('tab-pane') ||
+                                    node.id === 'waterEntryFormContent' ||
+                                    node.classList.contains('tab-content')) {
+                                    containersToInit.add(node);
                                 }
                             }
                         });
 
-                        // Process all containers that need reinitialization
-                        containersToInit.forEach(container => {
-                            window.djangoTomSelect.reinitialize(container);
-                        });
-                    }, 50));
+                        // Also check for attribute changes that might affect TomSelect
+                        if (mutation.type === 'attributes' &&
+                            mutation.target.nodeType === 1 &&
+                            mutation.attributeName === 'class') {
+                            const target = mutation.target;
+                            if (target.hasAttribute('classList') &&
+                                target.classList.contains('active') &&
+                                (target.classList.contains('tab-pane') ||
+                                target.parentNode.classList.contains('tab-content'))) {
+                                containersToInit.add(target);
+                            }
+                        }
+                    });
+
+                    return containersToInit;
+                },
+
+                // Setup MutationObserver for dynamic content
+                setupObserver: function() {
+                    const self = this;
+                    
+                    // Observer for dynamic content
+                    const tomSelectObserver = new MutationObserver(
+                        this.debounce((mutations) => {
+                            // Track containers that need reinitialization
+                            const containersToInit = self.processObserverMutations(mutations);
+
+                            // Process all containers that need reinitialization
+                            containersToInit.forEach(container => {
+                                self.reinitialize(container);
+                            });
+                        }, this.OBSERVER_DEBOUNCE)
+                    );
 
                     // Start observing the DOM
                     tomSelectObserver.observe(document.body, {
@@ -279,7 +343,12 @@ This will replace the original code block in the `tomselect_setup.html` template
                         attributes: true,
                         attributeFilter: ['class']
                     });
+                },
 
+                // Setup HTMX event handlers
+                setupHtmxHandlers: function() {
+                    const self = this;
+                    
                     // Handle htmx events - this works regardless of the use_htmx setting
                     // It will only fire if htmx is present and making content swaps
                     if (typeof(document.addEventListener) === 'function') {
@@ -292,11 +361,20 @@ This will replace the original code block in the `tomselect_setup.html` template
                                 // Wait to ensure all DOM updates are complete
                                 setTimeout(() => {
                                     // Reinitialize all TomSelect elements in this container
-                                    window.djangoTomSelect.reinitialize(container);
-                                }, 100);
+                                    self.reinitialize(container);
+                                }, self.REINIT_DELAY);
                             }
                         });
                     }
+                },
+
+                // Setup all global event handlers (called once)
+                setupHandlers: function() {
+                    if (this.initialized) return;
+
+                    // Setup observers and event handlers
+                    this.setupObserver();
+                    this.setupHtmxHandlers();
 
                     this.initialized = true;
                 }

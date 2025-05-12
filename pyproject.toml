@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-tomselect"
-version = "2025.5.1"
+version = "2025.5.2"
 description = "Django autocomplete widgets and views using Tom Select"
 authors = [{ name = "Jack Linke", email = "jacklinke@gmail.com" }]
 license = "MIT"
@@ -15,6 +15,7 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -29,7 +30,7 @@ classifiers = [
 ]
 requires-python = ">=3.10,<4.0"
 
-dependencies = ["django-htmx>=1.21.0", "django>=4.2.20"]
+dependencies = ["django>=4.2.20"]
 keywords = [
     "django",
     "autocomplete",
@@ -54,6 +55,7 @@ dev-dependencies = [
     "coverage[toml]>=7.5.1",
     "darglint>=1.8.1",
     "django-extensions>=3.2.0",
+    "django-htmx>=1.21.0",
     "flake8-bugbear>=24.4.26",
     "flake8-docstrings>=1.7.0",
     "flake8-rst-docstrings>=0.3.0",

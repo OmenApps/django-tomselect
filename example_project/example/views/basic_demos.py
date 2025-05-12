@@ -13,6 +13,7 @@ from example_project.example.forms import (
     CategoryModelFormset,
     DefaultStylingForm,
     EditionFormset,
+    MultipleHeavySelectorsForm,
 )
 from example_project.example.models import Category, Edition
 
@@ -81,6 +82,45 @@ def htmx_form_fragment_view(request: HttpRequest) -> HttpResponse:
     context["tab_id"] = tab
     context["tab_title"] = f"Tab {tab} Content"
 
+    return TemplateResponse(request, template, context)
+
+
+def performance_test_demo(request: HttpRequest) -> HttpResponse:
+    """View for demonstrating multiple TomSelect fields with many pre-selected items."""
+    template = "example/basic_demos/performance_test.html"
+
+    # Pre-select many items for each field
+    editions = list(Edition.objects.all())
+    total_editions = len(editions)
+
+    # Distribute editions evenly between the three selectors
+    editions_group_1_initial = [edition.id for edition in editions[: 2 * total_editions // 7]]
+    editions_group_2_initial = [edition.id for edition in editions[total_editions // 7 : 2 * total_editions // 7]]
+    editions_group_3_initial = [edition.id for edition in editions[4 * total_editions // 7 :]]
+
+    # Extract counts for context
+    group_1_count = len(editions_group_1_initial)
+    group_2_count = len(editions_group_2_initial)
+    group_3_count = len(editions_group_3_initial)
+    total_count = group_1_count + group_2_count + group_3_count
+
+    # Create the form instance
+    form = MultipleHeavySelectorsForm(
+        request.POST or None,
+        initial={
+            "editions_group_1": editions_group_1_initial,
+            "editions_group_2": editions_group_2_initial,
+            "editions_group_3": editions_group_3_initial,
+        },
+    )
+
+    context = {
+        "form": form,
+        "group_1_count": group_1_count,
+        "group_2_count": group_2_count,
+        "group_3_count": group_3_count,
+        "total_count": total_count,
+    }
     return TemplateResponse(request, template, context)
 
 

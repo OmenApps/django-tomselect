@@ -39,7 +39,7 @@ def safe_escape(value: Any) -> str:
         # Apply HTML escaping - ensure we're always returning a string
         return escape(value)
     except Exception as e:
-        package_logger.error(f"Error escaping value: {e}")
+        package_logger.error("Error escaping value: %s", e)
         # Fail safely by returning an empty string
         return ""
 
@@ -71,7 +71,7 @@ def safe_url(url: Optional[str]) -> Optional[str]:
 
         # Check for dangerous schemes
         if re.match(DANGEROUS_URL_SCHEMES, url.lower()):
-            package_logger.warning(f"Rejected dangerous URL scheme: {url[:50]}...")
+            package_logger.warning("Rejected dangerous URL scheme: %s", url)
             return None
 
         # Default to http:// if no protocol specified but URL looks like a domain
@@ -81,7 +81,7 @@ def safe_url(url: Optional[str]) -> Optional[str]:
         # If we can't determine if it's safe, escape it
         return escape(url)
     except Exception as e:
-        package_logger.error(f"Error processing URL {url[:50]}...: {e}")
+        package_logger.error("Error processing URL %s: %s", url, e)
         return None
 
 
@@ -100,7 +100,7 @@ def sanitize_dict(data: dict, escape_keys: bool = False, depth: int = 0) -> dict
         Dictionary with all values safely escaped
     """
     if not isinstance(data, dict):
-        package_logger.warning(f"Non-dictionary passed to sanitize_dict: {type(data)}")
+        package_logger.warning("Non-dictionary passed to sanitize_dict of type: %s", type(data))
         return {}
 
     if depth > MAX_RECURSION_DEPTH:
@@ -134,11 +134,11 @@ def sanitize_dict(data: dict, escape_keys: bool = False, depth: int = 0) -> dict
                 else:
                     # If URL sanitization fails, store an empty string as a safe fallback
                     result[safe_key] = ""
-                    package_logger.warning(f"Unsafe URL found and nullified in key: {key}")
+                    package_logger.warning("Unsafe URL found and nullified in key: %s", key)
             else:
                 result[safe_key] = safe_escape(value)
     except Exception as e:
-        package_logger.error(f"Error sanitizing dictionary: {e}")
+        package_logger.error("Error sanitizing dictionary: %s", e)
         # Return whatever was successfully processed
         if not result:
             return {}
