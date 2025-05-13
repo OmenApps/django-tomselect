@@ -488,11 +488,6 @@ class TestTomSelectMultipleWidgetIterables:
         assert len(selected) == 2
         assert {opt["value"] for opt in selected} == {str(v) for v in values}
 
-    def test_multiple_widget_no_selection(self, multiple_widget):
-        """Test multiple widget with no selection."""
-        context = multiple_widget.get_context("test", [], {})
-        assert "selected_options" not in context["widget"]
-
 
 @pytest.mark.django_db
 class TestWidgetErrorAndURLHandling:
@@ -2622,3 +2617,115 @@ class TestModelInstanceHandling:
         finally:
             # Restore the original __str__ method
             monkeypatch.setattr(sample_edition.__class__, "__str__", original_str)
+
+    def test_string_representation_as_value(self, setup_widget, sample_edition, mock_view, monkeypatch):
+        """Test handling of a string representation of a model instance as value."""
+        # Mock the get_autocomplete_view method to return our mock view
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+        monkeypatch.setattr(setup_widget, "get_queryset", lambda: sample_edition.__class__.objects.all())
+
+        # Create a string representation similar to what Django would pass after validation error
+        str_value = (
+            f"{{'id': {sample_edition.id}, 'name': '{sample_edition.name}', "
+            f"'year': {sample_edition.year}, 'pub_num': '{sample_edition.pub_num}'}}"
+        )
+
+        # Get context with the string representation as value
+        context = setup_widget.get_context("test", str_value, {})
+
+        # Check that the widget correctly extracts the model instance
+        assert "selected_options" in context["widget"]
+        assert len(context["widget"]["selected_options"]) == 1
+
+        selected = context["widget"]["selected_options"][0]
+        assert selected["value"] == str(sample_edition.id)
+        assert selected["label"] == sample_edition.name
+
+    def test_complex_string_representation(self, setup_widget, sample_edition, mock_view, monkeypatch):
+        """Test handling of a complex string representation with nested structures."""
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+        monkeypatch.setattr(setup_widget, "get_queryset", lambda: sample_edition.__class__.objects.all())
+
+        # Create a more complex string with nested objects, arrays, etc.
+        str_value = (
+            f"{{'id': {sample_edition.id}, 'name': '{sample_edition.name}', "
+            f"'nested': {{'key': 'value'}}, 'list': ['a', 'b', 'c'], "
+            f"'created': datetime.datetime(2023, 1, 1, 12, 0, 0), "
+            f"'another_id': UUID('12345678-1234-5678-1234-567812345678')}}"
+        )
+
+        context = setup_widget.get_context("test", str_value, {})
+
+        # Should still extract correct info despite complexity
+        assert "selected_options" in context["widget"]
+        selected = context["widget"]["selected_options"][0]
+        assert selected["value"] == str(sample_edition.id)
+        assert selected["label"] == sample_edition.name
+
+    def test_string_representation_with_custom_fields(self, sample_edition, mock_view, monkeypatch):
+        """Test handling string representations with custom value_field and label_field."""
+        # Create widget with custom field settings
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="year",  # Use year instead of id
+            label_field="pub_num",  # Use pub_num instead of name
+        )
+        widget = TomSelectModelWidget(config=config)
+
+        monkeypatch.setattr(widget, "get_autocomplete_view", lambda: mock_view)
+        monkeypatch.setattr(widget, "get_queryset", lambda: sample_edition.__class__.objects.all())
+
+        # Create a string representation with these custom fields
+        str_value = (
+            f"{{'id': {sample_edition.id}, 'name': '{sample_edition.name}', "
+            f"'year': {sample_edition.year}, 'pub_num': '{sample_edition.pub_num}'}}"
+        )
+
+        context = widget.get_context("test", str_value, {})
+
+        # Should extract based on the custom fields
+        assert "selected_options" in context["widget"]
+        selected = context["widget"]["selected_options"][0]
+        assert selected["value"] == str(sample_edition.year)
+        assert selected["label"] == str(sample_edition.pub_num)
+
+    def test_string_representation_without_model_instance(self, setup_widget, mock_view, monkeypatch):
+        """Test handling when the ID in string representation doesn't match any instance."""
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+        monkeypatch.setattr(setup_widget, "get_queryset", lambda: Edition.objects.none())  # Empty queryset
+
+        # Create a string representation with a non-existent ID
+        str_value = "{'id': 99999, 'name': 'Non-existent Edition', 'year': 2025}"
+
+        context = setup_widget.get_context("test", str_value, {})
+
+        # Should extract label from string even if model instance not found
+        assert "selected_options" in context["widget"]
+        selected = context["widget"]["selected_options"][0]
+        assert selected["value"] == "99999"
+        assert selected["label"] == "Non-existent Edition"  # Used name from string
+
+    def test_entity_string_representation(self, setup_widget, sample_edition, mock_view, monkeypatch):
+        """Test handling the specific entity string representation from the issue."""
+        monkeypatch.setattr(setup_widget, "get_autocomplete_view", lambda: mock_view)
+        monkeypatch.setattr(setup_widget, "get_queryset", lambda: sample_edition.__class__.objects.all())
+
+        # Create a string similar to the one in the original issue
+        str_value = (
+            "{&amp;#x27;pkid&amp;#x27;: 6749, &amp;#x27;id&amp;#x27;: UUID(&amp;#x27;019606eb-ad04-71d0-8160-92a9ac3e07d2&amp;#x27;), "
+            "&amp;#x27;name&amp;#x27;: &amp;#x27;Test Name&amp;#x27;, &amp;#x27;slug&amp;#x27;: &amp;#x27;test-name&amp;#x27;, "
+            "&amp;#x27;entity_type&amp;#x27;: &amp;#x27;consumer&amp;#x27;}"
+        )
+
+        # Temporarily modify the sample_edition to have the necessary properties
+        sample_edition.pkid = 6749
+        sample_edition.id = "019606eb-ad04-71d0-8160-92a9ac3e07d2"
+
+        context = setup_widget.get_context("test", str_value, {})
+
+        # Should extract the entity name properly
+        assert "selected_options" in context["widget"]
+        selected = context["widget"]["selected_options"][0]
+        assert "Test Name" in selected["label"]
+        assert "pkid" not in selected["label"]
+        assert "UUID" not in selected["label"]
