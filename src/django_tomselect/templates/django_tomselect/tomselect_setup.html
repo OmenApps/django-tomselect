@@ -69,7 +69,7 @@ This will replace the original code block in the `tomselect_setup.html` template
                 // Reset a TomSelect instance's state
                 resetTomSelectState: function(instance, config) {
                     if (!instance) return;
-                    
+
                     // Clear current state
                     instance.clear();
                     instance.clearOptions();
@@ -86,9 +86,9 @@ This will replace the original code block in the `tomselect_setup.html` template
                         instance.settings.firstUrl = urlFunction;
                         instance.settings.setNextUrl = urlFunction;
                     }
-                    
+
                     instance.clearPagination();
-                    
+
                     // Reload with empty query
                     instance.load('', () => {
                         console.log("%c Received callback data after reset", "color:red;");
@@ -207,12 +207,12 @@ This will replace the original code block in the `tomselect_setup.html` template
                 findSimilarConfig: function(selectId) {
                     const similarId = Array.from(this.configs.keys()).find(id =>
                         id.replace(/form-\d+-/, '') === selectId.replace(/form-\d+-/, ''));
-                        
+
                     if (!similarId) return null;
-                    
+
                     // Clone the config
                     const config = this.cloneConfig(this.configs.get(similarId));
-                    
+
                     // Clean instance-specific settings
                     delete config.items;
                     delete config.renderCache;
@@ -227,7 +227,7 @@ This will replace the original code block in the `tomselect_setup.html` template
                             .replace(/wasReset_[a-zA-Z0-9_]+/g, newResetVar);
                         config.load = new Function('return ' + loadFuncStr)();
                     }
-                    
+
                     return config;
                 },
 
@@ -246,7 +246,7 @@ This will replace the original code block in the `tomselect_setup.html` template
                 // Reinitialize TomSelect on dynamic content
                 reinitialize: function(container) {
                     const self = this;
-                    
+
                     // Increased timeout to ensure DOM is fully rendered
                     setTimeout(() => {
                         // Find all select elements that need initialization
@@ -254,12 +254,12 @@ This will replace the original code block in the `tomselect_setup.html` template
                         selects.forEach(select => {
                             // Get config from original instance if available
                             let config = this.configs.get(select.id);
-                            
+
                             // If no stored config, try to get from a similar widget
                             if (!config) {
                                 config = this.findSimilarConfig(select.id);
                             }
-                            
+
                             if (config) {
                                 // Always reinitialize the widget for dynamically loaded content
                                 this.initialize(select, config);
@@ -322,7 +322,7 @@ This will replace the original code block in the `tomselect_setup.html` template
                 // Setup MutationObserver for dynamic content
                 setupObserver: function() {
                     const self = this;
-                    
+
                     // Observer for dynamic content
                     const tomSelectObserver = new MutationObserver(
                         this.debounce((mutations) => {
@@ -348,7 +348,7 @@ This will replace the original code block in the `tomselect_setup.html` template
                 // Setup HTMX event handlers
                 setupHtmxHandlers: function() {
                     const self = this;
-                    
+
                     // Handle htmx events - this works regardless of the use_htmx setting
                     // It will only fire if htmx is present and making content swaps
                     if (typeof(document.addEventListener) === 'function') {
