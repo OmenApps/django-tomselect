@@ -270,7 +270,7 @@ class TomSelectConfig(BaseConfig):
     close_after_select: bool | None = None
     hide_placeholder: bool | None = None
     highlight: bool = True
-    hide_selected: bool = False
+    hide_selected: bool = True
     load_throttle: int = 300
     loading_class: str = "loading"
     max_items: int | None = None
