@@ -62,7 +62,7 @@ class LazyView:
             # Set up with request
             proxy_request = get_current_request()
             if proxy_request is None:
-                package_logger.error("No current request found, using PROXY_REQUEST_CLASS.")
+                package_logger.debug("No current request found, using PROXY_REQUEST_CLASS.")
                 proxy_request = PROXY_REQUEST_CLASS(model=self.model, user=self.user)
             else:
                 package_logger.debug("Using current request: %s", proxy_request)
