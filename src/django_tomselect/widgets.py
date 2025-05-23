@@ -929,7 +929,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             return EmptyModel.objects.none()
         except Exception as e:
             # If anything fails, return an empty EmptyModel queryset
-            package_logger.error("Error in get_queryset: %s, falling back to EmptyModel.objects.none()", e)
+            package_logger.warning("Error in get_queryset: %s, falling back to EmptyModel.objects.none()", e)
             return EmptyModel.objects.none()
 
     def get_search_lookups(self) -> list[str]:
