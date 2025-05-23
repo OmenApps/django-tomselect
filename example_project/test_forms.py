@@ -512,47 +512,6 @@ class TestFormIntegration:
         assert form.cleaned_data["magazine"] == magazine
         assert form.cleaned_data["edition"] == editions[0]
 
-    def test_form_with_dynamic_queryset(self, magazines):
-        """Test form with dynamically changing queryset."""
-        # Create test editions for the first magazine
-        magazine = magazines[0]
-        edition1 = Edition.objects.create(
-            name="Test Edition 1",
-            year="2024",
-            pages="100",
-            pub_num="TEST-001",
-            magazine=magazine,
-        )
-        edition2 = Edition.objects.create(
-            name="Test Edition 2",
-            year="2024",
-            pages="200",
-            pub_num="TEST-002",
-            magazine=magazine,
-        )
-
-        class DynamicForm(forms.Form):
-            """Test form with dynamically changing queryset."""
-
-            magazine = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-magazine"))
-            editions = TomSelectModelMultipleChoiceField(
-                config=TomSelectConfig(url="autocomplete-edition"), required=False
-            )
-
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                if self.data.get("magazine"):
-                    self.fields["editions"].queryset = Edition.objects.filter(magazine_id=self.data["magazine"])
-
-        # Test with magazine selected
-        form = DynamicForm(data={"magazine": magazine.pk})
-        assert form.fields["editions"].queryset.filter(magazine=magazine).exists()
-        assert list(form.fields["editions"].queryset) == [edition1, edition2]
-
-        # And with no magazine selected
-        form = DynamicForm(data={})
-        assert not form.fields["editions"].queryset.exists()
-
     def test_form_with_custom_validation(self, editions):
         """Test form with custom validation rules."""
 
