@@ -35,6 +35,8 @@ from example_project.example.models import (
     EmbargoRegion,
     EmbargoTimeframe,
     Magazine,
+    ModelWithPKIDAndUUIDId,
+    ModelWithUUIDPk,
     PublicationTag,
     PublishingMarket,
     edition_year,
@@ -724,3 +726,25 @@ class RichArticleAutocompleteView(AutocompleteModelView):
             )
 
         return formatted_results
+
+
+class ModelWithUUIDPkAutocompleteView(AutocompleteModelView):
+    """Autocomplete view for ModelWithUUIDPk."""
+
+    model = ModelWithUUIDPk
+    search_lookups = ["name__icontains"]
+    value_fields = ["id", "name"]
+    ordering = ["name"]
+    page_size = 20
+    allow_anonymous = True
+
+
+class ModelWithPKIDAndUUIDIdAutocompleteView(AutocompleteModelView):
+    """Autocomplete view for ModelWithPKIDAndUUIDId."""
+
+    model = ModelWithPKIDAndUUIDId
+    search_lookups = ["name__icontains"]
+    value_fields = ["pkid", "id", "name"]
+    ordering = ["name"]
+    page_size = 20
+    allow_anonymous = True

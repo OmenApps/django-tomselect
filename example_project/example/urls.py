@@ -167,4 +167,14 @@ urlpatterns = [
         autocompletes.RichArticleAutocompleteView.as_view(),
         name="autocomplete-rich-article",
     ),
+    path(
+        "autocomplete/uuid-pk/",
+        autocompletes.ModelWithUUIDPkAutocompleteView.as_view(),
+        name="autocomplete-uuid-pk",
+    ),
+    path(
+        "autocomplete/pkid-uuid/",
+        autocompletes.ModelWithPKIDAndUUIDIdAutocompleteView.as_view(),
+        name="autocomplete-pkid-uuid",
+    ),
 ]

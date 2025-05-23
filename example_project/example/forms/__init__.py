@@ -4,3 +4,4 @@ from example_project.example.forms.advanced_demos import *
 from example_project.example.forms.basic_demos import *
 from example_project.example.forms.crud import *
 from example_project.example.forms.intermediate_demos import *
+from example_project.example.forms.oddball_model_forms import *

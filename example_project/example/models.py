@@ -1,5 +1,7 @@
 """Models for the example project."""
 
+import uuid
+
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -455,6 +457,47 @@ class PublicationTag(models.Model):
         # Must start and end with alphanumeric
         if not self.name[0].isalnum() or not self.name[-1].isalnum():
             raise ValidationError("Tags must start and end with a letter or number")
+
+    def __str__(self):
+        return self.name
+
+
+class ModelWithUUIDPk(models.Model):
+    """A model with a UUID primary key."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        """Meta options for the model."""
+
+        verbose_name = "Model with UUID PK"
+        verbose_name_plural = "Models with UUID PK"
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name"],
+                name="unique_name_constraint",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class ModelWithPKIDAndUUIDId(models.Model):
+    """A model with a UUID field as a non-primary key."""
+
+    pkid = models.AutoField(primary_key=True)
+    id = models.UUIDField(default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        """Meta options for the model."""
+
+        verbose_name = "Model with UUID ID"
+        verbose_name_plural = "Models with UUID ID"
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
