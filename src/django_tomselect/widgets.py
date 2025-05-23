@@ -737,16 +737,13 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         selected_values = [value] if not isinstance(value, (list, tuple)) else value
 
-        pk_filter = Q(pk__in=selected_values)
-        value_field_filter = Q(**{f"{value_field}__in": selected_values})
-
         if value_field == "pk":
-            # Prevent redundancy if value_field is `pk`
-            combined_filter = pk_filter
+            final_filter = Q(pk__in=selected_values)
         else:
-            combined_filter = pk_filter | value_field_filter
+            # Filter on the value_field
+            final_filter = Q(**{f"{value_field}__in": selected_values})
 
-        selected_objects = queryset.filter(combined_filter)
+        selected_objects = queryset.filter(final_filter)
 
         for obj in selected_objects:
             # Handle the case where obj is a dictionary (e.g., cleaned_data)
