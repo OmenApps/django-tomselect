@@ -173,6 +173,27 @@ class BaseTomSelectModelMixin:
         self.widget = self.widget_class(config=self.config)
         self.widget.attrs = attrs
 
+        # Set to_field_name based on value_field configuration to aid ModelChoiceField validation
+        if hasattr(self.config, "value_field") and self.config.value_field:
+            if self.config.value_field != "pk":
+                kwargs["to_field_name"] = self.config.value_field
+                package_logger.debug("Set to_field_name to: %s", self.config.value_field)
+
+        # Try to get actual queryset from widget so we have the correct model and data for validation
+        try:
+            actual_queryset = self.widget.get_queryset()
+            if actual_queryset is not None and hasattr(actual_queryset, "model"):
+                # Only use the widget queryset if it's not EmptyModel
+                if actual_queryset.model != EmptyModel:
+                    queryset = actual_queryset
+                    package_logger.debug("Using queryset from widget: %s", actual_queryset.model)
+                else:
+                    package_logger.debug("Widget returned EmptyModel queryset, keeping default")
+            else:
+                package_logger.debug("Widget returned no queryset, using default")
+        except Exception as e:
+            package_logger.warning("Could not get queryset from widget: %s", e)
+
         # Default queryset if not provided
         if queryset is None:
             queryset = EmptyModel.objects.none()
@@ -200,13 +221,53 @@ class BaseTomSelectModelMixin:
         """
         try:
             # Update queryset from widget before cleaning
-            self.queryset = self.widget.get_queryset()
-            return super().clean(value)
+            widget_queryset = self.widget.get_queryset()
+            if widget_queryset is not None and hasattr(widget_queryset, "model"):
+                # Only update if it's not EmptyModel
+                if widget_queryset.model != EmptyModel:
+                    self.queryset = widget_queryset
+                    package_logger.debug("Updated queryset in clean to: %s", widget_queryset.model)
+
+            # Make sure to_field_name is set correctly based on value_field
+            if hasattr(self.config, "value_field") and self.config.value_field:
+                if self.config.value_field != "pk":
+                    self.to_field_name = self.config.value_field
+                    package_logger.debug("Set/Updated to_field_name in clean to: %s", self.config.value_field)
+                else:
+                    # Explicitly set to None if value_field is 'pk'
+                    self.to_field_name = None
+                    package_logger.debug("Reset to_field_name to None for pk-based lookup")
+
+            # Clean the value before passing to validation
+            cleaned_value = self._clean_value(value)
+
+            return super().clean(cleaned_value)
         except ValidationError:
             raise
         except Exception as e:
             package_logger.error("Error in clean method of %s: %s", self.__class__.__name__, e)
             raise ValidationError(f"An unexpected error occurred: {str(e)}")
+
+    def _clean_value(self, value: Any) -> Any:
+        """Clean the input value by removing surrounding quotes if needed."""
+        if value is None:
+            return value
+
+        # Convert to string for processing
+        if not isinstance(value, str):
+            return value
+
+        # Remove surrounding quotes if present (e.g.: "'uuid-string'" >> "uuid-string")
+        cleaned_value = value.strip()
+
+        # Remove outer quotes if they exist
+        if len(cleaned_value) >= 2:
+            if (cleaned_value.startswith("'") and cleaned_value.endswith("'")) or (
+                cleaned_value.startswith('"') and cleaned_value.endswith('"')
+            ):
+                cleaned_value = cleaned_value[1:-1]
+
+        return cleaned_value
 
 
 class TomSelectChoiceField(BaseTomSelectMixin, forms.ChoiceField):
