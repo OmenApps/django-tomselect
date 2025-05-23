@@ -483,7 +483,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         base_context = self._create_base_context(name, value, attrs, value_field)
 
         # Handle selected options without autocomplete view
-        if isinstance(value, dict) and (value.get(value_field) or value.get("id") or value.get("pkid")):
+        if isinstance(value, dict) and (value.get(value_field) or value.get("id") or value.get("pk")):
             return self._add_extracted_selected_option(base_context, value, value_field, label_field)
 
         # Get autocomplete view and request
