@@ -15,7 +15,6 @@ class HtmxMessagesMiddleware(MiddlewareMixin):
 
     def process_response(self, request: HttpRequest, response: HttpResponse) -> HttpResponse:
         """Process the response, sending Django messages to the client."""
-
         # Only handle messages if this is an htmx request
         if getattr(request, "htmx", False):
             storage = messages.get_messages(request)
