@@ -6,7 +6,7 @@ import re
 from typing import Any, Callable, cast
 
 from django import forms
-from django.db.models import Model, QuerySet
+from django.db.models import Model, Q, QuerySet
 from django.forms.renderers import BaseRenderer
 from django.http import HttpRequest
 from django.urls import NoReverseMatch, reverse, reverse_lazy
@@ -736,7 +736,17 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             return []
 
         selected_values = [value] if not isinstance(value, (list, tuple)) else value
-        selected_objects = queryset.filter(pk__in=selected_values)
+
+        pk_filter = Q(pk__in=selected_values)
+        value_field_filter = Q(**{f"{value_field}__in": selected_values})
+
+        if value_field == "pk":
+            # Prevent redundancy if value_field is `pk`
+            combined_filter = pk_filter
+        else:
+            combined_filter = pk_filter | value_field_filter
+
+        selected_objects = queryset.filter(combined_filter)
 
         for obj in selected_objects:
             # Handle the case where obj is a dictionary (e.g., cleaned_data)
