@@ -7,7 +7,6 @@ from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.utils.translation import gettext as _
 
 from example_project.example.forms import (
     EmbargoForm,
@@ -18,7 +17,12 @@ from example_project.example.forms import (
     TaggingForm,
     WeightedAuthorSearchForm,
 )
-from example_project.example.models import Article, EmbargoTimeframe, PublicationTag, word_count_range
+from example_project.example.models import (
+    Article,
+    EmbargoTimeframe,
+    PublicationTag,
+    word_count_range,
+)
 
 logger = logging.getLogger(__name__)
 
