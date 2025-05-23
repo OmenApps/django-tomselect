@@ -7,16 +7,14 @@ tox:
 test:
     pytest --cov --cov-config=./tests/.coveragerc --cov-report=term-missing -n auto --e2e tests
 
-# Format code using ruff, black, and standard
+# Format code using ruff, and standard
 reformat:
     ruff check . --fix
-    black .
     npx standard client/ --fix
 
 # Run linting checks
 lint:
     ruff check . --no-fix
-    black . --check
     npx standard client/
 
 # Build the project

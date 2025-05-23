@@ -120,13 +120,12 @@ def precommit(session: Session, django: str) -> None:
     ]
     session.install(
         "bandit",
-        "black",
+        "ruff",
         "darglint",
         "flake8",
         "flake8-bugbear",
         "flake8-docstrings",
         "flake8-rst-docstrings",
-        "isort",
         "pep8-naming",
         "pre-commit",
         "pre-commit-hooks",
@@ -152,7 +151,6 @@ def tests(session: Session, django: str) -> None:
     """Run the test suite."""
     session.run("uv", "sync", "--prerelease=allow", "--extra=dev")
     try:
-
         session.run("coverage", "run", "-m", "pytest", "-vv", *session.posargs)
     finally:
         if session.interactive:

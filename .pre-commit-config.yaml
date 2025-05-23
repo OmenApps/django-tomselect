@@ -8,9 +8,9 @@ repos:
         types: [python]
         require_serial: true
         args: ["-c", "bandit.yml"]
-      - id: black
-        name: black
-        entry: black
+      - id: ruff
+        name: ruff
+        entry: ruff
         language: system
         types: [python]
         require_serial: true
@@ -47,13 +47,6 @@ repos:
         types: [python]
         require_serial: true
         args: [--darglint-ignore-regex, .*]
-      - id: isort
-        name: isort
-        entry: isort
-        require_serial: true
-        language: system
-        types_or: [cython, pyi, python]
-        args: ["--filter-files"]
       - id: pyupgrade
         name: pyupgrade
         description: Automatically upgrade syntax for newer versions.
