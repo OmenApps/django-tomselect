@@ -1,8 +1,8 @@
 # Documentation dependencies
-Sphinx>=7.4.7
-sphinx-rtd-theme==2.0.0
+Sphinx==8.2.3
+sphinx-rtd-theme==3.0.2
 sphinx-click==6.0.0
-myst-parser==4.0
+myst-parser==4.0.1
 furo==2024.8.6
 linkify-it-py==2.0.3
 sphinx-copybutton==0.5.2
@@ -10,7 +10,8 @@ sphinx-togglebutton==0.3.2
 sphinxcontrib-mermaid==1.0.0
 
 # Django and related packages (for autodoc)
-Django==5.1.7
-django-crispy-forms==2.3
-crispy-bootstrap5==2024.10
-django_extensions==3.2.3
+Django==5.2.1
+django-crispy-forms==2.4
+crispy-bootstrap5==2025.4
+django_extensions==4.1
+django_htmx==1.23.0
