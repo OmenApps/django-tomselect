@@ -153,7 +153,7 @@ class AutocompleteModelView(View):
         try:
             if self.filter_by:
                 lookup, value = unquote(self.filter_by).replace("'", "").split("=")
-                dependent_field, dependent_field_lookup = lookup.split("__")
+                dependent_field, dependent_field_lookup = lookup.split("__", 1)
                 if not value or not dependent_field or not dependent_field_lookup:
                     package_logger.warning("Invalid filter_by value (%s)", self.filter_by)
                     return queryset.none()
@@ -164,7 +164,7 @@ class AutocompleteModelView(View):
 
             if self.exclude_by:
                 lookup, value = unquote(self.exclude_by).replace("'", "").split("=")
-                exclude_field, exclude_field_lookup = lookup.split("__")
+                exclude_field, exclude_field_lookup = lookup.split("__", 1)
                 if not value or not exclude_field or not exclude_field_lookup:
                     package_logger.warning("Invalid exclude_by value (%s)", self.exclude_by)
                     return queryset.none()
