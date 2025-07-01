@@ -10,10 +10,8 @@ from django.db.models import Value
 from django.db.models.functions import Concat
 from django.http import JsonResponse
 
-from django_tomselect.app_settings import TomSelectConfig
 from django_tomselect.autocompletes import AutocompleteModelView
-from django_tomselect.widgets import TomSelectModelWidget
-from example_project.example.models import Edition
+from example_project.example.models import Edition, Magazine
 
 
 @pytest.fixture
@@ -554,6 +552,110 @@ class TestAutocompleteModelViewFiltering:
         view.setup(request)
         filtered_qs = view.apply_filters(Edition.objects.all())
         assert filtered_qs.count() == 0
+
+    def test_filter_by_with_nested_foreign_key_lookup(self, rf, test_editions, magazines):
+        """Test filter_by with nested foreign key lookup (double underscores in lookup field)."""
+        # Create magazines
+        magazine1 = magazines[0]
+        magazine1.name = "Tech Magazine"
+        magazine1.save()
+
+        magazine2 = magazines[1] if len(magazines) > 1 else Magazine.objects.create(name="Science Magazine")
+        magazine2.name = "Science Magazine"
+        magazine2.save()
+
+        # Update editions to use the magazines
+        for edition in test_editions[:5]:
+            edition.magazine = magazine1
+            edition.save()
+        for edition in test_editions[5:]:
+            edition.magazine = magazine2
+            edition.save()
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.filter_by = ("magazine", "magazine__name")
+        request = rf.get("", {"f": f"magazine__magazine__name={magazine1.name}"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+        expected_qs = Edition.objects.filter(magazine__name=magazine1.name)
+
+        assert filtered_qs.count() == expected_qs.count()
+        assert filtered_qs.count() == 5
+        assert all(edition.magazine.name == "Tech Magazine" for edition in filtered_qs)
+
+    def test_exclude_by_with_nested_foreign_key_lookup(self, rf, test_editions, magazines):
+        """Test exclude_by with nested foreign key lookup (double underscores in lookup field)."""
+        # Create magazines
+        magazine1 = magazines[0]
+        magazine1.name = "Tech Magazine"
+        magazine1.save()
+
+        magazine2 = magazines[1] if len(magazines) > 1 else Magazine.objects.create(name="Science Magazine")
+        magazine2.name = "Science Magazine"
+        magazine2.save()
+
+        # Update editions to use the magazines
+        for edition in test_editions[:5]:
+            edition.magazine = magazine1
+            edition.save()
+        for edition in test_editions[5:]:
+            edition.magazine = magazine2
+            edition.save()
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.exclude_by = ("magazine", "magazine__name")
+        request = rf.get("", {"e": f"magazine__magazine__name={magazine1.name}"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+        expected_qs = Edition.objects.exclude(magazine__name=magazine1.name)
+
+        assert filtered_qs.count() == expected_qs.count()
+        assert filtered_qs.count() == 4
+        assert all(edition.magazine.name == "Science Magazine" for edition in filtered_qs)
+
+    def test_filter_by_with_deeper_nested_lookup(self, rf, db):
+        """Test filter_by with deeper level of nesting in the lookup field."""
+        from example_project.example.models import Category
+
+        # Create a set of nested categories
+        parent_cat = Category.objects.create(name="Technology")
+        Category.objects.create(name="Software", parent=parent_cat)
+
+        magazine = Magazine.objects.create(name="Tech Magazine")
+        Edition.objects.create(name="Special Edition", year="2024", pages="100", pub_num="SP-1", magazine=magazine)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.filter_by = ("magazine", "magazine__edition__magazine__name")
+        request = rf.get("", {"f": f"magazine__magazine__edition__magazine__name={magazine.name}"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+        expected_qs = Edition.objects.filter(magazine__edition__magazine__name=magazine.name)
+
+        # Deeply nested lookup
+        assert filtered_qs.count() == expected_qs.count()
+
+    def test_filter_by_with_spaces_in_value(self, rf, magazines):
+        """Test filter_by when the value contains spaces."""
+        # Create a magazine with spaces in its name
+        magazine = Magazine.objects.create(name="Tech Science Magazine")
+        Edition.objects.create(name="Special Edition", year="2024", pages="100", pub_num="SP-1", magazine=magazine)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.filter_by = ("magazine", "magazine__name")
+        request = rf.get("", {"f": "magazine__magazine__name=Tech Science Magazine"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        assert filtered_qs.count() == 1
+        assert filtered_qs.first().magazine.name == "Tech Science Magazine"
 
 
 @pytest.mark.django_db
