@@ -4,12 +4,13 @@ from typing import Any, Type
 
 from django.contrib.auth.models import AnonymousUser, User
 from django.db.models import Model, QuerySet
-from django.urls import NoReverseMatch, resolve, reverse
+from django.urls import NoReverseMatch, resolve
 
 from django_tomselect.app_settings import PROXY_REQUEST_CLASS
 from django_tomselect.logging import package_logger
 from django_tomselect.middleware import get_current_request
 from django_tomselect.models import EmptyModel
+from django_tomselect.utils import safe_reverse
 
 
 class LazyView:
@@ -28,7 +29,7 @@ class LazyView:
         """Get the resolved URL, resolving it if needed."""
         if self._url is None:
             try:
-                self._url = reverse(self.url_name)
+                self._url = safe_reverse(self.url_name)
                 package_logger.debug("URL resolved in LazyView: %s", self._url)
             except NoReverseMatch as e:
                 package_logger.error("Could not reverse URL in LazyView: %s - %s", self.url_name, e)

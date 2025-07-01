@@ -3,7 +3,11 @@
 import re
 from typing import Any, Optional
 
+from django.conf import settings
+from django.urls import NoReverseMatch, reverse
+from django.urls.base import reverse_lazy
 from django.utils.html import escape
+from django.utils.translation import get_language
 
 from django_tomselect.logging import package_logger
 
@@ -14,6 +18,60 @@ DOMAIN_PATTERN = r"^[a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,}"
 
 # Maximum recursion depth for dictionary sanitization
 MAX_RECURSION_DEPTH = 10
+
+
+def safe_reverse(viewname: str, args: list | None = None, kwargs: dict | None = None) -> str:
+    """Safely reverse url, handling i18n edge cases when USE_I18N is True but i18n URL patterns aren't included."""
+    try:
+        # First try normal reversal
+        return reverse(viewname, args=args, kwargs=kwargs)
+    except NoReverseMatch as e:
+        # Check if this might be an i18n-related issue
+        if settings.USE_I18N and get_language():
+            # Try to extract the actual error message
+            error_msg = str(e)
+            language_code = get_language()
+
+            # Check if the error is about a language namespace
+            if f"'{language_code}' is not a registered namespace" in error_msg:
+                package_logger.debug(
+                    "URL reversal failed due to missing i18n namespace '%s'. "
+                    "This usually means django.conf.urls.i18n is not included in urlpatterns. "
+                    "Attempting fallback URL reversal.",
+                    language_code,
+                )
+
+                # Try to reverse without language prefix by temporarily deactivating translations
+                from django.utils import translation
+
+                current_language = translation.get_language()
+                try:
+                    # Deactivate translations temporarily
+                    translation.deactivate()
+                    return reverse(viewname, args=args, kwargs=kwargs)
+                except NoReverseMatch:
+                    # If it still fails, re-raise the original error
+                    raise e
+                finally:
+                    # Restore the original language
+                    if current_language:
+                        translation.activate(current_language)
+
+        # If not i18n related or fallback didn't work, re-raise
+        raise
+
+
+def safe_reverse_lazy(viewname: str, args: list | None = None, kwargs: dict | None = None):
+    """
+    Lazy version of safe_reverse that handles i18n edge cases.
+
+    Returns a lazy object that won't be evaluated until it's used as a string.
+    """
+    from django.utils.functional import lazy
+
+    # Create a lazy version of safe_reverse
+    _safe_reverse_lazy = lazy(safe_reverse, str)
+    return _safe_reverse_lazy(viewname, args=args, kwargs=kwargs)
 
 
 def safe_escape(value: Any) -> str:

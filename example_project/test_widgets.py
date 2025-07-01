@@ -524,7 +524,7 @@ class TestWidgetErrorAndURLHandling:
         def mock_reverse_lazy(*args, **kwargs):
             raise NoReverseMatch("Test error")
 
-        monkeypatch.setattr("django_tomselect.widgets.reverse_lazy", mock_reverse_lazy)
+        monkeypatch.setattr("django_tomselect.widgets.safe_reverse_lazy", mock_reverse_lazy)
 
         widget = TomSelectModelWidget()
         result = widget.get_url("nonexistent-url", "test url")
@@ -988,7 +988,7 @@ class TestWidgetModelAndLabelHandling:
         def mock_reverse(*args, **kwargs):
             raise NoReverseMatch("Test error")
 
-        monkeypatch.setattr("django_tomselect.widgets.reverse", mock_reverse)
+        monkeypatch.setattr("django_tomselect.widgets.safe_reverse", mock_reverse)
 
         context = widget.get_context("test", sample_edition.pk, {})
         selected = context["widget"]["selected_options"]
@@ -1172,7 +1172,7 @@ class TestWidgetRequestHandlingAndUpdates:
         def mock_reverse(*args, **kwargs):
             return "/test-url/"
 
-        monkeypatch.setattr("django_tomselect.widgets.reverse", mock_reverse)
+        monkeypatch.setattr("django_tomselect.widgets.safe_reverse", mock_reverse)
 
         class MockRequest:
             """Mock request for permission checks."""
@@ -1942,7 +1942,7 @@ class TestWidgetSecurity:
             return "javascript:alert('hijacked');"
 
         # Override the reverse function to return our malicious URLs
-        monkeypatch.setattr("django_tomselect.widgets.reverse", mock_url)
+        monkeypatch.setattr("django_tomselect.widgets.safe_reverse", mock_url)
 
         # Render the widget with a malicious edition
         rendered = widget.render("test_field", malicious_edition.pk)

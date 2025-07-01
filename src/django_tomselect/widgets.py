@@ -9,7 +9,7 @@ from django import forms
 from django.db.models import Model, Q, QuerySet
 from django.forms.renderers import BaseRenderer
 from django.http import HttpRequest
-from django.urls import NoReverseMatch, reverse, reverse_lazy
+from django.urls import NoReverseMatch
 from django.utils.html import escape
 
 from django_tomselect.app_settings import (
@@ -26,6 +26,7 @@ from django_tomselect.lazy_utils import LazyView
 from django_tomselect.logging import package_logger
 from django_tomselect.middleware import get_current_request
 from django_tomselect.models import EmptyModel
+from django_tomselect.utils import safe_reverse, safe_reverse_lazy
 
 
 class TomSelectWidgetMixin:
@@ -185,7 +186,7 @@ class TomSelectWidgetMixin:
         if not hasattr(self, "_cached_url"):
             package_logger.debug("Resolving URL for the first time: %s", self.url)
             try:
-                self._cached_url = reverse(self.url)
+                self._cached_url = safe_reverse(self.url)
                 package_logger.debug("URL resolved in TomSelectWidgetMixin: %s", self._cached_url)
             except NoReverseMatch as e:
                 package_logger.error("Could not reverse URL in TomSelectWidgetMixin: %s - %s", self.url, e)
@@ -213,7 +214,7 @@ class TomSelectWidgetMixin:
 
         # Add required data attributes
         if self.url:
-            attrs["data-autocomplete-url"] = reverse_lazy(self.url)
+            attrs["data-autocomplete-url"] = safe_reverse_lazy(self.url)
         if self.value_field:
             attrs["data-value-field"] = self.value_field
         if self.label_field:
@@ -250,7 +251,7 @@ class TomSelectWidgetMixin:
             return ""
 
         try:
-            return cast(str, reverse_lazy(view_name, **kwargs))
+            return cast(str, safe_reverse_lazy(view_name, **kwargs))
         except NoReverseMatch as e:
             package_logger.warning(
                 "TomSelectWidget requires a resolvable '%s' attribute. Original error: %s",
@@ -418,7 +419,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             return None
 
         try:
-            return reverse(getattr(view, url_attr))
+            return safe_reverse(getattr(view, url_attr))
         except NoReverseMatch:
             package_logger.warning("Unable to reverse %s for model %s", url_attr, self.model)
             return None
@@ -452,7 +453,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
     def _add_url_to_context(self, context: dict[str, str], key: str, url_pattern: str, pk: Any) -> None:
         """Add URL to context dict if reversible."""
         try:
-            context[key] = escape(reverse(url_pattern, args=[pk]))
+            context[key] = escape(safe_reverse(url_pattern, args=[pk]))
         except NoReverseMatch:
             package_logger.warning(
                 "Unable to reverse %s %s with pk %s",

@@ -10,14 +10,14 @@ from django.core.exceptions import FieldError, PermissionDenied
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Model, Q, QuerySet
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.urls import NoReverseMatch, reverse
+from django.urls import NoReverseMatch
 from django.views.generic import View
 
 from django_tomselect.cache import cache_permission, permission_cache
 from django_tomselect.constants import EXCLUDEBY_VAR, FILTERBY_VAR, PAGE_VAR, SEARCH_VAR
 from django_tomselect.logging import package_logger
 from django_tomselect.models import EmptyModel
-from django_tomselect.utils import safe_url, sanitize_dict
+from django_tomselect.utils import safe_reverse, safe_url, sanitize_dict
 
 T = TypeVar("T", bound=Model)
 IterableType = list[Any] | tuple[Any, ...] | dict[Any, Any] | type
@@ -311,19 +311,19 @@ class AutocompleteModelView(View):
             # Add instance-specific URLs conditionally based on permissions
             if self.detail_url and item["can_view"]:
                 try:
-                    item["detail_url"] = safe_url(reverse(self.detail_url, args=[item["id"]]))
+                    item["detail_url"] = safe_url(safe_reverse(self.detail_url, args=[item["id"]]))
                 except NoReverseMatch:
                     package_logger.warning("Could not reverse detail_url %s", self.detail_url)
 
             if self.update_url and item["can_update"]:
                 try:
-                    item["update_url"] = safe_url(reverse(self.update_url, args=[item["id"]]))
+                    item["update_url"] = safe_url(safe_reverse(self.update_url, args=[item["id"]]))
                 except NoReverseMatch:
                     package_logger.warning("Could not reverse update_url %s", self.update_url)
 
             if self.delete_url and item["can_delete"]:
                 try:
-                    item["delete_url"] = safe_url(reverse(self.delete_url, args=[item["id"]]))
+                    item["delete_url"] = safe_url(safe_reverse(self.delete_url, args=[item["id"]]))
                 except NoReverseMatch:
                     package_logger.warning("Could not reverse delete_url %s", self.delete_url)
 
