@@ -235,7 +235,7 @@ class BaseTomSelectModelMixin:
             raise
         except Exception as e:
             package_logger.error("Error in clean method of %s: %s", self.__class__.__name__, e)
-            raise ValidationError(f"An unexpected error occurred: {str(e)}")
+            raise ValidationError(f"An unexpected error occurred: {str(e)}") from e
 
     def _clean_value(self, value: Any) -> Any:
         """Clean the input value by removing surrounding quotes if needed."""
@@ -300,7 +300,7 @@ class TomSelectChoiceField(BaseTomSelectMixin, forms.ChoiceField):
                 allowed_values = {str(item["value"]) for item in all_items}
             except Exception as e:
                 package_logger.error("Error getting choices from autocomplete view: %s", e)
-                raise ValidationError(f"Error determining allowed choices: {str(e)}")
+                raise ValidationError(f"Error determining allowed choices: {str(e)}") from e
 
             if str_value not in allowed_values:
                 package_logger.debug("Invalid choice in %s: %s", self.__class__.__name__, value)
@@ -315,7 +315,7 @@ class TomSelectChoiceField(BaseTomSelectMixin, forms.ChoiceField):
             raise
         except Exception as e:
             package_logger.error("Error in clean method of %s: %s", self.__class__.__name__, e)
-            raise ValidationError(f"An unexpected error occurred: {str(e)}")
+            raise ValidationError(f"An unexpected error occurred: {str(e)}") from e
 
 
 class TomSelectMultipleChoiceField(BaseTomSelectMixin, forms.MultipleChoiceField):
@@ -365,7 +365,7 @@ class TomSelectMultipleChoiceField(BaseTomSelectMixin, forms.MultipleChoiceField
                 allowed_values = {str(item["value"]) for item in all_items}
             except Exception as e:
                 package_logger.error("Error getting choices from autocomplete view: %s", e)
-                raise ValidationError(f"Error determining allowed choices: {str(e)}")
+                raise ValidationError(f"Error determining allowed choices: {str(e)}") from e
 
             invalid_values = [val for val in str_values if val not in allowed_values]
             if invalid_values:
@@ -381,7 +381,7 @@ class TomSelectMultipleChoiceField(BaseTomSelectMixin, forms.MultipleChoiceField
             raise
         except Exception as e:
             package_logger.error("Error in clean method of %s: %s", self.__class__.__name__, e)
-            raise ValidationError(f"An unexpected error occurred: {str(e)}")
+            raise ValidationError(f"An unexpected error occurred: {str(e)}") from e
 
 
 class TomSelectModelChoiceField(BaseTomSelectModelMixin, forms.ModelChoiceField):
