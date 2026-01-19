@@ -92,14 +92,14 @@ class PermissionCache:
 
             # Create unique key including version
             unique_key = f"{base_key}:v{version}"
-            final_key = hashlib.md5(unique_key.encode()).hexdigest()
+            final_key = hashlib.md5(unique_key.encode(), usedforsecurity=False).hexdigest()
             package_logger.debug("Permission cache key: %s", final_key)
             return final_key
         except Exception as e:
             package_logger.error("Error generating cache key: %s", e)
             # Return a fallback key that's still unique but won't conflict
             fallback_key = f"tomselect_fallback_{user_id}_{model_name}_{action}_{hash(str(e))}"
-            return hashlib.md5(fallback_key.encode()).hexdigest()
+            return hashlib.md5(fallback_key.encode(), usedforsecurity=False).hexdigest()
 
     def _get_version_key(self, user_id: int | None = None) -> str:
         """Generate the version key for a user or global version.
