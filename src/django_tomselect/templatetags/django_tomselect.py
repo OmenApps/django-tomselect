@@ -177,7 +177,7 @@ def tomselect_media(css_framework: str | None = None, use_minified: bool | None 
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_css") or not hasattr(widget.media, "_js"):
             package_logger.error("Widget media attributes not found")
-            return format_html("")
+            return ""
 
         css_html = render_css_links(widget.media._css)
         js_html = render_js_scripts(widget.media._js)
@@ -196,7 +196,7 @@ def tomselect_media(css_framework: str | None = None, use_minified: bool | None 
         return mark_safe(result)  # nosec B308 B703
     except Exception as e:
         package_logger.error("Error in tomselect_media: %s", e)
-        return format_html("<!-- Error loading TomSelect media -->")
+        return mark_safe("<!-- Error loading TomSelect media -->")  # nosec B308 B703
 
 
 @register.simple_tag
@@ -217,7 +217,7 @@ def tomselect_media_css(css_framework: str | None = None, use_minified: bool | N
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_css"):
             package_logger.error("Widget media CSS attributes not found")
-            return format_html("")
+            return ""
 
         css_html = render_css_links(widget.media._css)
 
@@ -229,7 +229,7 @@ def tomselect_media_css(css_framework: str | None = None, use_minified: bool | N
         return mark_safe(css_html)  # nosec B308 B703
     except Exception as e:
         package_logger.error("Error in tomselect_media_css: %s", e)
-        return format_html("<!-- Error loading TomSelect CSS -->")
+        return mark_safe("<!-- Error loading TomSelect CSS -->")  # nosec B308 B703
 
 
 @register.simple_tag
@@ -249,7 +249,7 @@ def tomselect_media_js(use_minified: bool | None = None) -> str:
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_js"):
             package_logger.error("Widget media JS attributes not found")
-            return format_html("")
+            return ""
 
         js_html = render_js_scripts(widget.media._js)
 
@@ -257,4 +257,4 @@ def tomselect_media_js(use_minified: bool | None = None) -> str:
         return mark_safe(js_html)  # nosec B308 B703
     except Exception as e:
         package_logger.error("Error in tomselect_media_js: %s", e)
-        return format_html("<!-- Error loading TomSelect JS -->")
+        return mark_safe("<!-- Error loading TomSelect JS -->")  # nosec B308 B703
