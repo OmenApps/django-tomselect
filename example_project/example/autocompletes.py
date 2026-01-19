@@ -42,8 +42,6 @@ from example_project.example.models import (
     edition_year,
     word_count_range,
 )
-from example_project.example.views import get_range_statistics
-
 logger = logging.getLogger(__name__)
 
 
@@ -261,6 +259,9 @@ class WordCountRangeAutocompleteView(AutocompleteIterablesView):
 
     def get_iterable(self):
         """Convert the word count range tuples into labeled options with counts."""
+        # Lazy import to avoid circular dependency with views module
+        from example_project.example.views.intermediate_demos import get_range_statistics
+
         stats = get_range_statistics()
         ranges = []
 
