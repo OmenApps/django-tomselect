@@ -48,7 +48,7 @@ COPY ./src/ ${APP_HOME}/src/
 
 # Install dependencies using uv
 RUN uv venv --python 3.13
-RUN uv sync --prerelease=allow
+RUN uv sync --extra dev --prerelease=allow
 
 # Project initialization:
 COPY ./compose/django/entrypoint /entrypoint
