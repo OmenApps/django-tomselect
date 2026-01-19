@@ -19,6 +19,7 @@ Usage:
 
 from django import template
 from django.templatetags.static import static
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from django_tomselect.app_settings import AllowedCSSFrameworks
@@ -121,7 +122,7 @@ def render_css_links(css_dict: dict) -> str:
             for path in paths:
                 url = to_static_url(path)
                 if url:
-                    links.append(f'<link href="{url}" rel="stylesheet" media="{medium}">')
+                    links.append(format_html('<link href="{}" rel="stylesheet" media="{}">', url, medium))
 
         return "\n".join(links)
     except Exception as e:
@@ -149,7 +150,7 @@ def render_js_scripts(js_list: list) -> str:
         for path in js_list:
             url = to_static_url(path)
             if url:
-                scripts.append(f'<script src="{url}"></script>')
+                scripts.append(format_html('<script src="{}"></script>', url))
 
         return "\n".join(scripts)
     except Exception as e:
@@ -176,7 +177,7 @@ def tomselect_media(css_framework: str | None = None, use_minified: bool | None 
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_css") or not hasattr(widget.media, "_js"):
             package_logger.error("Widget media attributes not found")
-            return mark_safe("")
+            return format_html("")
 
         css_html = render_css_links(widget.media._css)
         js_html = render_js_scripts(widget.media._js)
@@ -192,10 +193,10 @@ def tomselect_media(css_framework: str | None = None, use_minified: bool | None 
             css_framework,
             use_minified,
         )
-        return mark_safe(result)
+        return mark_safe(result)  # nosec B308 B703
     except Exception as e:
         package_logger.error("Error in tomselect_media: %s", e)
-        return mark_safe("<!-- Error loading TomSelect media -->")
+        return format_html("<!-- Error loading TomSelect media -->")
 
 
 @register.simple_tag
@@ -216,7 +217,7 @@ def tomselect_media_css(css_framework: str | None = None, use_minified: bool | N
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_css"):
             package_logger.error("Widget media CSS attributes not found")
-            return mark_safe("")
+            return format_html("")
 
         css_html = render_css_links(widget.media._css)
 
@@ -225,10 +226,10 @@ def tomselect_media_css(css_framework: str | None = None, use_minified: bool | N
             css_framework,
             use_minified,
         )
-        return mark_safe(css_html)
+        return mark_safe(css_html)  # nosec B308 B703
     except Exception as e:
         package_logger.error("Error in tomselect_media_css: %s", e)
-        return mark_safe("<!-- Error loading TomSelect CSS -->")
+        return format_html("<!-- Error loading TomSelect CSS -->")
 
 
 @register.simple_tag
@@ -248,12 +249,12 @@ def tomselect_media_js(use_minified: bool | None = None) -> str:
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_js"):
             package_logger.error("Widget media JS attributes not found")
-            return mark_safe("")
+            return format_html("")
 
         js_html = render_js_scripts(widget.media._js)
 
         package_logger.debug("Generated tomselect_media_js with use_minified: %s", use_minified)
-        return mark_safe(js_html)
+        return mark_safe(js_html)  # nosec B308 B703
     except Exception as e:
         package_logger.error("Error in tomselect_media_js: %s", e)
-        return mark_safe("<!-- Error loading TomSelect JS -->")
+        return format_html("<!-- Error loading TomSelect JS -->")
