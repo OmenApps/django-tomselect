@@ -14,12 +14,12 @@ Then, in that file, you can override the block:
     {% load i18n %}
     {% load django_tomselect %}
 
-    <script>
-        {% block tomselect_global_setup %}
+    {% block tomselect_global_setup %}
+        <script>
             // Custom global setup code here
             console.log('Custom TomSelect global setup');
-        {% endblock tomselect_global_setup %}
-    </script>
+        </script>
+    {% endblock tomselect_global_setup %}
 
 This will replace the original code block in the `tomselect_setup.html` template.
 {% endcomment %}
@@ -27,8 +27,8 @@ This will replace the original code block in the `tomselect_setup.html` template
 {% load i18n %}
 {% load django_tomselect %}
 
-<script>
-    {% block tomselect_global_setup %}
+{% block tomselect_global_setup %}
+    <script>
         // Global namespace for django-tomselect
         if (!window.djangoTomSelect) {
             window.djangoTomSelect = window.djangoTomSelect || {
@@ -391,5 +391,5 @@ This will replace the original code block in the `tomselect_setup.html` template
                 window.djangoTomSelect.setupHandlers();
             {% endif %}
         }
-    {% endblock tomselect_global_setup %}
-</script>
+    </script>
+{% endblock tomselect_global_setup %}

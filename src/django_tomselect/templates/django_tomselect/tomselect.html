@@ -40,10 +40,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
     {% include "django_tomselect/render/select.html" with widget=widget %}
 {% endblock select_element %}
 
-<script>
-    {% block tomselect_global_setup %}
-    {% endblock tomselect_global_setup %}
-</script>
+{% block tomselect_global_setup %}
+{% endblock tomselect_global_setup %}
 
 <script>
     {% block tomselect_init %}
