@@ -175,6 +175,10 @@ def validate_proxy_request_class():
 
     Returns:
         A subclass of DefaultProxyRequest.
+
+    Raises:
+        ImportError: If the PROXY_REQUEST_CLASS string cannot be imported.
+        TypeError: If the class is not a subclass of DefaultProxyRequest.
     """
     from django_tomselect.request import DefaultProxyRequest
 
