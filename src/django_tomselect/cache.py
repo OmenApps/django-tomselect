@@ -128,7 +128,7 @@ class PermissionCache:
         """Attempt to atomically increment a cache value.
 
         Tries to use atomic increment operations available in the cache backend,
-        falling back to non-atomic operations if necessary.
+        falling back to atomic add() for initialization if necessary.
 
         Args:
             key: The cache key to increment
@@ -154,10 +154,20 @@ class PermissionCache:
                     package_logger.debug("Atomic increment with generic incr successful for key: %s", key)
                     return True
                 except ValueError:
-                    # Key doesn't exist, set initial value
-                    self.cache.set(key, "1", None)
-                    package_logger.debug("Set initial value for key: %s", key)
-                    return True
+                    # Key doesn't exist - use add() for atomic initialization
+                    # add() only sets the value if the key doesn't already exist (atomic)
+                    if self.cache.add(key, 1, None):
+                        package_logger.debug("Atomically initialized key: %s", key)
+                        return True
+                    else:
+                        # Key was set by another process, try increment again
+                        try:
+                            self.cache.incr(key, delta=1)
+                            package_logger.debug("Incremented after concurrent init for key: %s", key)
+                            return True
+                        except ValueError:
+                            # Still failing, fall through to non-atomic fallback
+                            pass
         except Exception as e:
             package_logger.warning(
                 "Atomic increment failed for key %s: %s. Falling back to non-atomic operation.", key, e
