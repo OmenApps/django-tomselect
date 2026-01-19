@@ -24,21 +24,13 @@ class Command(BaseCommand):
 
     help = "Generates example data for all models in the example app"
 
-    def handle(self, *args, **options):
-        """Generate example data for all models in the example app."""
-        self.stdout.write("Generating example data...")
+    magazines = []
+    authors = []
+    main_categories = {}
+    categories = {}
 
-        # Clear existing data
-        self.stdout.write("Clearing existing data...")
-        Magazine.objects.all().delete()
-        Edition.objects.all().delete()
-        Category.objects.all().delete()
-        Author.objects.all().delete()
-        Article.objects.all().delete()
-        PublishingMarket.objects.all().delete()
-        EmbargoRegion.objects.all().delete()
-
-        # Create Publishing Markets
+    def create_market_regions(self) -> None:
+        """Create example publishing market regions."""
         self.stdout.write("Creating publishing markets...")
 
         # Create regions
@@ -195,9 +187,10 @@ class Command(BaseCommand):
                 typical_embargo_days=days,
             )
 
-        # Create magazines
+    def create_magazines(self) -> None:
+        """Create example magazines."""
         self.stdout.write("Creating magazines...")
-        magazines = []
+
         magazine_names = [
             "Tech Today",
             "Awesome Django",
@@ -263,12 +256,13 @@ class Command(BaseCommand):
                 name=name,
                 accepts_new_articles=random.choice(Magazine.AcceptsNewArticles.values),
             )
-            magazines.append(magazine)
+            self.magazines.append(magazine)
             self.stdout.write(f"Created magazine: {magazine.name}")
 
-        # Create categories with hierarchy
+    def create_categories(self) -> None:
+        """Create example categories and sub-categories."""
         self.stdout.write("Creating categories...")
-        main_categories = {
+        self.main_categories = {
             "Development": [
                 "Web Frontend",
                 "Web Backend",
@@ -542,20 +536,20 @@ class Command(BaseCommand):
             "Food & Drink (empty category)": [],
         }
 
-        categories = {}
-        for main_cat, sub_cats in main_categories.items():
+        for main_cat, sub_cats in self.main_categories.items():
             parent = Category.objects.create(name=main_cat)
-            categories[main_cat] = parent
+            self.categories[main_cat] = parent
             self.stdout.write(f"Created main category: {main_cat}")
 
             for sub_cat in sub_cats:
                 child = Category.objects.create(name=sub_cat, parent=parent)
-                categories[sub_cat] = child
+                self.categories[sub_cat] = child
                 self.stdout.write(f"Created sub-category: {sub_cat}")
 
-        # Create authors
+    def create_authors(self) -> None:
+        """Create example authors."""
         self.stdout.write("Creating authors...")
-        authors = []
+
         with open(
             "example_project/example/management/commands/author_names.txt",
             encoding="utf-8",
@@ -646,10 +640,11 @@ class Command(BaseCommand):
             if random.random() < 0.3:  # 30% chance to combine two bios
                 bio = f"{bio}. {random.choice(bios).lower()}"
             author = Author.objects.create(name=name, bio=bio)
-            authors.append(author)
+            self.authors.append(author)
             self.stdout.write(f"Created author: {name}")
 
-        # Create articles
+    def create_articles(self) -> None:
+        """Create example articles."""
         self.stdout.write("Creating articles...")
 
         with open("example_project/example/management/commands/article_titles.txt", encoding="utf-8") as f:
@@ -671,7 +666,7 @@ class Command(BaseCommand):
         past_2000_days = now - datetime.timedelta(days=2000)
         total_seconds_2000_days = int((now - past_2000_days).total_seconds())
 
-        for magazine in magazines:
+        for magazine in self.magazines:
             for year in range(2010, 2025):
                 for month in range(1, 13):
                     name = f"{magazine.name} - {year}/{month:02d}"
@@ -685,13 +680,13 @@ class Command(BaseCommand):
                     self.stdout.write(f"Created edition: {name}")
 
             for _ in range(random.randint(50, 80)):
-                article_authors = random.sample(authors, random.randint(1, 4))
+                article_authors = random.sample(self.authors, random.randint(1, 4))
                 edition = Edition.objects.filter(magazine=magazine).order_by("?").first()
 
                 # Select categories
-                main_cat = random.choice(list(main_categories.keys()))
-                sub_cats = main_categories[main_cat]
-                selected_cats = [categories[main_cat]]
+                main_cat = random.choice(list(self.main_categories.keys()))
+                sub_cats = self.main_categories[main_cat]
+                selected_cats = [self.categories[main_cat]]
                 num_sub_cats = random.randint(1, 2)
                 self.stdout.write(f"Selected {num_sub_cats} sub-categories from {main_cat}")
                 if len(sub_cats) < num_sub_cats:
@@ -699,7 +694,7 @@ class Command(BaseCommand):
                 # Randomly select sub-categories
                 selected_sub_cats = random.sample(sub_cats, num_sub_cats)
                 for sub_cat in selected_sub_cats:
-                    selected_cats.append(categories[sub_cat])
+                    selected_cats.append(self.categories[sub_cat])
 
                 # Build title
                 title_template = random.choice(title_templates)
@@ -768,6 +763,26 @@ class Command(BaseCommand):
 
                     most_recent_article.save(update_fields=["created_at", "updated_at"])
                     i += 27  # increment by 27 days for each author
+
+    def handle(self, *args, **options):
+        """Generate example data for all models in the example app."""
+        self.stdout.write("Generating example data...")
+
+        # Clear existing data
+        self.stdout.write("Clearing existing data...")
+        Magazine.objects.all().delete()
+        Edition.objects.all().delete()
+        Category.objects.all().delete()
+        Author.objects.all().delete()
+        Article.objects.all().delete()
+        PublishingMarket.objects.all().delete()
+        EmbargoRegion.objects.all().delete()
+
+        self.create_market_regions()
+        self.create_magazines()
+        self.create_categories()
+        self.create_authors()
+        self.create_articles()
 
         self.stdout.write(self.style.SUCCESS("Successfully generated example data"))
 
