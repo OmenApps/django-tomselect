@@ -134,12 +134,12 @@
         // Record initialization times for each TomSelect instance
         function recordInitTime(id) {
             initTimes[id] = ((performance.now() - startTime) / 1000).toFixed(2);
-        
+
             // Check if all items have been initialized
             if (Object.values(initTimes).every(time => time !== null)) {
                 // Hide loading indicator when all are done
                 document.getElementById('loading-message').style.display = 'none';
-        
+
                 // Record full initialization time
                 fullInitTime = ((performance.now() - startTime) / 1000).toFixed(2);
                 document.getElementById('full-init-time').textContent = `${fullInitTime} seconds`;

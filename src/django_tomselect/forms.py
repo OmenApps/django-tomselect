@@ -1,6 +1,6 @@
 """Form fields for the django-tomselect package."""
 
-from typing import Any, ClassVar, Optional, Type
+from typing import Any, ClassVar
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -31,8 +31,8 @@ class BaseTomSelectMixin:
     settings, managing widget attributes, and proper widget initialization.
     """
 
-    field_base_class: ClassVar[Type[forms.Field]] = forms.Field
-    widget_class: ClassVar[Type[Widget] | None] = None  # To be defined by subclasses
+    field_base_class: ClassVar[type[forms.Field]] = forms.Field
+    widget_class: ClassVar[type[Widget] | None] = None  # To be defined by subclasses
     config: TomSelectConfig
     widget: Widget
 
@@ -96,8 +96,8 @@ class BaseTomSelectModelMixin:
     widget attributes, and proper widget initialization with model querysets.
     """
 
-    field_base_class: ClassVar[Type[forms.Field]] = forms.Field
-    widget_class: ClassVar[Type[Widget] | None] = None  # To be defined by subclasses
+    field_base_class: ClassVar[type[forms.Field]] = forms.Field
+    widget_class: ClassVar[type[Widget] | None] = None  # To be defined by subclasses
     config: TomSelectConfig
     widget: Widget
     queryset: QuerySet
@@ -107,7 +107,7 @@ class BaseTomSelectModelMixin:
     def __init__(
         self,
         *args: Any,
-        queryset: Optional[QuerySet] = None,
+        queryset: QuerySet | None = None,
         config: TomSelectConfig | dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
@@ -278,8 +278,8 @@ class TomSelectChoiceField(BaseTomSelectMixin, forms.ChoiceField):
     is among the allowed choices.
     """
 
-    field_base_class: ClassVar[Type[forms.ChoiceField]] = forms.ChoiceField
-    widget_class: ClassVar[Type[TomSelectIterablesWidget]] = TomSelectIterablesWidget
+    field_base_class: ClassVar[type[forms.ChoiceField]] = forms.ChoiceField
+    widget_class: ClassVar[type[TomSelectIterablesWidget]] = TomSelectIterablesWidget
 
     def clean(self, value: Any) -> Any:
         """Validate that the selected value is among the allowed choices.
@@ -337,8 +337,8 @@ class TomSelectMultipleChoiceField(BaseTomSelectMixin, forms.MultipleChoiceField
     are among the allowed choices.
     """
 
-    field_base_class: ClassVar[Type[forms.MultipleChoiceField]] = forms.MultipleChoiceField
-    widget_class: ClassVar[Type[TomSelectIterablesMultipleWidget]] = TomSelectIterablesMultipleWidget
+    field_base_class: ClassVar[type[forms.MultipleChoiceField]] = forms.MultipleChoiceField
+    widget_class: ClassVar[type[TomSelectIterablesMultipleWidget]] = TomSelectIterablesMultipleWidget
 
     def clean(self, value: Any) -> list[Any]:
         """Validate that all selected values are allowed.
@@ -403,8 +403,8 @@ class TomSelectModelChoiceField(BaseTomSelectModelMixin, forms.ModelChoiceField)
     ModelChoiceField validation with TomSelect UI enhancements.
     """
 
-    field_base_class: ClassVar[Type[forms.ModelChoiceField]] = forms.ModelChoiceField
-    widget_class: ClassVar[Type[TomSelectModelWidget]] = TomSelectModelWidget
+    field_base_class: ClassVar[type[forms.ModelChoiceField]] = forms.ModelChoiceField
+    widget_class: ClassVar[type[TomSelectModelWidget]] = TomSelectModelWidget
 
 
 class TomSelectModelMultipleChoiceField(BaseTomSelectModelMixin, forms.ModelMultipleChoiceField):
@@ -415,5 +415,5 @@ class TomSelectModelMultipleChoiceField(BaseTomSelectModelMixin, forms.ModelMult
     ModelMultipleChoiceField validation with TomSelect UI enhancements.
     """
 
-    field_base_class: ClassVar[Type[forms.ModelMultipleChoiceField]] = forms.ModelMultipleChoiceField
-    widget_class: ClassVar[Type[TomSelectModelMultipleWidget]] = TomSelectModelMultipleWidget
+    field_base_class: ClassVar[type[forms.ModelMultipleChoiceField]] = forms.ModelMultipleChoiceField
+    widget_class: ClassVar[type[TomSelectModelMultipleWidget]] = TomSelectModelMultipleWidget

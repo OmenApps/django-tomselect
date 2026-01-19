@@ -1,7 +1,7 @@
 """Utility functions for django-tomselect."""
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from django.conf import settings
 from django.urls import NoReverseMatch, reverse
@@ -100,7 +100,7 @@ def safe_escape(value: Any) -> str:
         return ""
 
 
-def safe_url(url: Optional[str]) -> Optional[str]:
+def safe_url(url: str | None) -> str | None:
     """Validate and sanitize a URL to prevent unsafe schemes.
 
     Checks URLs against allowed protocols and patterns, sanitizing or

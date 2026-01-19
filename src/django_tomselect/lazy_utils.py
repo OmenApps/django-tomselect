@@ -1,6 +1,6 @@
 """Utility classes for lazy loading views and URLs."""
 
-from typing import Any, Type
+from typing import Any
 
 from django.contrib.auth.models import AnonymousUser, User
 from django.db.models import Model, QuerySet
@@ -17,7 +17,7 @@ class LazyView:
     """Lazy view resolution to avoid circular imports."""
 
     def __init__(
-        self, url_name: str, model: Type[Model] | None = None, user: AnonymousUser | User | None = None
+        self, url_name: str, model: type[Model] | None = None, user: AnonymousUser | User | None = None
     ) -> None:
         self.url_name = url_name
         self.model = model
@@ -90,7 +90,7 @@ class LazyView:
         package_logger.debug("No queryset found in view: %s", self.url_name)
         return EmptyModel.objects.none()
 
-    def get_model(self) -> Type[Model]:
+    def get_model(self) -> type[Model]:
         """Get the model from the view."""
         package_logger.debug("Getting model from view: %s", self.url_name)
         view = self.get_view()

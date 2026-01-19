@@ -1,7 +1,6 @@
 """Forms for the example project demonstrating TomSelectConfig usage."""
 
 from django import forms
-from django.utils.translation import gettext_lazy as _
 
 from example_project.example.models import Author, Category, Edition, Magazine
 

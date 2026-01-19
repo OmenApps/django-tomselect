@@ -5,7 +5,6 @@ import uuid
 import pytest
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from django.urls import reverse
 
 from django_tomselect.app_settings import TomSelectConfig
 from django_tomselect.autocompletes import AutocompleteModelView

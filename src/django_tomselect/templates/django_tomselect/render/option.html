@@ -31,7 +31,7 @@ option: function(data, escape) {
         return `<div class="row" role="row">${columns}</div>`;
     {% else %}
         const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
-        
+
         return `<div role="option">${safeValue}</div>`;
     {% endif %}
 },

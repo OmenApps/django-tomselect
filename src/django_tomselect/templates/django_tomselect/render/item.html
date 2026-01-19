@@ -14,7 +14,7 @@ item: function(data, escape) {
     {% else %}
         let item = '';
         const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
-        
+
         item += `<div role="option">${safeValue}`;
 
         {% if "show_detail" in widget and widget.show_detail %}

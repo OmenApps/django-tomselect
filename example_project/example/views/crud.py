@@ -323,7 +323,8 @@ def edition_create_view(request):
             form.save()
             messages.success(
                 request,
-                f'Edition "{form.cleaned_data["name"]}" has been created for magazine "{form.cleaned_data["magazine"].name}".',
+                f'Edition "{form.cleaned_data["name"]}" has been created for magazine '
+                f'"{form.cleaned_data["magazine"].name}".',
             )
             return redirect("edition-list")
         else:

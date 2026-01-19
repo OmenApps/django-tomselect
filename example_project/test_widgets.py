@@ -2712,8 +2712,10 @@ class TestModelInstanceHandling:
 
         # Create a string similar to the one in the original issue
         str_value = (
-            "{&amp;#x27;pkid&amp;#x27;: 6749, &amp;#x27;id&amp;#x27;: UUID(&amp;#x27;019606eb-ad04-71d0-8160-92a9ac3e07d2&amp;#x27;), "
-            "&amp;#x27;name&amp;#x27;: &amp;#x27;Test Name&amp;#x27;, &amp;#x27;slug&amp;#x27;: &amp;#x27;test-name&amp;#x27;, "
+            "{&amp;#x27;pkid&amp;#x27;: 6749, "
+            "&amp;#x27;id&amp;#x27;: UUID(&amp;#x27;019606eb-ad04-71d0-8160-92a9ac3e07d2&amp;#x27;), "
+            "&amp;#x27;name&amp;#x27;: &amp;#x27;Test Name&amp;#x27;, "
+            "&amp;#x27;slug&amp;#x27;: &amp;#x27;test-name&amp;#x27;, "
             "&amp;#x27;entity_type&amp;#x27;: &amp;#x27;consumer&amp;#x27;}"
         )
 

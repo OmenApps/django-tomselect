@@ -573,9 +573,6 @@ class ArticleAutocompleteView(AutocompleteModelView):
 
     def hook_queryset(self, queryset: QuerySet) -> QuerySet:
         """Apply date range, category, and status filters to the queryset."""
-        # Store initial queryset count for comparison
-        initial_count = queryset.count()
-
         # Apply date range filter
         if self.date_range and self.date_range != "all":
             now = timezone.now()

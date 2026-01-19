@@ -2,7 +2,6 @@
 
 from django import forms
 from django.forms import formset_factory, modelformset_factory
-from django.utils.translation import gettext_lazy as _
 
 from django_tomselect.app_settings import (
     PluginClearButton,

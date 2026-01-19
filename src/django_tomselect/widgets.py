@@ -3,7 +3,8 @@
 import html
 import json
 import re
-from typing import Any, Callable, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from django import forms
 from django.db.models import Model, Q, QuerySet
