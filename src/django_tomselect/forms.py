@@ -168,22 +168,9 @@ class BaseTomSelectModelMixin:
                 kwargs["to_field_name"] = self.config.value_field
                 package_logger.debug("Set to_field_name to: %s", self.config.value_field)
 
-        # Try to get actual queryset from widget so we have the correct model and data for validation
-        try:
-            actual_queryset = self.widget.get_queryset()
-            if actual_queryset is not None and hasattr(actual_queryset, "model"):
-                # Only use the widget queryset if it's not EmptyModel
-                if actual_queryset.model != EmptyModel:
-                    queryset = actual_queryset
-                    package_logger.debug("Using queryset from widget: %s", actual_queryset.model)
-                else:
-                    package_logger.debug("Widget returned EmptyModel queryset, keeping default")
-            else:
-                package_logger.debug("Widget returned no queryset, using default")
-        except Exception as e:
-            package_logger.warning("Could not get queryset from widget: %s", e)
-
-        # Default queryset if not provided
+        # Use EmptyModel queryset initially - the actual queryset will be resolved lazily
+        # when needed (during clean/validation). This avoids circular imports that occur
+        # when URL resolution is triggered during form class definition.
         if queryset is None:
             queryset = EmptyModel.objects.none()
 
