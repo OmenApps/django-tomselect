@@ -7,10 +7,22 @@ item: function(data, escape) {
     {% include "django_tomselect/helpers/decode_if_needed.html" %}
 
     {% if 'data_template_item' in widget.attrs.keys and widget.attrs.data_template_item %}
-        // Use safe Function constructor with escape function provided
+        // Use safe template replacement instead of new Function() to avoid CSP issues
+        // and potential security concerns with eval-like behavior
         var template = {{ widget.attrs.data_template_item|safe }};
-        // Always use escape function
-        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
+        // Replace template variables ${data.fieldName} with escaped values
+        var result = template.replace(/\$\{data\.(\w+)\}/g, function(match, fieldName) {
+            var value = data[fieldName];
+            if (value === undefined || value === null) return '';
+            return escape(String(value));
+        });
+        // Also support ${escape(data.fieldName)} pattern for explicit escaping
+        result = result.replace(/\$\{escape\(data\.(\w+)\)\}/g, function(match, fieldName) {
+            var value = data[fieldName];
+            if (value === undefined || value === null) return '';
+            return escape(String(value));
+        });
+        return result;
     {% else %}
         let item = '';
         const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
