@@ -2620,8 +2620,8 @@ class TestModelInstanceHandling:
 
         # Create a string representation similar to what Django would pass after validation error
         str_value = (
-            f"{{'id': {sample_edition.id}, 'name': '{sample_edition.name}', "
-            f"'year': {sample_edition.year}, 'pub_num': '{sample_edition.pub_num}'}}"
+            f"{{'id': {sample_edition.id}, 'name': {sample_edition.name!r}, "
+            f"'year': {sample_edition.year}, 'pub_num': {sample_edition.pub_num!r}}}"
         )
 
         # Get context with the string representation as value
@@ -2642,7 +2642,7 @@ class TestModelInstanceHandling:
 
         # Create a more complex string with nested objects, arrays, etc.
         str_value = (
-            f"{{'id': {sample_edition.id}, 'name': '{sample_edition.name}', "
+            f"{{'id': {sample_edition.id}, 'name': {sample_edition.name!r}, "
             f"'nested': {{'key': 'value'}}, 'list': ['a', 'b', 'c'], "
             f"'created': datetime.datetime(2023, 1, 1, 12, 0, 0), "
             f"'another_id': UUID('12345678-1234-5678-1234-567812345678')}}"
@@ -2671,8 +2671,8 @@ class TestModelInstanceHandling:
 
         # Create a string representation with these custom fields
         str_value = (
-            f"{{'id': {sample_edition.id}, 'name': '{sample_edition.name}', "
-            f"'year': {sample_edition.year}, 'pub_num': '{sample_edition.pub_num}'}}"
+            f"{{'id': {sample_edition.id}, 'name': {sample_edition.name!r}, "
+            f"'year': {sample_edition.year}, 'pub_num': {sample_edition.pub_num!r}}}"
         )
 
         context = widget.get_context("test", str_value, {})

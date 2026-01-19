@@ -193,16 +193,16 @@ class TaggingForm(forms.Form):
 
             # Validate the tag format
             if len(name) < 2:
-                raise ValidationError(f"Tag '{name}' is too short")
+                raise ValidationError(f"Tag {name:!r} is too short")
 
             if not all(c.isalnum() or c in "-_" for c in name):
-                raise ValidationError(f"Tag '{name}' contains invalid characters")
+                raise ValidationError(f"Tag {name:!r} contains invalid characters")
 
             if "--" in name or "__" in name:
-                raise ValidationError(f"Tag '{name}' contains consecutive special characters")
+                raise ValidationError(f"Tag {name:!r} contains consecutive special characters")
 
             if not name[0].isalnum() or not name[-1].isalnum():
-                raise ValidationError(f"Tag '{name}' must start and end with a letter or number")
+                raise ValidationError(f"Tag {name:!r} must start and end with a letter or number")
 
             # Try to get existing tag or create new one
             tag, _ = PublicationTag.objects.get_or_create(

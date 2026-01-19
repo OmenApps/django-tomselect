@@ -85,7 +85,7 @@ def article_create_view(request: HttpRequest) -> HttpResponse:
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Article "{form.cleaned_data["title"]}" has been created.')
+            messages.success(request, f"Article {form.cleaned_data['title']!r} has been created.")
         else:
             messages.error(request, "Please correct the errors below.")
 
@@ -116,7 +116,7 @@ def article_update_view(request: HttpRequest, pk: int) -> HttpResponse:
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Article "{form.cleaned_data["title"]}" has been updated.')
+            messages.success(request, f"Article {form.cleaned_data['title']!r} has been updated.")
             return HttpResponseRedirect(reverse("article-list"))
         else:
             messages.error(request, "Please correct the errors below.")

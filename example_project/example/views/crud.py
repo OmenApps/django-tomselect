@@ -60,7 +60,7 @@ def author_create_view(request):
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Author "{form.cleaned_data["name"]}" has been created.')
+            messages.success(request, f"Author {form.cleaned_data['name']!r} has been created.")
             return redirect("author-list")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -80,7 +80,7 @@ def author_update_view(request, pk):
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Author "{form.cleaned_data["name"]}" has been updated.')
+            messages.success(request, f"Author {form.cleaned_data['name']!r} has been updated.")
             return redirect("author-list")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -99,7 +99,7 @@ def author_delete_view(request, pk):
     if request.method == "POST":
         name = author.name
         author.delete()
-        messages.success(request, f'Author "{name}" has been deleted.')
+        messages.success(request, f"Author {name!r} has been deleted.")
         return redirect("author-list")
 
     context["author"] = author
@@ -135,7 +135,7 @@ def category_create_view(request):
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Category "{form.cleaned_data["name"]}" has been created.')
+            messages.success(request, f"Category {form.cleaned_data['name']!r} has been created.")
             return redirect("category-list")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -175,7 +175,7 @@ def category_update_view(request, pk):
                 )
             else:
                 form.save()
-                messages.success(request, f'Category "{form.cleaned_data["name"]}" has been updated.')
+                messages.success(request, f"Category {form.cleaned_data['name']!r} has been updated.")
                 return redirect("category-list")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -202,7 +202,7 @@ def category_delete_view(request, pk):
     if request.method == "POST":
         name = category.name
         category.delete()
-        messages.success(request, f'Category "{name}" has been deleted.')
+        messages.success(request, f"Category {name!r} has been deleted.")
         return redirect("category-list")
 
     context["category"] = category
@@ -238,7 +238,7 @@ def magazine_create_view(request):
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Magazine "{form.cleaned_data["name"]}" has been created.')
+            messages.success(request, f"Magazine {form.cleaned_data['name']!r} has been created.")
             return redirect("magazine-list")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -258,7 +258,7 @@ def magazine_update_view(request, pk):
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Magazine "{form.cleaned_data["name"]}" has been updated.')
+            messages.success(request, f"Magazine {form.cleaned_data['name']!r} has been updated.")
             return redirect("magazine-list")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -285,7 +285,7 @@ def magazine_delete_view(request, pk):
     if request.method == "POST":
         name = magazine.name
         magazine.delete()
-        messages.success(request, f'Magazine "{name}" has been deleted.')
+        messages.success(request, f"Magazine {name!r} has been deleted.")
         return redirect("magazine-list")
 
     context["magazine"] = magazine
@@ -323,8 +323,8 @@ def edition_create_view(request):
             form.save()
             messages.success(
                 request,
-                f'Edition "{form.cleaned_data["name"]}" has been created for magazine '
-                f'"{form.cleaned_data["magazine"].name}".',
+                f"Edition {form.cleaned_data['name']!r} has been created for magazine "
+                f"{form.cleaned_data['magazine'].name!r}.",
             )
             return redirect("edition-list")
         else:
@@ -345,7 +345,7 @@ def edition_update_view(request, pk):
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Edition "{form.cleaned_data["name"]}" has been updated.')
+            messages.success(request, f"Edition {form.cleaned_data['name']!r} has been updated.")
             return redirect("edition-list")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -375,7 +375,7 @@ def edition_delete_view(request, pk):
         edition.delete()
         messages.success(
             request,
-            f'Edition "{name}" from magazine "{magazine_name}" has been deleted.',
+            f"Edition {name!r} from magazine {magazine_name!r} has been deleted.",
         )
         return redirect("edition-list")
 
@@ -389,7 +389,7 @@ def article_publish_view(request: HttpRequest, pk: int) -> HttpResponse:
     if article.status == ArticleStatus.DRAFT:
         article.status = ArticleStatus.ACTIVE
         article.save()
-        messages.success(request, f'Article "{article.title}" has been published.')
+        messages.success(request, f"Article {article.title!r} has been published.")
     return redirect("article-list")
 
 
@@ -399,7 +399,7 @@ def article_archive_view(request: HttpRequest, pk: int) -> HttpResponse:
     if article.status in [ArticleStatus.ACTIVE, ArticleStatus.CANCELED, ArticleStatus.PUBLISHED]:
         article.status = ArticleStatus.ARCHIVED
         article.save()
-        messages.success(request, f'Article "{article.title}" has been archived.')
+        messages.success(request, f"Article {article.title!r} has been archived.")
     return redirect("article-list")
 
 
@@ -409,5 +409,5 @@ def article_cancel_view(request: HttpRequest, pk: int) -> HttpResponse:
     if not article.status == ArticleStatus.PUBLISHED:
         article.status = ArticleStatus.CANCELED
         article.save()
-        messages.success(request, f'Article "{article.title}" has been canceled.')
+        messages.success(request, f"Article {article.title!r} has been canceled.")
     return redirect("article-list")

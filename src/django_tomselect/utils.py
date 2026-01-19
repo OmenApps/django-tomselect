@@ -34,7 +34,7 @@ def safe_reverse(viewname: str, args: list | None = None, kwargs: dict | None = 
             except NoReverseMatch as e:
                 error_msg = str(e)
                 # Check if the error is about a language namespace
-                if f"'{current_language}' is not a registered namespace" in error_msg:
+                if f"{current_language!r} is not a registered namespace" in error_msg:
                     package_logger.debug(
                         "URL reversal failed due to missing i18n namespace '%s'. "
                         "This usually means django.conf.urls.i18n is not included in urlpatterns. "

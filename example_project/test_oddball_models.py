@@ -535,7 +535,7 @@ class TestEdgeCasesAndBugReproduction:
         )
 
         # Simulate string representation that might come from form data
-        uuid_string_repr = f"{{'id': '{sample_uuid_model.id}', 'name': '{sample_uuid_model.name}'}}"
+        uuid_string_repr = f"{{'id': {sample_uuid_model.id!r}, 'name': {sample_uuid_model.name!r}}}"
         context = uuid_widget.get_context("test", uuid_string_repr, {})
 
         # Should handle string representation gracefully
@@ -550,7 +550,7 @@ class TestEdgeCasesAndBugReproduction:
             )
         )
 
-        pkid_string_repr = f"{{'pkid': {sample_pkid_uuid_model.pkid}, 'name': '{sample_pkid_uuid_model.name}'}}"
+        pkid_string_repr = f"{{'pkid': {sample_pkid_uuid_model.pkid}, 'name': {sample_pkid_uuid_model.name!r}}}"
         context = pkid_widget.get_context("test", pkid_string_repr, {})
 
         # Should handle string representation gracefully
