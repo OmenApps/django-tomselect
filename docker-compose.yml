@@ -7,7 +7,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/django/Dockerfile
-    image: django_pint_field
+    image: django_tomselect
     container_name: django_test
     volumes:
       - ./example_project:/app/example_project
