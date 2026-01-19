@@ -290,7 +290,7 @@ class TestAutocompleteIterablesView:
 
         items = view.get_iterable()
         assert len(items) == len(test_tuples)
-        for item, original in zip(items, test_tuples):
+        for item, original in zip(items, test_tuples, strict=True):
             assert item["value"] == str(original)
             assert item["label"] == f"{original[0]:,} - {original[1]:,} words"
 
