@@ -10,10 +10,11 @@ repos:
         args: ["-c", "bandit.yml"]
       - id: ruff
         name: ruff
-        entry: ruff
+        entry: ruff check
         language: system
         types: [python]
         require_serial: true
+        exclude: ^example_project/
       - id: check-added-large-files
         name: Check for added large files
         entry: check-added-large-files
@@ -39,7 +40,7 @@ repos:
         entry: end-of-file-fixer
         language: system
         types: [text]
-        stages: [commit, push, manual]
+        stages: [pre-commit, pre-push, manual]
       - id: flake8
         name: flake8
         entry: flake8
@@ -59,7 +60,7 @@ repos:
         entry: trailing-whitespace-fixer
         language: system
         types: [text]
-        stages: [commit, push, manual]
+        stages: [pre-commit, pre-push, manual]
   # - repo: https://github.com/pre-commit/mirrors-prettier
   #   rev: v2.6.0
   #   hooks:
