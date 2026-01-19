@@ -106,6 +106,7 @@ class EditionYearForm(forms.Form):
     """Form for selecting an edition year."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize the form and set help text."""
         super().__init__(*args, **kwargs)
         self.fields["year"].help_text = "This field is backed by the edition_year list in models.py"
 
@@ -126,6 +127,7 @@ class WordCountForm(forms.Form):
     """Form for selecting a word count range."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize the form and set help text."""
         super().__init__(*args, **kwargs)
         self.fields["word_count"].help_text = "This field is backed by the word_count_range tuple in models.py"
 
@@ -261,6 +263,7 @@ class DynamicArticleForm(forms.ModelForm):
     )
 
     def __init__(self, *args, **kwargs):
+        """Initialize the form, set help texts, and handle dynamic fields."""
         super().__init__(*args, **kwargs)
 
         # Set help text for fields

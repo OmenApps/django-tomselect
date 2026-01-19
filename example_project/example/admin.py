@@ -9,6 +9,7 @@ class ListAdminMixin:
     """Mixin to automatically set list_display to all fields."""
 
     def __init__(self, model, admin_site):
+        """Class initialization."""
         self.list_display = [field.name for field in model._meta.fields]
         super().__init__(model, admin_site)
 

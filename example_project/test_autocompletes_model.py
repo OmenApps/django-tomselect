@@ -1263,7 +1263,6 @@ class TestVirtualFields:
 
     def test_init_subclass_creates_new_lists(self):
         """Test that __init_subclass__ creates a new value_fields list for each subclass."""
-
         # Create two subclasses with different value_fields
         class FirstAutocompleteView(AutocompleteModelView):
             model = Edition
@@ -1285,6 +1284,7 @@ class TestVirtualFields:
         """Test that virtual fields are excluded from database queries."""
 
         class CustomAutocompleteView(AutocompleteModelView):
+            """Custom autocomplete view with virtual field."""
             model = Edition
             value_fields = ["id", "name", "display_name"]
             virtual_fields = ["display_name"]
@@ -1307,6 +1307,7 @@ class TestVirtualFields:
         """Test that hook_prepare_results can add virtual fields."""
 
         class CustomAutocompleteView(AutocompleteModelView):
+            """Custom autocomplete view with virtual field."""
             model = Edition
             value_fields = ["id", "name", "year"]
             virtual_fields = ["combined"]

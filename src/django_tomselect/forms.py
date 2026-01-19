@@ -123,6 +123,7 @@ class BaseTomSelectModelMixin:
 
         Raises:
             TypeError: If the config is a dict with invalid keys
+            ValueError: If the widget class is not defined for this field
         """
         if queryset is not None:
             package_logger.warning("There is no need to pass a queryset to a TomSelectModelField. It will be ignored.")

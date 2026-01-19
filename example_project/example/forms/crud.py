@@ -33,6 +33,7 @@ class CategoryForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        """Initialize the form and adjust parent field queryset."""
         super().__init__(*args, **kwargs)
         self.fields["parent"].required = False
 
@@ -78,5 +79,6 @@ class EditionForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        """Initialize the form and set magazine field to required."""
         super().__init__(*args, **kwargs)
         self.fields["magazine"].required = True

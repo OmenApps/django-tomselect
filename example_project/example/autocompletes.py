@@ -139,6 +139,7 @@ class RegionAutocompleteView(AutocompleteModelView):
     skip_authorization = True
 
     def get_queryset(self):
+        """Return queryset of top-level regions with annotations."""
         return (
             super()
             .get_queryset()
@@ -168,6 +169,7 @@ class CountryAutocompleteView(AutocompleteModelView):
     skip_authorization = True
 
     def get_queryset(self):
+        """Return queryset of countries with annotations."""
         queryset = super().get_queryset()
 
         parent_id = self.request.GET.get("parent_id")
@@ -196,6 +198,7 @@ class LocalMarketAutocompleteView(AutocompleteModelView):
     skip_authorization = True
 
     def get_queryset(self):
+        """Return queryset of local markets."""
         queryset = super().get_queryset()
 
         parent_id = self.request.GET.get("parent_id")

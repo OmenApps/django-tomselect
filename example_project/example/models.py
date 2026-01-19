@@ -189,6 +189,7 @@ class EmbargoRegion(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
+        """Return the name of the region with its market tier."""
         return f"{self.name} (Tier {self.market_tier})"
 
 
@@ -309,6 +310,7 @@ class Category(models.Model):
         ]
 
     def __str__(self):
+        """Return the name of the category."""
         return self.name
 
 
@@ -344,6 +346,7 @@ class Author(models.Model):
         ]
 
     def __str__(self):
+        """Return the name of the author."""
         return self.name
 
 
@@ -386,6 +389,7 @@ class Article(models.Model):
         ]
 
     def __str__(self):
+        """Return the title of the article."""
         return self.title
 
 
@@ -425,6 +429,7 @@ class PublishingMarket(models.Model):
         verbose_name_plural = "Publishing Markets"
 
     def __str__(self):
+        """Return the name of the market."""
         return self.name
 
 
@@ -459,6 +464,7 @@ class PublicationTag(models.Model):
             raise ValidationError("Tags must start and end with a letter or number")
 
     def __str__(self):
+        """Return the name of the tag."""
         return self.name
 
 
@@ -482,6 +488,7 @@ class ModelWithUUIDPk(models.Model):
         ]
 
     def __str__(self):
+        """Return the name of the model."""
         return self.name
 
 
@@ -500,4 +507,5 @@ class ModelWithPKIDAndUUIDId(models.Model):
         ordering = ["name"]
 
     def __str__(self):
+        """Return the name of the model."""
         return self.name
