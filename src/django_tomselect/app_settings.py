@@ -1,7 +1,7 @@
 """Settings for the django-tomselect package."""
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Literal, Optional
 
@@ -189,7 +189,7 @@ def validate_proxy_request_class():
     if isinstance(proxy_request_class, str):
         try:
             proxy_request_class = import_string(proxy_request_class)
-        except (ModuleNotFoundError, ImportError) as e:
+        except ImportError as e:
             logger.exception(
                 "Could not import %s. Please check your PROXY_REQUEST_CLASS setting. %s",
                 proxy_request_class,
@@ -317,29 +317,59 @@ class TomSelectConfig(BaseConfig):
         if self.minimum_query_length < 0:
             raise ValidationError("minimum_query_length must be positive")
 
+        # Validate css_framework - check against allowed values (None is allowed for inheritance)
+        if self.css_framework is not None:
+            allowed_frameworks = {f.value for f in AllowedCSSFrameworks}
+            if self.css_framework not in allowed_frameworks:
+                raise ValidationError(
+                    f"css_framework must be one of {sorted(allowed_frameworks)}, got {self.css_framework!r}"
+                )
+
     def as_dict(self) -> dict:
         """Convert config to dictionary for template rendering."""
         return {k: v.as_dict() if isinstance(v, BaseConfig) else v for k, v in self.__dict__.items()}
 
-    def update(self, **kwargs):
-        """Update config with widget-level settings."""
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+    def update(self, **kwargs) -> "TomSelectConfig":
+        """Return a new config with updated values.
 
-    def verify_config_types(self):
-        """Verify that the configuration types are correct."""
-        if not isinstance(self.plugin_checkbox_options, PluginCheckboxOptions):
-            logger.warning("PluginCheckboxOptions is not of type PluginCheckboxOptions")
-        if not isinstance(self.plugin_clear_button, PluginClearButton):
-            logger.warning("PluginClearButton is not of type PluginClearButton")
-        if not isinstance(self.plugin_dropdown_header, PluginDropdownHeader):
-            logger.warning("PluginDropdownHeader is not of type PluginDropdownHeader")
-        if not isinstance(self.plugin_dropdown_footer, PluginDropdownFooter):
-            logger.warning("PluginDropdownFooter is not of type PluginDropdownFooter")
-        if not isinstance(self.plugin_dropdown_input, PluginDropdownInput):
-            logger.warning("PluginDropdownInput is not of type PluginDropdownInput")
-        if not isinstance(self.plugin_remove_button, PluginRemoveButton):
-            logger.warning("PluginRemoveButton is not of type PluginRemoveButton")
+        Since TomSelectConfig is a frozen dataclass, this method returns a new
+        instance with the specified fields updated rather than modifying in place.
+        """
+        return replace(self, **kwargs)
+
+    def verify_config_types(self) -> bool:
+        """Verify that the configuration types are correct.
+
+        Raises:
+            TypeError: If any plugin configuration has an invalid type.
+
+        Returns:
+            True if all configurations are valid.
+        """
+        errors = []
+
+        # Check each plugin config - None is allowed as it means the plugin is disabled
+        plugin_checks = [
+            (self.plugin_checkbox_options, PluginCheckboxOptions, "plugin_checkbox_options"),
+            (self.plugin_clear_button, PluginClearButton, "plugin_clear_button"),
+            (self.plugin_dropdown_header, PluginDropdownHeader, "plugin_dropdown_header"),
+            (self.plugin_dropdown_footer, PluginDropdownFooter, "plugin_dropdown_footer"),
+            (self.plugin_dropdown_input, PluginDropdownInput, "plugin_dropdown_input"),
+            (self.plugin_remove_button, PluginRemoveButton, "plugin_remove_button"),
+        ]
+
+        for value, expected_type, field_name in plugin_checks:
+            if value is not None and not isinstance(value, expected_type):
+                errors.append(
+                    f"{field_name} must be {expected_type.__name__} or None, "
+                    f"got {type(value).__name__}"
+                )
+
+        if errors:
+            error_msg = "Invalid TomSelectConfig: " + "; ".join(errors)
+            logger.error(error_msg)
+            raise TypeError(error_msg)
+
         return True
 
 
