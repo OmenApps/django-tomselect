@@ -27,6 +27,61 @@ class AutocompleteModelView(View):
     """Base view for handling autocomplete requests.
 
     Intended to be flexible enough for many use cases, but can be subclassed for more specific needs.
+
+    Attributes:
+        model: The Django model class to query for autocomplete results.
+
+        search_lookups: List of field lookups to search against when the user types.
+            Uses Django's ORM lookup syntax. Example: ['name__icontains', 'email__icontains']
+            Multiple lookups are combined with OR logic.
+
+        ordering: Field(s) to order results by. Can be a string, list, or tuple.
+            Example: 'name' or ['-created', 'name']
+
+        page_size: Number of results to return per page. Default: 20
+
+        value_fields: List of model field names to include in the JSON response.
+            These fields will be available to JavaScript for custom rendering.
+            Example: ['id', 'name', 'email', 'avatar_url']
+
+        virtual_fields: List of non-model field names that will be computed dynamically.
+            Use this for calculated/derived values that don't exist on the model.
+            To populate virtual fields, override `prepare_results()` or define a
+            `prepare_{field_name}` method. Example: ['full_name', 'display_label']
+
+        list_url: URL name for the list view (used for "View All" link)
+        create_url: URL name for the create view (used for "Create New" link)
+        detail_url: URL name for the detail view (used for item detail links)
+        update_url: URL name for the update view (used for item edit links)
+        delete_url: URL name for the delete view (used for item delete links)
+
+        permission_required: Permission string(s) required to access this view.
+            Can be a single string or list/tuple of permission strings.
+
+        allow_anonymous: If True, unauthenticated users can access this view. Default: False
+
+        skip_authorization: If True, skip all permission checks. Default: False
+
+        create_field: The field name used when creating new objects via the autocomplete.
+
+    Filter/Exclude Syntax:
+        The `filter_by` and `exclude_by` URL parameters allow dynamic filtering of results
+        based on another form field's value. This is useful for dependent dropdowns.
+
+        Format: 'dependent_field__lookup_field=value'
+
+        Where:
+            - dependent_field: The name of the form field that triggers filtering
+            - lookup_field: The model field to filter on (can include lookups like __id)
+            - value: The value to filter by (usually from the dependent field)
+
+        Example URL parameters:
+            ?filter_by=category__category_id=5  - Filter where category_id equals 5
+            ?exclude_by=author__author_id=3     - Exclude where author_id equals 3
+
+        In JavaScript/HTML, use data attributes on the widget:
+            data-filter-by="category__category_id"  - Will filter by selected category
+            data-exclude-by="author__author_id"     - Will exclude by selected author
     """
 
     model: type[Model] | None = None

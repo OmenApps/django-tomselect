@@ -19,6 +19,7 @@ class LazyView:
     def __init__(
         self, url_name: str, model: type[Model] | None = None, user: AnonymousUser | User | None = None
     ) -> None:
+        """Initialize the LazyView."""
         self.url_name = url_name
         self.model = model
         self.user = user

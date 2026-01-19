@@ -15,25 +15,14 @@ class PackageLogger:
     """
 
     def __init__(self, logger_name: str):
-        """Initialize the logger with a specific name.
-
-        Args:
-            logger_name: The name to use for the logger, typically __name__
-        """
+        """Initialize the logger with a specific name."""
         from django_tomselect.app_settings import LOGGING_ENABLED
 
         self._logger = logging.getLogger(logger_name)
         self._enabled = LOGGING_ENABLED
 
     def _log_if_enabled(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
-        """Log a message if logging is enabled.
-
-        Args:
-            level: The logging level to use
-            msg: The message to log
-            *args: Additional positional arguments for the logger
-            **kwargs: Additional keyword arguments for the logger
-        """
+        """Log a message if logging is enabled."""
         if self._enabled:
             self._logger.log(level, msg, *args, **kwargs)
 

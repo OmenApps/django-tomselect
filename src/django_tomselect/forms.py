@@ -39,6 +39,7 @@ class BaseTomSelectMixin:
     def __init__(
         self, *args: Any, choices: Any = None, config: TomSelectConfig | dict[str, Any] | None = None, **kwargs: Any
     ) -> None:
+        """Initialize a TomSelect field with optional configuration."""
         try:
             if choices is not None:
                 package_logger.warning("There is no need to pass choices to a TomSelectField. It will be ignored.")
@@ -111,20 +112,7 @@ class BaseTomSelectModelMixin:
         config: TomSelectConfig | dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a TomSelect model field with optional configuration.
-
-        Sets up the widget with proper configuration and handles the queryset.
-
-        Args:
-            args: Positional arguments for the field
-            queryset: Optional queryset for the model field (ignored)
-            config: TomSelect configuration object or dictionary
-            kwargs: Additional field options
-
-        Raises:
-            TypeError: If the config is a dict with invalid keys
-            ValueError: If the widget class is not defined for this field
-        """
+        """Initialize a TomSelect model field with optional configuration."""
         if queryset is not None:
             package_logger.warning("There is no need to pass a queryset to a TomSelectModelField. It will be ignored.")
         self.instance: Any = kwargs.get("instance")

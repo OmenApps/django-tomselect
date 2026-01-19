@@ -48,7 +48,7 @@
 
 - AutocompleteView: unquote search var string
 - call values() on result queryset with fields specified on the widget only
-  - this reduces query overhead 
+  - this reduces query overhead
   - allows including values from many-to-one relations
 
 ## mizdb-tomselect 0.3.1 (2023-06-20)
@@ -57,7 +57,7 @@
 
 ## mizdb-tomselect 0.3.0 (2023-06-20)
 
-- refactor filterBy filtering in autocomplete view 
+- refactor filterBy filtering in autocomplete view
 - add `search_lookup` argument to MIZSelect widget
 - AutocompleteView now uses the `search_lookup` to filter the results
 

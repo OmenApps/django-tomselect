@@ -8,6 +8,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    """Add models with UUID fields."""
     dependencies = [
         ("example", "0001_initial"),
     ]

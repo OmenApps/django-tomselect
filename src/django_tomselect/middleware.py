@@ -25,9 +25,11 @@ class TomSelectMiddleware:
     """
 
     def __init__(self, get_response):
+        """Initialize the middleware with the get_response callable."""
         self.get_response = get_response
 
     def __call__(self, request):
+        """Handle sync requests in WSGI deployments."""
         # Store request in local storage
         _request_local.request = request
 

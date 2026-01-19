@@ -14,6 +14,7 @@ class DefaultProxyRequest:  # pylint: disable=R0903
     """Used as a stand-in for a real request when obtaining the initial QuerySet for the widget."""
 
     def __init__(self, *args, model: Model = None, user=None, **kwargs):  # pylint: disable=W0613
+        """Initialize the DefaultProxyRequest."""
         self.model = model
         self.POST = {}  # pylint: disable=C0103
         self.GET = {

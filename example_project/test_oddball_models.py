@@ -906,7 +906,6 @@ class TestAutocompleteViewWithUUIDModels:
 
     def test_value_field_handling_in_prepare_results(self, sample_uuid_model, sample_pkid_uuid_model, rf):
         """Test that prepare_results handles different value_fields correctly."""
-
         # Test UUID PK model
         class UUIDView(AutocompleteModelView):
             model = ModelWithUUIDPk

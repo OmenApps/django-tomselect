@@ -2267,7 +2267,6 @@ class TestLazyViewInWidgets:
 
     def test_invalid_url_in_lazy_view(self, monkeypatch):
         """Test handling of invalid URL in LazyView."""
-
         # Create a mock lazy_view that raises NoReverseMatch
         class MockLazyView(LazyView):
             """Mock LazyView that raises NoReverseMatch."""
@@ -2293,7 +2292,6 @@ class TestLazyViewInWidgets:
 
     def test_get_autocomplete_view_from_lazy_view(self, monkeypatch):
         """Test that get_autocomplete_view uses the LazyView to get the view."""
-
         # Create a mock view class that inherits from AutocompleteModelView
         class MockView(AutocompleteModelView):
             """Mock view for testing."""
@@ -2331,7 +2329,6 @@ class TestLazyViewInWidgets:
 
     def test_get_model_from_lazy_view(self, monkeypatch):
         """Test that get_model uses the LazyView to get the model."""
-
         # Directly set the model on the choices object
         class MockChoices:
             """Mock choices with the Edition model."""
@@ -2348,7 +2345,6 @@ class TestLazyViewInWidgets:
 
     def test_label_field_added_to_value_fields(self, monkeypatch):
         """Test that the label_field is added to the view's value_fields."""
-
         # Create a mock view with value_fields that inherits from AutocompleteModelView
         class MockView(AutocompleteModelView):
             """Mock view with value_fields."""
@@ -2397,7 +2393,6 @@ class TestLazyViewInWidgets:
 
     def test_virtual_fields_for_nonexistent_label_field(self, monkeypatch):
         """Test that nonexistent label fields are added to virtual_fields."""
-
         # Create a mock view with value_fields that inherits from AutocompleteModelView
         class MockView(AutocompleteModelView):
             """Mock view with value_fields."""
@@ -2466,7 +2461,6 @@ class TestModelInstanceHandling:
 
         class MockAutocompleteView(AutocompleteModelView):
             """Mock autocomplete view for testing."""
-
             model = sample_edition.__class__
             value_fields = ["id", "name"]
             search_lookups = ["name__icontains"]

@@ -8,7 +8,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
+    """Initial migration."""
     initial = True
 
     dependencies = []
