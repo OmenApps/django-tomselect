@@ -221,6 +221,16 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         deactivate();
                     },
 
+                    onDropdownOpen: function() {
+                        // Update ARIA expanded state for accessibility
+                        element.setAttribute('aria-expanded', 'true');
+                    },
+
+                    onDropdownClose: function() {
+                        // Update ARIA expanded state for accessibility
+                        element.setAttribute('aria-expanded', 'false');
+                    },
+
                     shouldLoad: function(query){
                         var shouldLoadValue;
                         if (this.settings.page && (!query.trim() || query === undefined)) {

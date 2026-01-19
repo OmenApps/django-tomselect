@@ -6,5 +6,7 @@ optgroup_header: function(data, escape) {
 
     const safeLabel = escape(decodeIfNeeded(data.label));
 
-    return `<div class="optgroup-header" role="presentation">${safeLabel}</div>`;
+    // Use role="heading" with aria-level for proper accessibility
+    // This allows screen readers to announce group headers correctly
+    return `<div class="optgroup-header" role="heading" aria-level="4">${safeLabel}</div>`;
 },
