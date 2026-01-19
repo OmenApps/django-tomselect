@@ -1,6 +1,111 @@
-"""Import all views from the submodules."""
+"""Views package for the example project."""
 
-from example_project.example.views.advanced_demos import *
-from example_project.example.views.basic_demos import *
-from example_project.example.views.crud import *
-from example_project.example.views.intermediate_demos import *
+from example_project.example.views.advanced_demos import (
+    article_bulk_action_view,
+    article_create_view,
+    article_detail_view,
+    article_filtered_table,
+    article_list_view,
+    article_update_view,
+    market_selection_view,
+    rich_article_select_demo,
+)
+from example_project.example.views.basic_demos import (
+    bootstrap4_demo,
+    bootstrap5_demo,
+    default_demo,
+    formset_demo,
+    htmx_form_fragment_view,
+    htmx_tabs_view,
+    htmx_view,
+    model_formset_demo,
+    performance_test_demo,
+)
+from example_project.example.views.crud import (
+    article_archive_view,
+    article_cancel_view,
+    article_publish_view,
+    author_create_view,
+    author_delete_view,
+    author_list_view,
+    author_update_view,
+    category_create_view,
+    category_delete_view,
+    category_detail_view,
+    category_list_view,
+    category_update_view,
+    edition_create_view,
+    edition_delete_view,
+    edition_list_view,
+    edition_update_view,
+    index_view,
+    magazine_create_view,
+    magazine_delete_view,
+    magazine_list_view,
+    magazine_update_view,
+)
+from example_project.example.views.intermediate_demos import (
+    embargo_management_view,
+    exclude_by_primary_author_demo,
+    filter_by_category_demo,
+    filter_by_magazine_demo,
+    get_range_statistics,
+    range_preview_demo,
+    tagging_view,
+    update_range_preview,
+    weighted_author_search_demo,
+)
+
+__all__ = [
+    # Advanced demos
+    "article_bulk_action_view",
+    "article_create_view",
+    "article_detail_view",
+    "article_filtered_table",
+    "article_list_view",
+    "article_update_view",
+    "market_selection_view",
+    "rich_article_select_demo",
+    # Basic demos
+    "bootstrap4_demo",
+    "bootstrap5_demo",
+    "default_demo",
+    "formset_demo",
+    "htmx_form_fragment_view",
+    "htmx_tabs_view",
+    "htmx_view",
+    "model_formset_demo",
+    "performance_test_demo",
+    # CRUD views
+    "article_archive_view",
+    "article_cancel_view",
+    "article_publish_view",
+    "author_create_view",
+    "author_delete_view",
+    "author_list_view",
+    "author_update_view",
+    "category_create_view",
+    "category_delete_view",
+    "category_detail_view",
+    "category_list_view",
+    "category_update_view",
+    "edition_create_view",
+    "edition_delete_view",
+    "edition_list_view",
+    "edition_update_view",
+    "index_view",
+    "magazine_create_view",
+    "magazine_delete_view",
+    "magazine_list_view",
+    "magazine_update_view",
+    # Intermediate demos
+    "embargo_management_view",
+    "exclude_by_primary_author_demo",
+    "filter_by_category_demo",
+    "filter_by_magazine_demo",
+    "get_range_statistics",
+    "range_preview_demo",
+    "tagging_view",
+    "update_range_preview",
+    "weighted_author_search_demo",
+]
