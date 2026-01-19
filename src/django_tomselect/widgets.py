@@ -178,7 +178,7 @@ class TomSelectWidgetMixin:
     def get_autocomplete_url(self) -> str:
         """Hook to specify the autocomplete URL."""
         # Special case for widgets that have a lazy view
-        if hasattr(self, "get_lazy_view") and callable(getattr(self, "get_lazy_view")):
+        if hasattr(self, "get_lazy_view") and callable(self.get_lazy_view):
             lazy_view = self.get_lazy_view()
             if lazy_view:
                 return lazy_view.get_url()
@@ -451,6 +451,46 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         package_logger.debug("Instance URL context: %s", urls)
         return urls
 
+    def _get_instance_urls_with_permissions(
+        self,
+        obj: Model | dict[str, Any],
+        autocomplete_view: AutocompleteModelView,
+        cached_permissions: dict[str, bool],
+    ) -> dict[str, str]:
+        """Get URLs for an object using pre-computed permissions.
+
+        This method is optimized to avoid repeated permission checks when processing
+        multiple objects. Permissions should be computed once before the loop and
+        passed in via cached_permissions.
+
+        Args:
+            obj: The model instance or dictionary
+            autocomplete_view: The autocomplete view instance
+            cached_permissions: Pre-computed permissions dict with keys 'view', 'update', 'delete'
+
+        Returns:
+            Dictionary with URL types as keys and URL strings as values
+        """
+        urls: dict[str, str] = {}
+
+        # If obj is a dictionary or doesn't have a pk, return empty context
+        if isinstance(obj, dict) or not hasattr(obj, "pk") or obj.pk is None:
+            return urls
+
+        # Add detail URL if available and permitted
+        if self.show_detail and autocomplete_view.detail_url and cached_permissions.get("view"):
+            self._add_url_to_context(urls, "detail_url", autocomplete_view.detail_url, obj.pk)
+
+        # Add update URL if available and permitted
+        if self.show_update and autocomplete_view.update_url and cached_permissions.get("update"):
+            self._add_url_to_context(urls, "update_url", autocomplete_view.update_url, obj.pk)
+
+        # Add delete URL if available and permitted
+        if self.show_delete and autocomplete_view.delete_url and cached_permissions.get("delete"):
+            self._add_url_to_context(urls, "delete_url", autocomplete_view.delete_url, obj.pk)
+
+        return urls
+
     def _add_url_to_context(self, context: dict[str, str], key: str, url_pattern: str, pk: Any) -> None:
         """Add URL to context dict if reversible."""
         try:
@@ -538,13 +578,22 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
             # Handle multiple levels of HTML encoding
             # Keep decoding until no more HTML entities are found
+            # Limit iterations to prevent potential ReDoS attacks with deeply nested encodings
+            max_decode_iterations = 10
             prev_value = ""
-            while prev_value != decoded_value and "&" in decoded_value:
+            iteration_count = 0
+            while prev_value != decoded_value and "&" in decoded_value and iteration_count < max_decode_iterations:
                 prev_value = decoded_value
                 decoded_value = html.unescape(decoded_value)
+                iteration_count += 1
+
+            if iteration_count >= max_decode_iterations:
+                package_logger.warning(
+                    "HTML decoding reached maximum iterations (%d), possible malicious input", max_decode_iterations
+                )
 
             if decoded_value != value:
-                package_logger.debug("Decoded value: %s", decoded_value)
+                package_logger.debug("Decoded value after %d iterations: %s", iteration_count, decoded_value)
 
             # Extract values from the decoded string with different patterns
             for field_name in [value_field, "id", "pk", "pkid", "name", label_field]:
@@ -747,6 +796,15 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         selected_objects = queryset.filter(final_filter)
 
+        # Pre-compute permissions once before the loop to avoid N+1 queries
+        # Permissions are model-level, not object-level, so they're the same for all objects
+        request = self.get_current_request()
+        cached_permissions = {
+            "view": autocomplete_view.has_permission(request, "view") if self.show_detail else False,
+            "update": autocomplete_view.has_permission(request, "update") if self.show_update else False,
+            "delete": autocomplete_view.has_permission(request, "delete") if self.show_delete else False,
+        }
+
         for obj in selected_objects:
             # Handle the case where obj is a dictionary (e.g., cleaned_data)
             if isinstance(obj, dict):
@@ -762,9 +820,9 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                     "label": self.get_label_for_object(obj, autocomplete_view),
                 }
 
-            # Safely add URLs with proper escaping
-            for url_type in ["detail_url", "update_url", "delete_url"]:
-                url = self.get_instance_url_context(obj, autocomplete_view).get(url_type)
+            # Safely add URLs with proper escaping, using pre-computed permissions
+            urls = self._get_instance_urls_with_permissions(obj, autocomplete_view, cached_permissions)
+            for url_type, url in urls.items():
                 if url:
                     opt[url_type] = escape(url)
             selected.append(opt)
@@ -1119,7 +1177,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
         view = lazy_view.get_view()
 
         # Check if view has get_iterable method
-        if view and hasattr(view, "get_iterable") and callable(getattr(view, "get_iterable")):
+        if view and hasattr(view, "get_iterable") and callable(view.get_iterable):
             return view
 
         # If not iterables view but has get_iterable, it's compatible
