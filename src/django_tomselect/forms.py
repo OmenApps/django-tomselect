@@ -136,7 +136,7 @@ class BaseTomSelectModelMixin:
                     package_logger.error("Failed to create TomSelectConfig from dict: %s", e)
                     # Re-raise TypeError for invalid config keys to maintain expected behavior
                     raise TypeError(f"Invalid configuration: {e}") from e
-                except Exception as e:
+                except Exception as e:  # noqa
                     package_logger.error("Error creating TomSelectConfig: %s", e)
                     config = None
 

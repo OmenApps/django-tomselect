@@ -975,7 +975,7 @@ class TestBugReproductionScenarios:
         test_cases = [
             str(sample_uuid_model.id),
             sample_uuid_model.id,
-            f"'{sample_uuid_model.id}'",
+            f"'{sample_uuid_model.id}'",  # noqa: B907
             sample_uuid_model.pk,
         ]
 
@@ -1022,7 +1022,7 @@ class TestBugReproductionScenarios:
         uuid_test_cases = [
             sample_pkid_uuid_model.id,
             str(sample_pkid_uuid_model.id),
-            f"'{sample_pkid_uuid_model.id}'",
+            f"'{sample_pkid_uuid_model.id}'",  # noqa: B907
         ]
 
         for test_value in uuid_test_cases:
@@ -1046,7 +1046,7 @@ class TestBugReproductionScenarios:
         problematic_values = [
             str(sample_uuid_model.id),
             sample_uuid_model.id,
-            f"UUID('{sample_uuid_model.id}')",
+            f"UUID('{sample_uuid_model.id}')",  # noqa: B907
             sample_uuid_model,
         ]
 
