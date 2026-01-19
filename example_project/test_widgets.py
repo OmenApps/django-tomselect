@@ -719,8 +719,8 @@ class TestWidgetConfigurationAndMedia:
         assert result is True
 
     def test_plugin_configuration_warnings(self, caplog):
-        """Test plugin configuration type verification warnings."""
-        caplog.set_level(logging.WARNING)
+        """Test plugin configuration type verification raises errors for invalid types."""
+        caplog.set_level(logging.ERROR)
 
         # Create a new config with invalid plugin types
         invalid_config = TomSelectConfig(
@@ -732,11 +732,13 @@ class TestWidgetConfigurationAndMedia:
             plugin_remove_button=type("InvalidPlugin", (), {})(),
         )
 
-        invalid_config.verify_config_types()
+        # verify_config_types() now raises TypeError for invalid types
+        with pytest.raises(TypeError) as exc_info:
+            invalid_config.verify_config_types()
 
-        # Verify warnings were logged
-        assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 6
-        assert any("PluginCheckboxOptions is not of type PluginCheckboxOptions" in r.message for r in caplog.records)
+        # Verify the error contains information about all invalid plugins
+        error_message = str(exc_info.value)
+        assert "plugin_checkbox_options must be PluginCheckboxOptions or None" in error_message
 
     @pytest.mark.parametrize(
         "use_minified,expected_suffix",

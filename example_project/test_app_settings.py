@@ -109,9 +109,11 @@ class TestAppSettings:
             config = TomSelectConfig(css_framework=framework.value)
             assert config.css_framework == framework.value
 
-        # Test invalid framework - currently accepts any string
-        config = TomSelectConfig(css_framework="invalid_framework")
-        assert config.css_framework == "invalid_framework"  # Current behavior
+        # Test invalid framework - now raises ValidationError
+        with pytest.raises(ValidationError) as exc_info:
+            TomSelectConfig(css_framework="invalid_framework")
+        assert "css_framework must be one of" in str(exc_info.value)
+        assert "invalid_framework" in str(exc_info.value)
 
         # Test default value when css_framework is not provided
         config = TomSelectConfig()  # Don't specify css_framework at all
@@ -571,18 +573,17 @@ class TestTomSelectConfig:
             plugin_dropdown_input="not a PluginDropdownInput",
             plugin_remove_button="not a PluginRemoveButton",
         )
-        assert config.verify_config_types()  # Should return True but log warnings
+        # verify_config_types() now raises TypeError for invalid types
+        with pytest.raises(TypeError) as exc_info:
+            config.verify_config_types()
 
-        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
-        expected_warnings = [
-            "PluginCheckboxOptions is not of type PluginCheckboxOptions",
-            "PluginClearButton is not of type PluginClearButton",
-            "PluginDropdownHeader is not of type PluginDropdownHeader",
-            "PluginDropdownFooter is not of type PluginDropdownFooter",
-            "PluginDropdownInput is not of type PluginDropdownInput",
-            "PluginRemoveButton is not of type PluginRemoveButton",
-        ]
-        assert all(warn in warning_messages for warn in expected_warnings)
+        error_message = str(exc_info.value)
+        assert "plugin_checkbox_options must be PluginCheckboxOptions or None" in error_message
+        assert "plugin_clear_button must be PluginClearButton or None" in error_message
+        assert "plugin_dropdown_header must be PluginDropdownHeader or None" in error_message
+        assert "plugin_dropdown_footer must be PluginDropdownFooter or None" in error_message
+        assert "plugin_dropdown_input must be PluginDropdownInput or None" in error_message
+        assert "plugin_remove_button must be PluginRemoveButton or None" in error_message
 
     def test_default_values(self):
         """Test that default values are set correctly."""
