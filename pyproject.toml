@@ -76,7 +76,7 @@ dev = [
     "python-environ>=0.4.54",
     "pyupgrade>=3.21.2",
     "ruff>=0.14.13",
-    "safety==3.5.1",
+    "pip-audit>=2.7.3",
     "sphinx-autobuild>=2024.10.3",
     "sphinx-click>=6.0.0",
     "sphinx>=8.2.3",
