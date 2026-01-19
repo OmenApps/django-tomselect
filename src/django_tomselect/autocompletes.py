@@ -6,7 +6,7 @@ from urllib.parse import unquote
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.auth.views import redirect_to_login
-from django.core.exceptions import FieldError, PermissionDenied
+from django.core.exceptions import FieldDoesNotExist, FieldError, PermissionDenied
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Model, Q, QuerySet
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -115,9 +115,15 @@ class AutocompleteModelView(View):
 
     @classmethod
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Initialize subclass with default value_fields if not already set."""
-        # Check if the subclass has its own value_fields list
+        """Initialize subclass with default mutable attributes if not already set.
+
+        This prevents mutable class attributes (lists) from being shared across subclasses,
+        which could cause unexpected behavior when one subclass modifies the list.
+        """
+        # Check if the subclass has its own list attributes
         # If not, create a new list object to avoid shared state across subclasses
+        if "search_lookups" not in cls.__dict__:
+            cls.search_lookups = []
         if "value_fields" not in cls.__dict__:
             # Explicitly create a new list object for each subclass
             cls.value_fields = []
@@ -162,6 +168,9 @@ class AutocompleteModelView(View):
         self.exclude_by = request.GET.get(EXCLUDEBY_VAR, None)
         self.ordering_from_request = request.GET.get("ordering", None)
 
+        # Track filter errors to include in response (helps with debugging)
+        self._filter_error: str | None = None
+
         # Handle page size with validation
         try:
             requested_page_size = int(request.GET.get("page_size", self.page_size))
@@ -196,6 +205,20 @@ class AutocompleteModelView(View):
 
         return queryset
 
+    def _validate_filter_field(self, field_lookup: str) -> bool:
+        """Validate that a filter field exists on the model."""
+        if not self.model:
+            return False
+
+        # Extract the base field name (before any double underscore lookups)
+        field_name = field_lookup.split("__")[0]
+
+        try:
+            self.model._meta.get_field(field_name)
+            return True
+        except FieldDoesNotExist:
+            return False
+
     def apply_filters(self, queryset: QuerySet) -> QuerySet:
         """Apply additional filters to the queryset.
 
@@ -210,7 +233,18 @@ class AutocompleteModelView(View):
                 lookup, value = unquote(self.filter_by).replace("'", "").split("=")
                 dependent_field, dependent_field_lookup = lookup.split("__", 1)
                 if not value or not dependent_field or not dependent_field_lookup:
+                    self._filter_error = f"Invalid filter_by format: {self.filter_by}"
                     package_logger.warning("Invalid filter_by value (%s)", self.filter_by)
+                    return queryset.none()
+
+                # Validate that the filter field exists on the model
+                if not self._validate_filter_field(dependent_field_lookup):
+                    self._filter_error = f"Invalid filter field: {dependent_field_lookup}"
+                    package_logger.warning(
+                        "Invalid filter field '%s' - field does not exist on model %s",
+                        dependent_field_lookup,
+                        self.model.__name__ if self.model else "Unknown",
+                    )
                     return queryset.none()
 
                 filter_dict = {dependent_field_lookup: value}
@@ -221,24 +255,44 @@ class AutocompleteModelView(View):
                 lookup, value = unquote(self.exclude_by).replace("'", "").split("=")
                 exclude_field, exclude_field_lookup = lookup.split("__", 1)
                 if not value or not exclude_field or not exclude_field_lookup:
+                    self._filter_error = f"Invalid exclude_by format: {self.exclude_by}"
                     package_logger.warning("Invalid exclude_by value (%s)", self.exclude_by)
+                    return queryset.none()
+
+                # Validate that the exclude field exists on the model
+                if not self._validate_filter_field(exclude_field_lookup):
+                    self._filter_error = f"Invalid exclude field: {exclude_field_lookup}"
+                    package_logger.warning(
+                        "Invalid exclude field '%s' - field does not exist on model %s",
+                        exclude_field_lookup,
+                        self.model.__name__ if self.model else "Unknown",
+                    )
                     return queryset.none()
 
                 exclude_dict = {exclude_field_lookup: value}
                 package_logger.debug("Applying exclude_by %s", exclude_dict)
                 queryset = queryset.exclude(**exclude_dict)
             return queryset
-        except ValueError:
-            package_logger.warning(
-                "Invalid filter_by (%s) or exclude_by (%s) value",
+        except ValueError as e:
+            self._filter_error = f"Invalid filter syntax: {e}"
+            package_logger.error(
+                "Invalid filter syntax in %s: filter_by=%s, exclude_by=%s. "
+                "Expected format: 'dependent_field__lookup_field=value'. Error: %s",
+                self.__class__.__name__,
                 self.filter_by,
                 self.exclude_by,
+                str(e),
             )
-        except FieldError:
-            package_logger.warning(
-                "Invalid lookup field in filter_by (%s) or exclude_by (%s)",
+        except FieldError as e:
+            self._filter_error = f"Invalid lookup field: {e}"
+            package_logger.error(
+                "Invalid lookup field in %s (model=%s): filter_by=%s, exclude_by=%s. "
+                "The specified field may not exist on the model. Error: %s",
+                self.__class__.__name__,
+                self.model.__name__ if self.model else "Unknown",
                 self.filter_by,
                 self.exclude_by,
+                str(e),
             )
         return queryset.none()
 
@@ -525,10 +579,14 @@ class AutocompleteModelView(View):
         """Handle GET requests."""
         package_logger.debug("Handling GET request")
         try:
-            queryset = self.get_queryset()
-            if self.query:
-                queryset = self.search(queryset, self.query)
+            queryset = self.get_queryset()  # Already includes search() via get_queryset -> search
             data = self.paginate_queryset(queryset)
+
+            # Include filter error in response if one occurred (helps with debugging)
+            if self._filter_error:
+                data["filter_error"] = self._filter_error
+                package_logger.debug("Including filter error in response: %s", self._filter_error)
+
             return JsonResponse(data)
         except Exception as e:
             package_logger.error("Error in autocomplete request: %s", str(e))
