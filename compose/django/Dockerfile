@@ -29,10 +29,10 @@ RUN pip install --upgrade pip cffi
 
 # Install multiple Python versions with uv
 RUN if [ "$MULTIPLE_PYTHON" = "True" ] ; then \
-    uv python install 3.10; \
     uv python install 3.11; \
     uv python install 3.12; \
     uv python install 3.13; \
+    uv python install 3.14; \
     fi
 
 # Copy requirements files
@@ -47,7 +47,7 @@ COPY ./example_project/ ${APP_HOME}/example_project/
 COPY ./src/ ${APP_HOME}/src/
 
 # Install dependencies using uv
-RUN uv venv --python 3.12
+RUN uv venv --python 3.13
 RUN uv sync --prerelease=allow
 
 # Project initialization:
