@@ -192,7 +192,7 @@ class TestRequestLocalStorage:
         _request_local.request = mock_request
         assert getattr(_request_local, "request", None) is mock_request
 
-        delattr(_request_local, "request")
+        del _request_local.request
         assert not hasattr(_request_local, "request")
 
     def test_get_current_request_with_no_request(self):
@@ -203,7 +203,7 @@ class TestRequestLocalStorage:
         """Test get_current_request when request is set."""
         _request_local.request = mock_request
         assert get_current_request() is mock_request
-        delattr(_request_local, "request")
+        del _request_local.request
 
     @pytest.mark.asyncio
     async def test_request_local_storage_async_isolation(self, mock_request):
@@ -212,7 +212,7 @@ class TestRequestLocalStorage:
         async def set_request():
             _request_local.request = mock_request
             assert getattr(_request_local, "request", None) is mock_request
-            delattr(_request_local, "request")
+            del _request_local.request
             assert not hasattr(_request_local, "request")
 
         await set_request()
