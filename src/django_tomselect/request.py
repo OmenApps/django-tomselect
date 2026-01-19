@@ -1,8 +1,13 @@
 """Request object used by the widget to obtain the initial QuerySet."""
 
-from django.db.models import Model
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from django_tomselect.constants import SEARCH_VAR
+
+if TYPE_CHECKING:
+    from django.db.models import Model
 
 
 class DefaultProxyRequest:  # pylint: disable=R0903
