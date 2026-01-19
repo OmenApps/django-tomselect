@@ -1,7 +1,7 @@
 """Middleware for django_tomselect to manage request objects."""
 
 try:
-    from asgiref.local import Local as local
+    from asgiref.local import Local as local  # noqa: N813
 except ImportError:
     from threading import local
 

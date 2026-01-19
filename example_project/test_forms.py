@@ -830,7 +830,7 @@ class TestFormsetIntegration:
 
     def test_basic_model_formset(self, magazines):
         """Test basic model formset functionality with TomSelect fields."""
-        EditionFormSet = forms.modelformset_factory(  # pylint: disable=C0103
+        EditionFormSet = forms.modelformset_factory(  # noqa: N806
             Edition,
             fields=["name", "magazine"],
             extra=2,
@@ -849,7 +849,7 @@ class TestFormsetIntegration:
                 model = Edition
                 fields = ["name", "magazine"]
 
-        EditionFormSet = forms.modelformset_factory(  # pylint: disable=C0103
+        EditionFormSet = forms.modelformset_factory(  # noqa: N806
             Edition,
             form=EditionForm,
             extra=2,
@@ -895,7 +895,7 @@ class TestFormsetIntegration:
                 fields = ["name", "year", "pages", "pub_num"]
                 # Note: magazine field is handled automatically by the inline formset
 
-        EditionFormSet = forms.inlineformset_factory(  # pylint: disable=C0103
+        EditionFormSet = forms.inlineformset_factory(  # noqa: N806
             Magazine,
             Edition,
             form=EditionInlineForm,
@@ -993,7 +993,7 @@ class TestFormsetIntegration:
                 model = Article
                 fields = ["title", "word_count", "magazine", "edition", "authors"]
 
-        ArticleFormSet = forms.formset_factory(ArticleForm, extra=2)  # pylint: disable=C0103
+        ArticleFormSet = forms.formset_factory(ArticleForm, extra=2)  # noqa: N806
 
         # Create test authors
         author1 = Author.objects.create(name="Author 1", bio="Test Bio 1")
@@ -1060,7 +1060,7 @@ class TestFormsetIntegration:
                             raise ValidationError("Edition names must be unique within the formset.")
                         names.append(name)
 
-        EditionFormSet = forms.modelformset_factory(  # pylint: disable=C0103
+        EditionFormSet = forms.modelformset_factory(  # noqa: N806
             Edition,
             form=EditionForm,
             formset=BaseEditionFormSet,
@@ -1103,7 +1103,7 @@ class TestFormsetIntegration:
                 model = Edition
                 fields = ["name", "magazine"]
 
-        EditionFormSet = forms.modelformset_factory(  # pylint: disable=C0103
+        EditionFormSet = forms.modelformset_factory(  # noqa: N806
             Edition, form=EditionForm, extra=1, validate_min=True, min_num=1
         )
 
@@ -1138,7 +1138,7 @@ class TestFormsetIntegration:
                 model = Edition
                 fields = ["name", "magazine"]
 
-        EditionFormSet = forms.modelformset_factory(Edition, form=EditionForm, extra=0)  # pylint: disable=C0103
+        EditionFormSet = forms.modelformset_factory(Edition, form=EditionForm, extra=0)  # noqa: N806
 
         # Test formset with initial instances
         formset = EditionFormSet(queryset=Edition.objects.all())
@@ -1167,7 +1167,7 @@ class TestFormsetIntegration:
                 model = Edition
                 fields = ["name", "magazine"]
 
-        EditionFormSet = forms.modelformset_factory(  # pylint: disable=C0103
+        EditionFormSet = forms.modelformset_factory(  # noqa: N806
             Edition, form=EditionForm, extra=1, can_delete=True
         )
 

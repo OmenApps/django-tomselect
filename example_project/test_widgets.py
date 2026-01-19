@@ -1539,7 +1539,7 @@ class TestWidgetRequestValidation:
             return self._method
 
         @property
-        def GET(self):  # pylint: disable=C0103
+        def GET(self):  # noqa: N802
             """Mock GET property."""
             return self._get
 
