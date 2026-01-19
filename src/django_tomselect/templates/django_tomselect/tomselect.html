@@ -64,7 +64,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
             // Helper function to reset TomSelect state
             function resetTomSelectState(tomSelect, originalFirstUrl) {
                 if (!tomSelect) return;
-                
+
                 tomSelect.clearOptions();
                 tomSelect.clearCache();
                 tomSelect.settings.pagination = {};
@@ -76,10 +76,10 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 tomSelect.settings.firstUrl = originalFirstUrl;
                 tomSelect.settings.setNextUrl = originalFirstUrl;
                 tomSelect.clearPagination();
-                tomSelect.load('', logCallback);
-                
-                // Mark the widget as reset
+
+                // Mark the widget as reset BEFORE calling load so shouldLoad can check it
                 window[resetVarName] = true;
+                tomSelect.load('', logCallback);
             }
 
             // Helper function to add a URL parameter
@@ -91,19 +91,19 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 // Constructing the originalFirstUrl function based on query and filters
                 var originalFirstUrl = function(query) {
                     var url = '{{ widget.autocomplete_url }}' + '?q=' + encodeURIComponent(query){% if 'autocomplete_params' in widget.keys and not widget.autocomplete_params == "" %} + '&{{ widget.autocomplete_params|safe }}'{% endif %};
-                    
+
                     {% if "dependent_field" in widget.keys %}
                         const dependentField = document.getElementById('id_{{ widget.dependent_field }}');
                         const dependentValue = dependentField ? dependentField.value : '';
                         url = addUrlParam(url, "f", `'{{ widget.dependent_field }}__{{ widget.dependent_field_lookup }}=${dependentValue}'`);
                     {% endif %}
-                    
+
                     {% if "exclude_field" in widget.keys %}
                         const excludeField = document.getElementById('id_{{ widget.exclude_field }}');
                         const excludeValue = excludeField ? excludeField.value : '';
                         url = addUrlParam(url, "e", `'{{ widget.exclude_field }}__{{ widget.exclude_field_lookup }}=${excludeValue}'`);
                     {% endif %}
-                    
+
                     return url;
                 };
             {% endblock tomselect_url_setup %}
@@ -180,7 +180,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             // Prepare all options in a single batch
                             const allOptions = {};
                             const allItems = [];
-                    
+
                             {% for option in widget.selected_options %}
                                 allOptions['{{ option.value }}'] = {
                                     {{ widget.value_field }}: '{{ option.value }}',
@@ -192,10 +192,10 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                 };
                                 allItems.push('{{ option.value }}');
                             {% endfor %}
-                    
+
                             // Add all options at once
                             this.addOptions(allOptions);
-                    
+
                             // Use TomSelect's built-in setValue with silent=true
                             this.setValue(allItems, true);
                         {% endif %}
@@ -233,13 +233,18 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                     shouldLoad: function(query){
                         var shouldLoadValue;
-                        if (this.settings.page && (!query.trim() || query === undefined)) {
+                        var isEmptyQuery = !query.trim() || query === undefined;
+
+                        // Allow empty query to load when resetting to initial state
+                        if (window[resetVarName] === true && isEmptyQuery) {
+                            shouldLoadValue = true;
+                        } else if (this.settings.page && isEmptyQuery) {
                             shouldLoadValue = true;
                         } else {
                             shouldLoadValue = query.length >= {{ widget.minimum_query_length }};
                         }
 
-                        if (previousQuery.length > 0 && (!query.trim() || query === undefined)) {
+                        if (previousQuery.length > 0 && isEmptyQuery) {
                             const tomSelect = element.tomselect;
                             resetTomSelectState(tomSelect, originalFirstUrl);
                         }
@@ -275,6 +280,11 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                                 // Update the pagination URL for this query
                                 self.settings.pagination[query] = baseUrl + '&p=' + json.next_page;
+                            } else {
+                                // No more results - clear pagination for this query
+                                if (self.settings.pagination && query in self.settings.pagination) {
+                                    delete self.settings.pagination[query];
+                                }
                             }
 
                             // If no results at all, return empty array
@@ -315,9 +325,16 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             }
                         };
 
-                        // Main fetch call
-                        fetch(url)
-                            .then(response => response.json())
+                        // Main fetch call with timeout to prevent hanging requests
+                        const FETCH_TIMEOUT_MS = 30000;  // 30 second timeout
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+                        fetch(url, { signal: controller.signal })
+                            .then(response => {
+                                clearTimeout(timeoutId);
+                                return response.json();
+                            })
                             .then(json => {
                                 // Temporarily disable scroll behavior for performance
                                 const _scrollToOption = this.scrollToOption;
@@ -325,26 +342,40 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                                 // Start the check-and-load process
                                 checkAndLoadMore(json, result => {
-                                    callback(result);
-
-                                    // Set next url
-                                    if (json.total_pages > currentPage) {
-                                        url = url.replace(/&p=\d+/g, '');
-                                        this.setNextUrl(query, url + '&p=' + (currentPage + 1));
+                                    // Set next url BEFORE callback to ensure refreshOptions sees correct pagination state
+                                    // This fixes the "No more results" showing instead of "Loading more results" issue
+                                    if (self.settings.pagination && self.settings.pagination[query]) {
+                                        this.setNextUrl(query, self.settings.pagination[query]);
                                     }
 
                                     // If window[resetVarName] is true, we need to reset the page and set back to false
                                     if (window[resetVarName] === true) {
                                         window[resetVarName] = false;
+                                        url = url.replace(/&p=\d+/g, '');
                                         this.setNextUrl(query, url + '&p=1');
                                     }
+
+                                    callback(result);
 
                                     // Restore scrollToOption after the callback
                                     this.scrollToOption = _scrollToOption;
                                 }, []);
                             })
                             .catch(error => {
+                                clearTimeout(timeoutId);
+                                const isTimeout = error.name === 'AbortError';
+                                const errorMessage = isTimeout
+                                    ? '{% translate "Request timed out. Please try again." %}'
+                                    : '{% translate "Failed to load options. Please try again." %}';
                                 console.error(`Error loading data: '${error}' with url: ${url}`);
+                                // Show error message to user in the dropdown
+                                if (self.dropdown_content) {
+                                    self.dropdown_content.innerHTML = `
+                                        <div class="ts-dropdown-message ts-error-message" style="padding: 10px; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin: 5px;">
+                                            <span>${errorMessage}</span>
+                                        </div>
+                                    `;
+                                }
                                 callback([]);
                             });
                     },
