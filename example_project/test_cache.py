@@ -134,6 +134,7 @@ class TestPermissionCache:
                 self.data = {}
                 self.increment_calls = 0
                 self.set_calls = 0
+                self.add_calls = 0
 
             def incr(self, key, delta=1):
                 """Increment the value in the cache."""
@@ -148,11 +149,19 @@ class TestPermissionCache:
                 self.set_calls += 1
                 self.data[key] = int(value)
 
+            def add(self, key, value, timeout=None):
+                """Add the value to the cache if key doesn't exist (atomic)."""
+                self.add_calls += 1
+                if key in self.data:
+                    return False  # Key already exists
+                self.data[key] = int(value)
+                return True
+
         mock_cache = MockCache()
         permission_cache.cache = mock_cache
 
         assert permission_cache._atomic_increment("test_key") is True
-        assert mock_cache.set_calls == 1
+        assert mock_cache.add_calls == 1  # Uses atomic add() instead of set()
         assert mock_cache.data["test_key"] == 1
 
     def test_invalidate_all_redis(self, permission_cache, mock_redis_cache):
