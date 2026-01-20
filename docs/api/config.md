@@ -429,7 +429,9 @@ When using multiple filters, the autocomplete URL will include multiple `f` (fil
 
 ### Logging
 
-`django_tomselect` uses a custom weapper with the built-in Python logging module to make it easier to turn logging on and off. By default, logging is enabled, and the package emits many debug-level logging entries. In rare cases, you may wish to disable logging completely. To do so, add the following to your Django settings:
+`django_tomselect` uses a custom wrapper with the built-in Python logging module to make it easier to turn logging on and off. Each module uses its own logger (following the `logging.getLogger(__name__)` pattern), allowing fine-grained control over which parts of the package emit log messages.
+
+By default, logging is enabled. To disable logging completely:
 
 ```python
 TOMSELECT = {
@@ -440,7 +442,7 @@ TOMSELECT = {
 }
 ```
 
-You can customize the logging level configuration by updating your Django settings:
+You can customize logging levels per module through Django's `LOGGING` setting:
 
 ```python
 LOGGING = {
@@ -453,9 +455,10 @@ LOGGING = {
         },
     },
     'loggers': {
+        # Configure all django-tomselect logging
         'django_tomselect': {
             'handlers': ['console'],
-            'level': 'INFO',  # <-- Change to 'DEBUG' to see *all* messages
+            'level': 'INFO',
             'propagate': True,
         },
     },

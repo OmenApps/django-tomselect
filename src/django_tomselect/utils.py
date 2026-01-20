@@ -16,7 +16,9 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import translation
 from django.utils.html import escape
 
-from django_tomselect.logging import package_logger
+from django_tomselect.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Constants for URL validation
 ALLOWED_URL_PROTOCOLS = ["http://", "https://", "mailto:", "tel:", "/"]
@@ -43,7 +45,7 @@ def safe_reverse(viewname: str, args: list | None = None, kwargs: dict | None = 
                 error_msg = str(e)
                 # Check if the error is about a language namespace
                 if f"{current_language!r} is not a registered namespace" in error_msg:
-                    package_logger.debug(
+                    logger.debug(
                         "URL reversal failed due to missing i18n namespace '%s'. "
                         "This usually means django.conf.urls.i18n is not included in urlpatterns. "
                         "Attempting fallback URL reversal without language activation.",
@@ -64,7 +66,7 @@ def safe_reverse(viewname: str, args: list | None = None, kwargs: dict | None = 
             # No i18n or no language activated, use regular reversal
             return reverse(viewname, args=args, kwargs=kwargs)
     except Exception as e:
-        package_logger.error("Failed to reverse URL %s: %s", viewname, e)
+        logger.error("Failed to reverse URL %s: %s", viewname, e)
         raise
 
 
@@ -103,7 +105,7 @@ def safe_escape(value: Any) -> str:
         # Apply HTML escaping - ensure we're always returning a string
         return escape(value)
     except Exception as e:
-        package_logger.error("Error escaping value: %s", e)
+        logger.error("Error escaping value: %s", e)
         # Fail safely by returning an empty string
         return ""
 
@@ -135,7 +137,7 @@ def safe_url(url: str | None) -> str | None:
 
         # Check for dangerous schemes
         if re.match(DANGEROUS_URL_SCHEMES, url.lower()):
-            package_logger.warning("Rejected dangerous URL scheme: %s", url)
+            logger.warning("Rejected dangerous URL scheme: %s", url)
             return None
 
         # Default to http:// if no protocol specified but URL looks like a domain
@@ -145,7 +147,7 @@ def safe_url(url: str | None) -> str | None:
         # If we can't determine if it's safe, escape it
         return escape(url)
     except Exception as e:
-        package_logger.error("Error processing URL %s: %s", url, e)
+        logger.error("Error processing URL %s: %s", url, e)
         return None
 
 
@@ -164,11 +166,11 @@ def sanitize_dict(data: dict, escape_keys: bool = False, depth: int = 0) -> dict
         Dictionary with all values safely escaped
     """
     if not isinstance(data, dict):
-        package_logger.warning("Non-dictionary passed to sanitize_dict of type: %s", type(data))
+        logger.warning("Non-dictionary passed to sanitize_dict of type: %s", type(data))
         return {}
 
     if depth > MAX_RECURSION_DEPTH:
-        package_logger.warning("Maximum recursion depth reached in sanitize_dict")
+        logger.warning("Maximum recursion depth reached in sanitize_dict")
         return {}
 
     result = {}
@@ -198,11 +200,11 @@ def sanitize_dict(data: dict, escape_keys: bool = False, depth: int = 0) -> dict
                 else:
                     # If URL sanitization fails, store an empty string as a safe fallback
                     result[safe_key] = ""
-                    package_logger.warning("Unsafe URL found and nullified in key: %s", key)
+                    logger.warning("Unsafe URL found and nullified in key: %s", key)
             else:
                 result[safe_key] = safe_escape(value)
     except Exception as e:
-        package_logger.error("Error sanitizing dictionary: %s", e)
+        logger.error("Error sanitizing dictionary: %s", e)
         # Return whatever was successfully processed
         if not result:
             return {}

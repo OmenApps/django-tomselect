@@ -99,5 +99,29 @@ class PackageLogger:
         return decorator
 
 
-# Create a default logger instance
+def get_logger(name: str) -> PackageLogger:
+    """Get a module-specific logger for django-tomselect.
+
+    This follows the Python best practice of using __name__ for per-module
+    logging control. Each module should call get_logger(__name__) to get
+    its own logger instance.
+
+    Args:
+        name: The logger name, typically __name__ of the calling module.
+
+    Returns:
+        A PackageLogger instance configured for the given name.
+
+    Example:
+        # In any module within django_tomselect:
+        from django_tomselect.logging import get_logger
+        logger = get_logger(__name__)
+
+        logger.debug("This is a debug message")
+        logger.info("This is an info message")
+    """
+    return PackageLogger(name)
+
+
+# Deprecated: use get_logger(__name__) instead for per-module control
 package_logger = PackageLogger(__name__)

@@ -23,8 +23,10 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from django_tomselect.app_settings import AllowedCSSFrameworks
-from django_tomselect.logging import package_logger
+from django_tomselect.logging import get_logger
 from django_tomselect.widgets import TomSelectIterablesWidget
+
+logger = get_logger(__name__)
 
 register = template.Library()
 
@@ -43,14 +45,14 @@ def to_static_url(path: str) -> str:
     """
     try:
         if not path:
-            package_logger.warning("Empty path provided to to_static_url")
+            logger.warning("Empty path provided to to_static_url")
             return ""
 
         if path.startswith(("http://", "https://", "//")):
             return path
         return static(path)
-    except Exception as e:
-        package_logger.error("Error converting path '%s' to static URL: %s", path, e)
+    except (ValueError, TypeError) as e:
+        logger.error("Error converting path '%s' to static URL: %s", path, e, exc_info=True)
         # Return an empty string or the original path as fallback
         return path
 
@@ -78,9 +80,9 @@ def get_widget_with_config(
                 try:
                     framework = AllowedCSSFrameworks(css_framework.lower()).value
                     widget.css_framework = framework
-                    package_logger.debug("Using CSS framework: %s", framework)
+                    logger.debug("Using CSS framework: %s", framework)
                 except ValueError:
-                    package_logger.warning(
+                    logger.warning(
                         "Invalid CSS framework specified: '%s'Using default framework: %s",
                         css_framework,
                         widget.css_framework,
@@ -88,11 +90,11 @@ def get_widget_with_config(
 
             if use_minified is not None:
                 widget.use_minified = use_minified
-                package_logger.debug("Using minified assets: %s", use_minified)
+                logger.debug("Using minified assets: %s", use_minified)
 
         return widget
-    except Exception as e:
-        package_logger.error("Error creating widget with config: %s", e)
+    except (ValueError, TypeError) as e:
+        logger.error("Error creating widget with config: %s", e, exc_info=True)
         # Return a default widget as fallback
         return TomSelectIterablesWidget()
 
@@ -111,7 +113,7 @@ def render_css_links(css_dict: dict) -> str:
     """
     try:
         if not css_dict:
-            package_logger.debug("No CSS files to render")
+            logger.debug("No CSS files to render")
             return ""
 
         links = []
@@ -125,8 +127,8 @@ def render_css_links(css_dict: dict) -> str:
                     links.append(format_html('<link href="{}" rel="stylesheet" media="{}">', url, medium))
 
         return "\n".join(links)
-    except Exception as e:
-        package_logger.error("Error rendering CSS links: %s", e)
+    except (TypeError, KeyError, AttributeError) as e:
+        logger.error("Error rendering CSS links: %s", e, exc_info=True)
         return ""
 
 
@@ -143,7 +145,7 @@ def render_js_scripts(js_list: list) -> str:
     """
     try:
         if not js_list:
-            package_logger.debug("No JS files to render")
+            logger.debug("No JS files to render")
             return ""
 
         scripts = []
@@ -153,8 +155,8 @@ def render_js_scripts(js_list: list) -> str:
                 scripts.append(format_html('<script src="{}"></script>', url))
 
         return "\n".join(scripts)
-    except Exception as e:
-        package_logger.error("Error rendering JS scripts: %s", e)
+    except (TypeError, AttributeError) as e:
+        logger.error("Error rendering JS scripts: %s", e, exc_info=True)
         return ""
 
 
@@ -176,7 +178,7 @@ def tomselect_media(css_framework: str | None = None, use_minified: bool | None 
         widget = get_widget_with_config(css_framework, use_minified)
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_css") or not hasattr(widget.media, "_js"):
-            package_logger.error("Widget media attributes not found")
+            logger.error("Widget media attributes not found")
             return ""
 
         css_html = render_css_links(widget.media._css)
@@ -188,14 +190,14 @@ def tomselect_media(css_framework: str | None = None, use_minified: bool | None 
         if js_html:
             result += js_html
 
-        package_logger.debug(
+        logger.debug(
             "Generated tomselect_media with css_framework: %s, use_minified: %s",
             css_framework,
             use_minified,
         )
         return mark_safe(result)  # nosec B308 B703
-    except Exception as e:
-        package_logger.error("Error in tomselect_media: %s", e)
+    except (AttributeError, TypeError, ValueError) as e:
+        logger.error("Error in tomselect_media: %s", e, exc_info=True)
         return mark_safe("<!-- Error loading TomSelect media -->")  # nosec B308 B703
 
 
@@ -216,19 +218,19 @@ def tomselect_media_css(css_framework: str | None = None, use_minified: bool | N
         widget = get_widget_with_config(css_framework, use_minified)
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_css"):
-            package_logger.error("Widget media CSS attributes not found")
+            logger.error("Widget media CSS attributes not found")
             return ""
 
         css_html = render_css_links(widget.media._css)
 
-        package_logger.debug(
+        logger.debug(
             "Generated tomselect_media_css with css_framework: %s, use_minified: %s",
             css_framework,
             use_minified,
         )
         return mark_safe(css_html)  # nosec B308 B703
-    except Exception as e:
-        package_logger.error("Error in tomselect_media_css: %s", e)
+    except (AttributeError, TypeError, ValueError) as e:
+        logger.error("Error in tomselect_media_css: %s", e, exc_info=True)
         return mark_safe("<!-- Error loading TomSelect CSS -->")  # nosec B308 B703
 
 
@@ -248,13 +250,13 @@ def tomselect_media_js(use_minified: bool | None = None) -> str:
         widget = get_widget_with_config(use_minified=use_minified)
 
         if not hasattr(widget, "media") or not hasattr(widget.media, "_js"):
-            package_logger.error("Widget media JS attributes not found")
+            logger.error("Widget media JS attributes not found")
             return ""
 
         js_html = render_js_scripts(widget.media._js)
 
-        package_logger.debug("Generated tomselect_media_js with use_minified: %s", use_minified)
+        logger.debug("Generated tomselect_media_js with use_minified: %s", use_minified)
         return mark_safe(js_html)  # nosec B308 B703
-    except Exception as e:
-        package_logger.error("Error in tomselect_media_js: %s", e)
+    except (AttributeError, TypeError, ValueError) as e:
+        logger.error("Error in tomselect_media_js: %s", e, exc_info=True)
         return mark_safe("<!-- Error loading TomSelect JS -->")  # nosec B308 B703

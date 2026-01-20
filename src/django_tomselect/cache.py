@@ -20,7 +20,9 @@ from django_tomselect.constants import (
     PERMISSION_CACHE_NAMESPACE,
     PERMISSION_CACHE_TIMEOUT,
 )
-from django_tomselect.logging import package_logger
+from django_tomselect.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class PermissionCache:
@@ -42,14 +44,14 @@ class PermissionCache:
         self.enabled = self.timeout is not None
 
         if self.enabled and not hasattr(cache, "get"):
-            package_logger.warning(
+            logger.warning(
                 "TOMSELECT_PERMISSION_CACHE_TIMEOUT is set but caching appears to be disabled. "
                 "Permission caching will be disabled."
             )
             self.enabled = False
 
         if self.enabled:
-            package_logger.info("Permission caching is enabled with timeout: %s seconds", self.timeout)
+            logger.info("Permission caching is enabled with timeout: %s seconds", self.timeout)
 
     def is_enabled(self) -> bool:
         """Check if caching is enabled and available.
@@ -65,8 +67,8 @@ class PermissionCache:
                 self.enabled and not settings.DEBUG and hasattr(self.cache, "get") and hasattr(self.cache, "set")
             )
             return cache_is_enabled
-        except Exception as e:
-            package_logger.error("Error checking if permission cache is enabled: %s", e)
+        except (AttributeError, TypeError) as e:
+            logger.error("Error checking if permission cache is enabled: %s", e, exc_info=True)
             return False
 
     def _make_cache_key(self, user_id: int, model_name: str, action: str) -> str:
@@ -99,10 +101,10 @@ class PermissionCache:
             # Create unique key including version
             unique_key = f"{base_key}:v{version}"
             final_key = hashlib.md5(unique_key.encode(), usedforsecurity=False).hexdigest()
-            package_logger.debug("Permission cache key: %s", final_key)
+            logger.debug("Permission cache key: %s", final_key)
             return final_key
-        except Exception as e:
-            package_logger.error("Error generating cache key: %s", e)
+        except (AttributeError, TypeError, OSError) as e:
+            logger.error("Error generating cache key: %s", e, exc_info=True)
             # Return a fallback key that's still unique but won't conflict
             fallback_key = f"tomselect_fallback_{user_id}_{model_name}_{action}_{hash(str(e))}"
             return hashlib.md5(fallback_key.encode(), usedforsecurity=False).hexdigest()
@@ -146,37 +148,37 @@ class PermissionCache:
             if isinstance(self.cache, RedisCache):
                 # Redis supports atomic increments natively
                 self.cache.client.incr(key)
-                package_logger.debug("Atomic increment with Redis successful for key: %s", key)
+                logger.debug("Atomic increment with Redis successful for key: %s", key)
                 return True
             elif isinstance(self.cache, BaseMemcachedCache):
                 # Memcached supports atomic increments natively
                 self.cache.incr(key, delta=1, default=1)
-                package_logger.debug("Atomic increment with Memcached successful for key: %s", key)
+                logger.debug("Atomic increment with Memcached successful for key: %s", key)
                 return True
             elif hasattr(self.cache, "incr"):
                 # Try generic incr if available
                 try:
                     self.cache.incr(key, delta=1)
-                    package_logger.debug("Atomic increment with generic incr successful for key: %s", key)
+                    logger.debug("Atomic increment with generic incr successful for key: %s", key)
                     return True
                 except ValueError:
                     # Key doesn't exist - use add() for atomic initialization
                     # add() only sets the value if the key doesn't already exist (atomic)
                     if self.cache.add(key, 1, None):
-                        package_logger.debug("Atomically initialized key: %s", key)
+                        logger.debug("Atomically initialized key: %s", key)
                         return True
                     else:
                         # Key was set by another process, try increment again
                         try:
                             self.cache.incr(key, delta=1)
-                            package_logger.debug("Incremented after concurrent init for key: %s", key)
+                            logger.debug("Incremented after concurrent init for key: %s", key)
                             return True
                         except ValueError:
                             # Still failing, fall through to non-atomic fallback
                             pass
-        except Exception as e:
-            package_logger.warning(
-                "Atomic increment failed for key %s: %s. Falling back to non-atomic operation.", key, e
+        except (AttributeError, TypeError, OSError) as e:
+            logger.warning(
+                "Atomic increment failed for key %s: %s. Falling back to non-atomic operation.", key, e, exc_info=True
             )
         return False
 
@@ -198,7 +200,7 @@ class PermissionCache:
 
         try:
             if not user_id or not model_name or not action:
-                package_logger.warning(
+                logger.warning(
                     "Invalid parameters for permission cache get: user_id=%s, model_name=%s, action=%s",
                     user_id,
                     model_name,
@@ -210,18 +212,19 @@ class PermissionCache:
             result = self.cache.get(cache_key)
 
             if result is not None:
-                package_logger.debug(
+                logger.debug(
                     "Permission cache hit for user=%s, model=%s, action=%s: %s", user_id, model_name, action, result
                 )
             else:
-                package_logger.debug(
+                logger.debug(
                     "Permission cache miss for user=%s, model=%s, action=%s", user_id, model_name, action
                 )
 
             return result
-        except Exception as e:
-            package_logger.warning(
-                "Permission cache get failed for user=%s, model=%s, action=%s: %s", user_id, model_name, action, e
+        except (AttributeError, TypeError, OSError) as e:
+            logger.warning(
+                "Permission cache get failed for user=%s, model=%s, action=%s: %s",
+                user_id, model_name, action, e, exc_info=True
             )
             return None
 
@@ -241,7 +244,7 @@ class PermissionCache:
 
         try:
             if not user_id or not model_name or not action:
-                package_logger.warning(
+                logger.warning(
                     "Invalid parameters for permission cache set: user_id=%s, model_name=%s, action=%s",
                     user_id,
                     model_name,
@@ -252,12 +255,13 @@ class PermissionCache:
             cache_key = self._make_cache_key(user_id, model_name, action)
             self.cache.set(cache_key, value, self.timeout)
 
-            package_logger.debug(
+            logger.debug(
                 "Permission cache set for user=%s, model=%s, action=%s: %s", user_id, model_name, action, value
             )
-        except Exception as e:
-            package_logger.warning(
-                "Permission cache set failed for user=%s, model=%s, action=%s: %s", user_id, model_name, action, e
+        except (AttributeError, TypeError, OSError) as e:
+            logger.warning(
+                "Permission cache set failed for user=%s, model=%s, action=%s: %s",
+                user_id, model_name, action, e, exc_info=True
             )
 
     def invalidate_user(self, user_id: int) -> None:
@@ -274,25 +278,24 @@ class PermissionCache:
 
         try:
             if not user_id:
-                package_logger.warning("Invalid user_id for permission cache invalidation: %s", user_id)
+                logger.warning("Invalid user_id for permission cache invalidation: %s", user_id)
                 return
 
             version_key = self._get_version_key(user_id)
 
-            package_logger.info("Invalidating permission cache for user: %s", user_id)
+            logger.info("Invalidating permission cache for user: %s", user_id)
 
             # Try atomic increment first
             if not self._atomic_increment(version_key):
-                # Fall back to non-atomic operation if atomic increment not available
-                version = self.cache.get(version_key, "0")
-                new_version = str(int(version) + 1)
-                self.cache.set(version_key, new_version, None)  # No timeout for version keys
-                package_logger.debug(
-                    "Non-atomic version increment for user %s: %s -> %s", user_id, version, new_version
+                # Log warning instead of using non-atomic fallback that risks race conditions
+                logger.warning(
+                    "Atomic increment not available for cache key %s, skipping invalidation. "
+                    "Consider using Redis or Memcached for reliable cache invalidation.",
+                    version_key
                 )
 
-        except Exception as e:
-            package_logger.warning("Permission cache invalidation failed for user %s: %s", user_id, e)
+        except (AttributeError, TypeError, OSError) as e:
+            logger.warning("Permission cache invalidation failed for user %s: %s", user_id, e, exc_info=True)
 
     def invalidate_all(self) -> None:
         """Invalidate all cached permissions.
@@ -305,7 +308,7 @@ class PermissionCache:
             return
 
         try:
-            package_logger.info("Invalidating all permission cache entries")
+            logger.info("Invalidating all permission cache entries")
 
             # Try pattern-based deletion first
             prefix = PERMISSION_CACHE_KEY_PREFIX or ""
@@ -317,30 +320,30 @@ class PermissionCache:
                 keys = self.cache.client.keys(pattern)
                 if keys:
                     self.cache.client.delete(*keys)
-                    package_logger.debug("Redis pattern deletion successful for %d keys", len(keys))
+                    logger.debug("Redis pattern deletion successful for %d keys", len(keys))
                 deleted = True
             elif hasattr(self.cache, "delete_pattern"):
                 self.cache.delete_pattern(pattern)
-                package_logger.debug("Delete pattern successful")
+                logger.debug("Delete pattern successful")
                 deleted = True
             elif hasattr(self.cache, "clear_prefix"):
                 self.cache.clear_prefix(pattern)
-                package_logger.debug("Clear prefix successful")
+                logger.debug("Clear prefix successful")
                 deleted = True
 
             if not deleted:
                 # Fall back to version increment if pattern deletion not available
-                package_logger.debug("Pattern-based deletion not available, incrementing global version")
+                logger.debug("Pattern-based deletion not available, incrementing global version")
                 version_key = self._get_version_key()
                 if not self._atomic_increment(version_key):
-                    # Last resort: non-atomic operation
-                    version = self.cache.get(version_key, "0")
-                    new_version = str(int(version) + 1)
-                    self.cache.set(version_key, new_version, None)
-                    package_logger.debug("Non-atomic global version increment: %s -> %s", version, new_version)
+                    # Log warning instead of using non-atomic fallback
+                    logger.warning(
+                        "Atomic increment not available for global version key, skipping invalidation. "
+                        "Consider using Redis or Memcached for reliable cache invalidation."
+                    )
 
-        except Exception as e:
-            package_logger.warning("Permission cache clear failed: %s", e)
+        except (AttributeError, TypeError, OSError) as e:
+            logger.warning("Permission cache clear failed: %s", e, exc_info=True)
 
 
 def cache_permission(func: Callable) -> Callable:
@@ -362,29 +365,29 @@ def cache_permission(func: Callable) -> Callable:
         try:
             # Check if caching is enabled
             if not permission_cache.is_enabled():
-                package_logger.debug("Permission caching is disabled. Skipping cache.")
+                logger.debug("Permission caching is disabled. Skipping cache.")
                 return func(self, request, action)
 
             # Skip cache for anonymous users
             if not hasattr(request, "user") or not request.user.is_authenticated:
-                package_logger.debug("Skipping permission cache for anonymous user")
+                logger.debug("Skipping permission cache for anonymous user")
                 return func(self, request, action)
 
             # Skip cache if auth overrides are in effect
             if getattr(self, "skip_authorization", False) or getattr(self, "allow_anonymous", False):
-                package_logger.debug("Skipping permission cache for auth override")
+                logger.debug("Skipping permission cache for auth override")
                 return func(self, request, action)
 
             # Ensure we have valid model information
             if not hasattr(self, "model") or not hasattr(self.model, "_meta"):
-                package_logger.warning("Cannot cache permission - missing model metadata")
+                logger.warning("Cannot cache permission - missing model metadata")
                 return func(self, request, action)
 
             model_name = self.model._meta.model_name
             user_id = request.user.id
 
             if not user_id or not model_name:
-                package_logger.warning(
+                logger.warning(
                     "Invalid user_id or model_name for permission cache: user_id=%s, model_name=%s", user_id, model_name
                 )
                 return func(self, request, action)
@@ -392,7 +395,7 @@ def cache_permission(func: Callable) -> Callable:
             # Try to get from cache
             cached_value = permission_cache.get_permission(user_id, model_name, action)
             if cached_value is not None:
-                package_logger.debug(
+                logger.debug(
                     "Permission cache hit for user=%s, model=%s, action=%s: %s",
                     user_id,
                     model_name,
@@ -404,7 +407,7 @@ def cache_permission(func: Callable) -> Callable:
             # Calculate permission and cache it
             permission = func(self, request, action)
             permission_cache.set_permission(user_id, model_name, action, permission)
-            package_logger.debug(
+            logger.debug(
                 "Permission cache miss, calculated permission for user=%s, model=%s, action=%s: %s",
                 user_id,
                 model_name,
@@ -413,9 +416,9 @@ def cache_permission(func: Callable) -> Callable:
             )
 
             return permission
-        except Exception as e:
-            package_logger.error(
-                "Error in permission cache decorator: %s. Falling back to uncached permission check.", e
+        except (AttributeError, TypeError, OSError) as e:
+            logger.error(
+                "Error in permission cache decorator: %s. Falling back to uncached permission check.", e, exc_info=True
             )
             # Fall back to original function if caching fails
             return func(self, request, action)

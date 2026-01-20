@@ -33,10 +33,12 @@ from django_tomselect.autocompletes import (
     AutocompleteModelView,
 )
 from django_tomselect.lazy_utils import LazyView
-from django_tomselect.logging import package_logger
+from django_tomselect.logging import get_logger
 from django_tomselect.middleware import get_current_request
 from django_tomselect.models import EmptyModel
 from django_tomselect.utils import safe_reverse, safe_reverse_lazy
+
+logger = get_logger(__name__)
 
 
 class TomSelectWidgetMixin:
@@ -121,7 +123,7 @@ class TomSelectWidgetMixin:
                     setattr(self, key, value)
 
         super().__init__(**kwargs)
-        package_logger.debug("TomSelectWidgetMixin initialized.")
+        logger.debug("TomSelectWidgetMixin initialized.")
 
     def render(
         self,
@@ -133,7 +135,7 @@ class TomSelectWidgetMixin:
         """Render the widget."""
         context = self.get_context(name, value, attrs)
 
-        package_logger.debug(
+        logger.debug(
             "Rendering TomSelect widget with context: %s and template: %s using %s",
             context,
             self.template_name,
@@ -174,7 +176,7 @@ class TomSelectWidgetMixin:
         plugins["checkbox_options"] = bool(self.plugin_checkbox_options)
         plugins["dropdown_input"] = bool(self.plugin_dropdown_input)
 
-        package_logger.debug("Plugins in use: %s", ", ".join(plugins.keys() if plugins else ["None"]))
+        logger.debug("Plugins in use: %s", ", ".join(plugins.keys() if plugins else ["None"]))
         return plugins
 
     def get_lazy_view(self) -> LazyView | None:
@@ -198,12 +200,12 @@ class TomSelectWidgetMixin:
 
         # Standard case for direct URL resolution
         if not hasattr(self, "_cached_url"):
-            package_logger.debug("Resolving URL for the first time: %s", self.url)
+            logger.debug("Resolving URL for the first time: %s", self.url)
             try:
                 self._cached_url = safe_reverse(self.url)
-                package_logger.debug("URL resolved in TomSelectWidgetMixin: %s", self._cached_url)
+                logger.debug("URL resolved in TomSelectWidgetMixin: %s", self._cached_url)
             except NoReverseMatch as e:
-                package_logger.error("Could not reverse URL in TomSelectWidgetMixin: %s - %s", self.url, e)
+                logger.error("Could not reverse URL in TomSelectWidgetMixin: %s - %s", self.url, e)
                 raise
         return self._cached_url
 
@@ -220,11 +222,11 @@ class TomSelectWidgetMixin:
 
     def build_attrs(self, base_attrs: dict[str, Any], extra_attrs: dict[str, Any] | None = None) -> dict[str, Any]:
         """Build HTML attributes for the widget."""
-        package_logger.debug("Building attrs with base_attrs: %s and extra_attrs: %s", base_attrs, extra_attrs)
+        logger.debug("Building attrs with base_attrs: %s and extra_attrs: %s", base_attrs, extra_attrs)
 
         attrs = super().build_attrs(base_attrs, extra_attrs)
 
-        package_logger.debug("attrs after `super` in build_attrs: %s", attrs)
+        logger.debug("attrs after `super` in build_attrs: %s", attrs)
 
         # Add required data attributes
         if self.url:
@@ -255,19 +257,19 @@ class TomSelectWidgetMixin:
                 if "item" in render_data:
                     attrs["data_template_item"] = render_data["item"]
 
-        package_logger.debug("Returning final attrs: %s and extra_attrs: %s", attrs, extra_attrs)
+        logger.debug("Returning final attrs: %s and extra_attrs: %s", attrs, extra_attrs)
         return {**attrs, **(extra_attrs or {})}
 
     def get_url(self, view_name: str, view_type: str = "", **kwargs: Any) -> str:
         """Reverse the given view name and return the path."""
         if not view_name:
-            package_logger.warning("No URL provided for %s", view_type)
+            logger.warning("No URL provided for %s", view_type)
             return ""
 
         try:
             return cast(str, safe_reverse_lazy(view_name, **kwargs))
         except NoReverseMatch as e:
-            package_logger.warning(
+            logger.warning(
                 "TomSelectWidget requires a resolvable '%s' attribute. Original error: %s",
                 view_type,
                 e,
@@ -292,7 +294,7 @@ class TomSelectWidgetMixin:
             css={"all": css_paths},
             js=[js_path],
         )
-        package_logger.debug("Media loaded for TomSelectWidgetMixin.")
+        logger.debug("Media loaded for TomSelectWidgetMixin.")
         return media
 
     def _get_css_paths(self) -> list[str]:
@@ -370,7 +372,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             "autocomplete_url": self.get_autocomplete_url(),
             "autocomplete_params": self.get_autocomplete_params(),
         }
-        package_logger.debug("Autocomplete context: %s in widget %s", autocomplete_context, self.__class__.__name__)
+        logger.debug("Autocomplete context: %s in widget %s", autocomplete_context, self.__class__.__name__)
         return autocomplete_context
 
     def get_permissions_context(self, autocomplete_view: AutocompleteModelView) -> dict[str, Any]:
@@ -397,7 +399,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         # Combine permissions
         context = {**permissions, **ui_permissions}
 
-        package_logger.debug(
+        logger.debug(
             "Permissions context: %s for model %s with %s in widget %s",
             context,
             self.model.__name__ if self.model else None,
@@ -418,7 +420,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             "view_list_url": self._get_model_url(autocomplete_view, "list_url", "view"),
             "view_create_url": self._get_model_url(autocomplete_view, "create_url", "create"),
         }
-        package_logger.debug("Model URL context: %s", context)
+        logger.debug("Model URL context: %s", context)
         return context
 
     def _get_model_url(self, view: AutocompleteModelView, url_attr: str, permission: str) -> str | None:
@@ -426,7 +428,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         request = self.get_current_request()
 
         if not hasattr(view, url_attr) or getattr(view, url_attr) in ("", None):
-            package_logger.warning("No valid %s URL available for model %s", url_attr, self.model)
+            logger.warning("No valid %s URL available for model %s", url_attr, self.model)
             return None
 
         if not view.has_permission(request, permission):
@@ -435,7 +437,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         try:
             return safe_reverse(getattr(view, url_attr))
         except NoReverseMatch:
-            package_logger.warning("Unable to reverse %s for model %s", url_attr, self.model)
+            logger.warning("Unable to reverse %s for model %s", url_attr, self.model)
             return None
 
     def get_instance_url_context(
@@ -461,7 +463,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         if self.show_delete and autocomplete_view.delete_url and autocomplete_view.has_permission(request, "delete"):
             self._add_url_to_context(urls, "delete_url", autocomplete_view.delete_url, obj.pk)
 
-        package_logger.debug("Instance URL context: %s", urls)
+        logger.debug("Instance URL context: %s", urls)
         return urls
 
     def _get_instance_urls_with_permissions(
@@ -509,7 +511,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         try:
             context[key] = escape(safe_reverse(url_pattern, args=[pk]))
         except NoReverseMatch:
-            package_logger.warning(
+            logger.warning(
                 "Unable to reverse %s %s with pk %s",
                 key,
                 url_pattern,
@@ -530,7 +532,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         # Setup global TomSelect if not already done
         request = get_current_request()
         if request and not getattr(request, "_tomselect_global_rendered", False):
-            package_logger.debug("Rendering global TomSelect setup.")
+            logger.debug("Rendering global TomSelect setup.")
             self.template_name = "django_tomselect/tomselect_setup.html"
             request._tomselect_global_rendered = True
 
@@ -546,7 +548,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         # Return base context if we can't get more info
         if not autocomplete_view or not request or not self.validate_request(request):
-            package_logger.warning("Autocomplete view or request not available, returning base context")
+            logger.warning("Autocomplete view or request not available, returning base context")
             return base_context
 
         # Build full context with autocomplete view
@@ -601,12 +603,12 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 iteration_count += 1
 
             if iteration_count >= max_decode_iterations:
-                package_logger.warning(
+                logger.warning(
                     "HTML decoding reached maximum iterations (%d), possible malicious input", max_decode_iterations
                 )
 
             if decoded_value != value:
-                package_logger.debug("Decoded value after %d iterations: %s", iteration_count, decoded_value)
+                logger.debug("Decoded value after %d iterations: %s", iteration_count, decoded_value)
 
             # Extract values from the decoded string with different patterns
             for field_name in [value_field, "id", "pk", "pkid", "name", label_field]:
@@ -624,7 +626,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                     match = re.search(pattern, decoded_value)
                     if match:
                         matched_value = match.group(2).strip()
-                        package_logger.debug("Extracted %s: %s", field_name, matched_value)
+                        logger.debug("Extracted %s: %s", field_name, matched_value)
                         extracted_values[field_name] = matched_value
                         break
 
@@ -662,14 +664,14 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                                 # Keep the extracted values
                                 return extracted_values
                     except Exception as e:
-                        package_logger.debug(f"Error looking up with extracted values: {e}")
+                        logger.debug(f"Error looking up with extracted values: {e}")
                         # Keep the extracted values
                         return extracted_values
                 else:
                     # No queryset, but we have extracted values
                     return extracted_values
         except Exception as e:
-            package_logger.error("Error parsing string representation: %s", e)
+            logger.error("Error parsing string representation: %s", e)
 
         return value
 
@@ -881,7 +883,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                     return escape(str(label_value))
 
         except Exception as e:
-            package_logger.error("Error getting label for object: %s", e)
+            logger.error("Error getting label for object: %s", e)
 
         # Fallback to string representation
         return escape(str(obj))
@@ -889,7 +891,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
     def get_model(self) -> type[Model] | None:
         """Get model from field's choices or queryset."""
         if self.model:
-            package_logger.debug("Model already set in %s: %s", self.__class__.__name__, self.model)
+            logger.debug("Model already set in %s: %s", self.__class__.__name__, self.model)
             return self.model
 
         model = None
@@ -904,7 +906,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         elif isinstance(self.choices, list) and self.choices:
             model = None
 
-        package_logger.debug(
+        logger.debug(
             "Model retrieved in %s: %s",
             self.__class__.__name__,
             model.__name__ if model else "None",
@@ -914,26 +916,26 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
     def validate_request(self, request: Any) -> bool:
         """Validate that a request object is valid for permission checking."""
         if not request:
-            package_logger.warning("Request object is missing.")
+            logger.warning("Request object is missing.")
             return False
 
         # Check if request has required attributes and methods
         required_attributes = ["user", "method", "GET"]
         if not all(hasattr(request, attr) for attr in required_attributes):
-            package_logger.warning("Request object is missing required attributes or methods.")
+            logger.warning("Request object is missing required attributes or methods.")
             return False
 
         # Verify user attribute has required auth methods
         if not hasattr(request, "user") or not hasattr(request.user, "is_authenticated"):
-            package_logger.warning("Request object is missing user or is_authenticated method.")
+            logger.warning("Request object is missing user or is_authenticated method.")
             return False
 
         # Verify request methods are callable
         if not callable(getattr(request, "get_full_path", None)):
-            package_logger.warning("Request object is missing get_full_path method.")
+            logger.warning("Request object is missing get_full_path method.")
             return False
 
-        package_logger.debug("Request object is valid.")
+        logger.debug("Request object is valid.")
         return True
 
     def get_autocomplete_view(self) -> AutocompleteModelView | None:
@@ -945,14 +947,14 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         view = lazy_view.get_view()
         self.model = lazy_view.get_model()
 
-        package_logger.debug("Lazy view model: %s", self.model)
+        logger.debug("Lazy view model: %s", self.model)
 
         if not self.model:
-            package_logger.warning("Model is not a valid Django model.")
+            logger.warning("Model is not a valid Django model.")
             return None
 
         if not isinstance(view, AutocompleteModelView):
-            package_logger.warning("View is not an instance of AutocompleteModelView.")
+            logger.warning("View is not an instance of AutocompleteModelView.")
             return None
 
         # Add label_field to value_fields if needed
@@ -965,7 +967,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         if not self.label_field or self.label_field in view.value_fields:
             return
 
-        package_logger.warning(
+        logger.warning(
             "Label field '%s' is not in the autocomplete view's value_fields. This may result in 'undefined' labels.",
             self.label_field,
         )
@@ -988,7 +990,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 # Add to virtual_fields
                 if self.label_field not in view.virtual_fields:
                     view.virtual_fields.append(self.label_field)
-                    package_logger.info(
+                    logger.info(
                         "Label field '%s' added to virtual_fields: %s",
                         self.label_field,
                         view.virtual_fields,
@@ -1011,14 +1013,14 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
             # Explicitly check if model is a valid Django model with objects manager
             if model and hasattr(model, "_meta") and hasattr(model, "objects"):
-                package_logger.warning("Using fallback empty queryset for model %s", model)
+                logger.warning("Using fallback empty queryset for model %s", model)
                 return model.objects.none()
 
-            package_logger.warning("Using EmptyModel.objects.none() as last resort")
+            logger.warning("Using EmptyModel.objects.none() as last resort")
             return EmptyModel.objects.none()
         except Exception as e:
             # If anything fails, return an empty EmptyModel queryset
-            package_logger.warning("Error in get_queryset: %s, falling back to EmptyModel.objects.none()", e)
+            logger.warning("Error in get_queryset: %s, falling back to EmptyModel.objects.none()", e)
             return EmptyModel.objects.none()
 
     def get_search_lookups(self) -> list[str]:
@@ -1026,7 +1028,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         autocomplete_view = self.get_autocomplete_view()
         if autocomplete_view:
             lookups = autocomplete_view.search_lookups
-            package_logger.debug("Search lookups: %s", lookups)
+            logger.debug("Search lookups: %s", lookups)
             return lookups
         return []
 
@@ -1052,7 +1054,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
 
     def set_request(self, request: HttpRequest) -> None:
         """Iterables do not require a request object."""
-        package_logger.warning("Request object is not required for iterables-type Tom Select widgets.")
+        logger.warning("Request object is not required for iterables-type Tom Select widgets.")
 
     def get_autocomplete_context(self) -> dict[str, Any]:
         """Get context for autocomplete functionality."""
@@ -1063,7 +1065,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
             "use_htmx": self.use_htmx,
             "autocomplete_url": self.get_autocomplete_url(),
         }
-        package_logger.debug("Autocomplete context: %s", autocomplete_context)
+        logger.debug("Autocomplete context: %s", autocomplete_context)
         return autocomplete_context
 
     def get_context(self, name: str, value: Any, attrs: dict[str, str] | None = None) -> dict[str, Any]:
@@ -1071,7 +1073,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
         # Only include the global setup if it hasn't been rendered yet
         request = get_current_request()
         if request and not getattr(request, "_tomselect_global_rendered", False):
-            package_logger.debug("Rendering global TomSelect setup.")
+            logger.debug("Rendering global TomSelect setup.")
             self.template_name = "django_tomselect/tomselect_setup.html"
             request._tomselect_global_rendered = True
 
@@ -1125,7 +1127,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                 values = [value] if not isinstance(value, (list, tuple)) else value
                 return [{"value": str(val), "label": escape(str(val))} for val in values]
         except Exception as e:
-            package_logger.error("Error getting selected options: %s", e, exc_info=True)
+            logger.error("Error getting selected options: %s", e, exc_info=True)
             # Fallback to just returning the value as both value and label
             values = [value] if not isinstance(value, (list, tuple)) else value
             return [{"value": str(val), "label": escape(str(val))} for val in values]
@@ -1135,7 +1137,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
         try:
             return hasattr(view, "iterable") and isinstance(view.iterable, type) and hasattr(view.iterable, "choices")
         except (AttributeError, TypeError):
-            package_logger.warning("Error checking enum choices format", exc_info=True)
+            logger.warning("Error checking enum choices format", exc_info=True)
             return False
 
     def _is_tuple_iterable(self, view: AutocompleteIterablesView) -> bool:
@@ -1147,7 +1149,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                 and isinstance(view.iterable[0], tuple)
             )
         except (AttributeError, IndexError, TypeError):
-            package_logger.warning("Error checking tuple iterable format", exc_info=True)
+            logger.warning("Error checking tuple iterable format", exc_info=True)
             return False
 
     def _get_enum_choices_options(self, value: Any, view: AutocompleteIterablesView) -> list[dict[str, str]]:
@@ -1183,7 +1185,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                         break
                 except (IndexError, TypeError):
                     # Skip malformed tuple items
-                    package_logger.warning("Malformed tuple in iterable: %s", item)
+                    logger.warning("Malformed tuple in iterable: %s", item)
                     continue
             else:
                 selected.append({"value": str(val), "label": escape(str(val))})
@@ -1223,7 +1225,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
         autocomplete_view = self.get_autocomplete_view()
         if autocomplete_view:
             iterable = autocomplete_view.get_iterable()
-            package_logger.debug("Iterable: %s", iterable)
+            logger.debug("Iterable: %s", iterable)
             return iterable
         return []
 

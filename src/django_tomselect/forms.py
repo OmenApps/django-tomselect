@@ -10,7 +10,7 @@ __all__ = [
 from typing import Any, ClassVar
 
 from django import forms
-from django.core.exceptions import ValidationError
+from django.core.exceptions import FieldError, ValidationError
 from django.db.models import QuerySet
 from django.forms.widgets import Widget
 
@@ -20,7 +20,7 @@ from django_tomselect.app_settings import (
     merge_configs,
 )
 from django_tomselect.lazy_utils import LazyView
-from django_tomselect.logging import package_logger
+from django_tomselect.logging import get_logger
 from django_tomselect.models import EmptyModel
 from django_tomselect.widgets import (
     TomSelectIterablesMultipleWidget,
@@ -28,6 +28,8 @@ from django_tomselect.widgets import (
     TomSelectModelMultipleWidget,
     TomSelectModelWidget,
 )
+
+logger = get_logger(__name__)
 
 
 class BaseTomSelectMixin:
@@ -49,7 +51,7 @@ class BaseTomSelectMixin:
         """Initialize a TomSelect field with optional configuration."""
         try:
             if choices is not None:
-                package_logger.warning("There is no need to pass choices to a TomSelectField. It will be ignored.")
+                logger.warning("There is no need to pass choices to a TomSelectField. It will be ignored.")
 
             # Extract widget-specific arguments for TomSelectConfig
             widget_kwargs: dict[str, Any] = {
@@ -66,33 +68,33 @@ class BaseTomSelectMixin:
                 if not isinstance(config, TomSelectConfig):
                     try:
                         config = TomSelectConfig(**config)
-                    except Exception as e:
-                        package_logger.error("Failed to create TomSelectConfig from dict: %s", e)
+                    except (TypeError, ValueError) as e:
+                        logger.error("Failed to create TomSelectConfig from dict: %s", e, exc_info=True)
                         config = None
 
             final_config: TomSelectConfig = merge_configs(base_config, config)
             self.config = final_config
 
-            package_logger.debug("Final config to be passed to widget: %s", final_config)
+            logger.debug("Final config to be passed to widget: %s", final_config)
 
             # Get attrs from either the config or kwargs, with kwargs taking precedence
             attrs: dict[str, Any] = kwargs.pop("attrs", {}) or {}
             if self.config.attrs:
                 attrs = {**self.config.attrs, **attrs}
 
-            package_logger.debug("Final attrs to be passed to widget: %s", attrs)
+            logger.debug("Final attrs to be passed to widget: %s", attrs)
 
             # Initialize the widget with config and attrs
             if not self.widget_class:
-                package_logger.error("Widget class not defined for %s", self.__class__.__name__)
+                logger.error("Widget class not defined for %s", self.__class__.__name__)
                 raise ValueError(f"Widget class not defined for {self.__class__.__name__}")
 
             self.widget = self.widget_class(config=self.config)
             self.widget.attrs = attrs
 
             super().__init__(*args, **kwargs)
-        except Exception as e:
-            package_logger.error("Error initializing %s: %s", self.__class__.__name__, e)
+        except (TypeError, ValueError, AttributeError) as e:
+            logger.error("Error initializing %s: %s", self.__class__.__name__, e, exc_info=True)
             raise
 
 
@@ -121,7 +123,7 @@ class BaseTomSelectModelMixin:
     ) -> None:
         """Initialize a TomSelect model field with optional configuration."""
         if queryset is not None:
-            package_logger.warning("There is no need to pass a queryset to a TomSelectModelField. It will be ignored.")
+            logger.warning("There is no need to pass a queryset to a TomSelectModelField. It will be ignored.")
         self.instance: Any = kwargs.get("instance")
 
         # Extract widget-specific arguments for TomSelectConfig
@@ -140,17 +142,17 @@ class BaseTomSelectModelMixin:
                 try:
                     config = TomSelectConfig(**config)
                 except TypeError as e:
-                    package_logger.error("Failed to create TomSelectConfig from dict: %s", e)
+                    logger.error("Failed to create TomSelectConfig from dict: %s", e)
                     # Re-raise TypeError for invalid config keys to maintain expected behavior
                     raise TypeError(f"Invalid configuration: {e}") from e
-                except Exception as e:  # noqa
-                    package_logger.error("Error creating TomSelectConfig: %s", e)
+                except ValueError as e:
+                    logger.error("Error creating TomSelectConfig: %s", e, exc_info=True)
                     config = None
 
         final_config: TomSelectConfig = merge_configs(base_config, config)
         self.config = final_config
 
-        package_logger.debug("Final config to be passed to widget: %s", final_config)
+        logger.debug("Final config to be passed to widget: %s", final_config)
 
         self._lazy_view = None
 
@@ -159,11 +161,11 @@ class BaseTomSelectModelMixin:
         if self.config.attrs:
             attrs = {**self.config.attrs, **attrs}
 
-        package_logger.debug("Final attrs to be passed to widget: %s", attrs)
+        logger.debug("Final attrs to be passed to widget: %s", attrs)
 
         # Initialize the widget with config and attrs
         if not self.widget_class:
-            package_logger.error("Widget class not defined for %s", self.__class__.__name__)
+            logger.error("Widget class not defined for %s", self.__class__.__name__)
             raise ValueError(f"Widget class not defined for {self.__class__.__name__}")
 
         self.widget = self.widget_class(config=self.config)
@@ -173,7 +175,7 @@ class BaseTomSelectModelMixin:
         if hasattr(self.config, "value_field") and self.config.value_field:
             if self.config.value_field != "pk":
                 kwargs["to_field_name"] = self.config.value_field
-                package_logger.debug("Set to_field_name to: %s", self.config.value_field)
+                logger.debug("Set to_field_name to: %s", self.config.value_field)
 
         # Use EmptyModel queryset initially - the actual queryset will be resolved lazily
         # when needed (during clean/validation). This avoids circular imports that occur
@@ -183,8 +185,8 @@ class BaseTomSelectModelMixin:
 
         try:
             super().__init__(queryset, *args, **kwargs)
-        except Exception as e:
-            package_logger.error("Error in parent initialization of %s: %s", self.__class__.__name__, e)
+        except (TypeError, ValueError, AttributeError) as e:
+            logger.error("Error in parent initialization of %s: %s", self.__class__.__name__, e, exc_info=True)
             raise
 
     def clean(self, value: Any) -> Any:
@@ -209,17 +211,22 @@ class BaseTomSelectModelMixin:
                 # Only update if it's not EmptyModel
                 if widget_queryset.model != EmptyModel:
                     self.queryset = widget_queryset
-                    package_logger.debug("Updated queryset in clean to: %s", widget_queryset.model)
+                    logger.debug("Updated queryset in clean to: %s", widget_queryset.model)
+                else:
+                    logger.debug(
+                        "Widget queryset is EmptyModel, keeping original queryset. "
+                        "This may indicate a URL configuration issue or unresolved lazy view."
+                    )
 
             # Make sure to_field_name is set correctly based on value_field
             if hasattr(self.config, "value_field") and self.config.value_field:
                 if self.config.value_field != "pk":
                     self.to_field_name = self.config.value_field
-                    package_logger.debug("Set/Updated to_field_name in clean to: %s", self.config.value_field)
+                    logger.debug("Set/Updated to_field_name in clean to: %s", self.config.value_field)
                 else:
                     # Explicitly set to None if value_field is 'pk'
                     self.to_field_name = None
-                    package_logger.debug("Reset to_field_name to None for pk-based lookup")
+                    logger.debug("Reset to_field_name to None for pk-based lookup")
 
             # Clean the value before passing to validation
             cleaned_value = self._clean_value(value)
@@ -227,8 +234,8 @@ class BaseTomSelectModelMixin:
             return super().clean(cleaned_value)
         except ValidationError:
             raise
-        except Exception as e:
-            package_logger.error("Error in clean method of %s: %s", self.__class__.__name__, e)
+        except (AttributeError, TypeError, FieldError) as e:
+            logger.error("Error in clean method of %s: %s", self.__class__.__name__, e, exc_info=True)
             raise ValidationError(f"An unexpected error occurred: {str(e)}") from e
 
     def _clean_value(self, value: Any) -> Any:
@@ -286,18 +293,18 @@ class TomSelectChoiceField(BaseTomSelectMixin, forms.ChoiceField):
             str_value = str(value)
             autocomplete_view = self.widget.get_autocomplete_view()
             if not autocomplete_view:
-                package_logger.error("%s: Could not determine autocomplete view", self.__class__.__name__)
+                logger.error("%s: Could not determine autocomplete view", self.__class__.__name__)
                 raise ValidationError("Could not determine allowed choices")
 
             try:
                 all_items = autocomplete_view.get_iterable()
                 allowed_values = {str(item["value"]) for item in all_items}
-            except Exception as e:
-                package_logger.error("Error getting choices from autocomplete view: %s", e)
+            except (AttributeError, TypeError, KeyError) as e:
+                logger.error("Error getting choices from autocomplete view: %s", e, exc_info=True)
                 raise ValidationError(f"Error determining allowed choices: {str(e)}") from e
 
             if str_value not in allowed_values:
-                package_logger.debug("Invalid choice in %s: %s", self.__class__.__name__, value)
+                logger.debug("Invalid choice in %s: %s", self.__class__.__name__, value)
                 raise ValidationError(
                     self.error_messages["invalid_choice"],
                     code="invalid_choice",
@@ -307,8 +314,8 @@ class TomSelectChoiceField(BaseTomSelectMixin, forms.ChoiceField):
             return value
         except ValidationError:
             raise
-        except Exception as e:
-            package_logger.error("Error in clean method of %s: %s", self.__class__.__name__, e)
+        except (AttributeError, TypeError) as e:
+            logger.error("Error in clean method of %s: %s", self.__class__.__name__, e, exc_info=True)
             raise ValidationError(f"An unexpected error occurred: {str(e)}") from e
 
 
@@ -351,19 +358,19 @@ class TomSelectMultipleChoiceField(BaseTomSelectMixin, forms.MultipleChoiceField
             str_values = [str(v) for v in value]
             autocomplete_view = self.widget.get_autocomplete_view()
             if not autocomplete_view:
-                package_logger.error("%s: Could not determine autocomplete view", self.__class__.__name__)
+                logger.error("%s: Could not determine autocomplete view", self.__class__.__name__)
                 raise ValidationError("Could not determine allowed choices")
 
             try:
                 all_items = autocomplete_view.get_iterable()
                 allowed_values = {str(item["value"]) for item in all_items}
-            except Exception as e:
-                package_logger.error("Error getting choices from autocomplete view: %s", e)
+            except (AttributeError, TypeError, KeyError) as e:
+                logger.error("Error getting choices from autocomplete view: %s", e, exc_info=True)
                 raise ValidationError(f"Error determining allowed choices: {str(e)}") from e
 
             invalid_values = [val for val in str_values if val not in allowed_values]
             if invalid_values:
-                package_logger.debug("Invalid choice(s) in %s: %s", self.__class__.__name__, invalid_values)
+                logger.debug("Invalid choice(s) in %s: %s", self.__class__.__name__, invalid_values)
                 raise ValidationError(
                     self.error_messages["invalid_choice"],
                     code="invalid_choice",
@@ -373,8 +380,8 @@ class TomSelectMultipleChoiceField(BaseTomSelectMixin, forms.MultipleChoiceField
             return value
         except ValidationError:
             raise
-        except Exception as e:
-            package_logger.error("Error in clean method of %s: %s", self.__class__.__name__, e)
+        except (AttributeError, TypeError) as e:
+            logger.error("Error in clean method of %s: %s", self.__class__.__name__, e, exc_info=True)
             raise ValidationError(f"An unexpected error occurred: {str(e)}") from e
 
 

@@ -23,9 +23,11 @@ from django.views.generic import View
 from django_tomselect.app_settings import DEFAULT_JSON_ENCODER
 from django_tomselect.cache import cache_permission, permission_cache
 from django_tomselect.constants import EXCLUDEBY_VAR, FILTERBY_VAR, PAGE_VAR, SEARCH_VAR
-from django_tomselect.logging import package_logger
+from django_tomselect.logging import get_logger
 from django_tomselect.models import EmptyModel
 from django_tomselect.utils import safe_reverse, safe_url, sanitize_dict
+
+logger = get_logger(__name__)
 
 T = TypeVar("T", bound=Model)
 IterableType = list[Any] | tuple[Any, ...] | dict[Any, Any] | type
@@ -68,7 +70,7 @@ class JSONEncoderMixin:
             try:
                 encoder = import_string(encoder)
             except ImportError as e:
-                package_logger.error(
+                logger.error(
                     "Could not import JSON encoder %s: %s. Falling back to default.",
                     self.json_encoder,
                     e,
@@ -77,7 +79,7 @@ class JSONEncoderMixin:
 
         # Validate it's a proper encoder class
         if not (isinstance(encoder, type) and issubclass(encoder, json.JSONEncoder)):
-            package_logger.error(
+            logger.error(
                 "json_encoder must be a subclass of json.JSONEncoder, got %s. Falling back to default.",
                 type(encoder),
             )
@@ -214,11 +216,11 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             self.model = kwargs.get("model")
 
             if not self.model or isinstance(self.model, EmptyModel):
-                package_logger.error("Model must be specified")
+                logger.error("Model must be specified")
                 raise ValueError("Model must be specified")
 
             if not (isinstance(self.model, type) and issubclass(self.model, Model)):
-                package_logger.error("Unknown model type specified in %s", self.__class__.__name__)
+                logger.error("Unknown model type specified in %s", self.__class__.__name__)
                 raise ValueError("Unknown model type specified in %s" % self.__class__.__name__)
 
             kwargs.pop("model", None)
@@ -252,10 +254,13 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             requested_page_size = int(request.GET.get("page_size", self.page_size))
             if requested_page_size > 0:
                 self.page_size = requested_page_size
+                logger.debug(
+                    "Requested page_size %d exceeded maximum, clamped to %d", requested_page_size, MAX_PAGE_SIZE
+                )
         except (ValueError, TypeError):
             pass  # Keep default page_size for invalid values
 
-        package_logger.debug("%s setup complete", self.__class__.__name__)
+        logger.debug("%s setup complete", self.__class__.__name__)
 
     def hook_queryset(self, queryset: QuerySet[T]) -> QuerySet[T]:
         """Hook to allow for additional queryset manipulation before filtering, searching, and ordering.
@@ -341,14 +346,14 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             if not value or not lookup_field:
                 action = "exclude_by" if is_exclude else "filter_by"
                 self._filter_error = f"Invalid {action} format: {filter_str}"
-                package_logger.warning("Invalid %s value (%s)", action, filter_str)
+                logger.warning("Invalid %s value (%s)", action, filter_str)
                 return None
 
             # Validate that the filter field exists on the model
             if not self._validate_filter_field(lookup_field):
                 action = "exclude" if is_exclude else "filter"
                 self._filter_error = f"Invalid {action} field: {lookup_field}"
-                package_logger.warning(
+                logger.warning(
                     "Invalid %s field '%s' - field does not exist on model %s",
                     action,
                     lookup_field,
@@ -358,16 +363,16 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
             filter_dict = {lookup_field: value}
             if is_exclude:
-                package_logger.debug("Applying exclude_by %s (constant=%s)", filter_dict, is_constant)
+                logger.debug("Applying exclude_by %s (constant=%s)", filter_dict, is_constant)
                 return queryset.exclude(**filter_dict)
             else:
-                package_logger.debug("Applying filter_by %s (constant=%s)", filter_dict, is_constant)
+                logger.debug("Applying filter_by %s (constant=%s)", filter_dict, is_constant)
                 return queryset.filter(**filter_dict)
 
         except ValueError as e:
             action = "exclude_by" if is_exclude else "filter_by"
             self._filter_error = f"Invalid {action} syntax: {e}"
-            package_logger.error(
+            logger.error(
                 "Invalid %s syntax in %s: %s. "
                 "Expected format: 'dependent_field__lookup_field=value' or '__const__lookup=value'. Error: %s",
                 action,
@@ -419,7 +424,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         except FieldError as e:
             self._filter_error = f"Invalid lookup field: {e}"
-            package_logger.error(
+            logger.error(
                 "Invalid lookup field in %s (model=%s): filters_by=%s, excludes_by=%s. "
                 "The specified field may not exist on the model. Error: %s",
                 self.__class__.__name__,
@@ -439,12 +444,12 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             q_objects = Q()
             for lookup in self.search_lookups:
                 q_objects |= Q(**{lookup: query})
-            package_logger.debug("Applying search query %s", q_objects)
+            logger.debug("Applying search query %s", q_objects)
             return queryset.filter(q_objects)
         except FieldError:
-            package_logger.warning("Invalid search lookup field in %s", self.search_lookups)
+            logger.warning("Invalid search lookup field in %s", self.search_lookups)
         except Exception as e:
-            package_logger.error("Error applying search query: %s", str(e))
+            logger.error("Error applying search query: %s", str(e))
         return queryset
 
     def order_queryset(self, queryset: QuerySet) -> QuerySet:
@@ -471,12 +476,12 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             return queryset
 
         try:
-            package_logger.debug("Applying ordering %s", ordering)
+            logger.debug("Applying ordering %s", ordering)
             return queryset.order_by(*ordering)
         except FieldError:
-            package_logger.warning("Invalid ordering field in %s", ordering)
+            logger.warning("Invalid ordering field in %s", ordering)
         except Exception as e:
-            package_logger.error("Error applying ordering: %s", str(e))
+            logger.error("Error applying ordering: %s", str(e))
         return queryset
 
     def paginate_queryset(self, queryset: QuerySet) -> dict[str, Any]:
@@ -503,7 +508,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             "total_pages": paginator.num_pages,
         }
 
-        package_logger.debug("Paginating queryset with page %s of %s", page.number, paginator.num_pages)
+        logger.debug("Paginating queryset with page %s of %s", page.number, paginator.num_pages)
         return pagination_context
 
     def get_value_fields(self) -> list[str]:
@@ -522,7 +527,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                     fields.append(field.name)
 
         value_fields = list(dict.fromkeys(fields))
-        package_logger.debug("Getting value fields %s", value_fields)
+        logger.debug("Getting value fields %s", value_fields)
         return value_fields
 
     def prepare_results(self, results: QuerySet) -> list[dict[str, Any]]:
@@ -556,19 +561,19 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                 try:
                     item["detail_url"] = safe_url(safe_reverse(self.detail_url, args=[item["id"]]))
                 except NoReverseMatch:
-                    package_logger.warning("Could not reverse detail_url %s", self.detail_url)
+                    logger.warning("Could not reverse detail_url %s", self.detail_url)
 
             if self.update_url and item["can_update"]:
                 try:
                     item["update_url"] = safe_url(safe_reverse(self.update_url, args=[item["id"]]))
                 except NoReverseMatch:
-                    package_logger.warning("Could not reverse update_url %s", self.update_url)
+                    logger.warning("Could not reverse update_url %s", self.update_url)
 
             if self.delete_url and item["can_delete"]:
                 try:
                     item["delete_url"] = safe_url(safe_reverse(self.delete_url, args=[item["id"]]))
                 except NoReverseMatch:
-                    package_logger.warning("Could not reverse delete_url %s", self.delete_url)
+                    logger.warning("Could not reverse delete_url %s", self.delete_url)
 
             # Sanitize all values to prevent XSS
             item = sanitize_dict(item)
@@ -620,23 +625,23 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         # Check for authorization bypass first
         if skip_auth is True:
-            package_logger.debug("Skipping authorization checks due to skip_authorization=True")
+            logger.debug("Skipping authorization checks due to skip_authorization=True")
             return True
 
         # Then check anonymous access
         if allow_anon is True:
-            package_logger.debug("Allowing anonymous access due to allow_anonymous=True")
+            logger.debug("Allowing anonymous access due to allow_anonymous=True")
             return True
 
         # Standard auth checks
         if not self.user or not self.user.is_authenticated:
-            package_logger.debug("User is not authenticated in %s", self.__class__.__name__)
+            logger.debug("User is not authenticated in %s", self.__class__.__name__)
             return False
 
         # Get base permissions
         perms = self.get_permission_required()
         if not perms:  # No permissions required
-            package_logger.debug("No permissions required in %s", self.__class__.__name__)
+            logger.debug("No permissions required in %s", self.__class__.__name__)
             return True
 
         # Handle both string and iterable permission_required
@@ -656,7 +661,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         # Check permissions using auth backend
         has_perms = self.user.has_perms(perms)
-        package_logger.debug("User has permissions '%s'? %s", perms, has_perms)
+        logger.debug("User has permissions '%s'? %s", perms, has_perms)
         return has_perms
 
     def has_object_permission(self, request: HttpRequest | Any, obj: Model, action: str = "view") -> bool:
@@ -667,9 +672,9 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         # Look for custom object-level permission methods
         handler = getattr(self, f"has_{action}_permission", None)
         if handler:
-            package_logger.debug("Using custom object-level permission handler %s", handler)
+            logger.debug("Using custom object-level permission handler %s", handler)
             return handler(request, obj)
-        package_logger.debug("Using default object-level permission handler")
+        logger.debug("Using default object-level permission handler")
         return True
 
     def has_add_permission(self, request: HttpRequest | Any) -> bool:
@@ -691,7 +696,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             permission_cache.invalidate_user(user.id)
         else:
             permission_cache.invalidate_all()
-        package_logger.debug("Invalidated permissions cache")
+        logger.debug("Invalidated permissions cache")
 
     def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         """Check permissions before dispatching request."""
@@ -705,13 +710,13 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         Can be overridden to customize behavior.
         """
         if not self.user.is_authenticated:
-            package_logger.warning("User is not authenticated. Redirecting to login.")
+            logger.warning("User is not authenticated. Redirecting to login.")
             return redirect_to_login(request.get_full_path())
         raise PermissionDenied("Permission denied. User does not have any required permissions.")
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle GET requests."""
-        package_logger.debug("Handling GET request")
+        logger.debug("Handling GET request")
         try:
             queryset = self.get_queryset()  # Already includes search() via get_queryset -> search
             data = self.paginate_queryset(queryset)
@@ -719,11 +724,11 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             # Include filter error in response if one occurred (helps with debugging)
             if self._filter_error:
                 data["filter_error"] = self._filter_error
-                package_logger.debug("Including filter error in response: %s", self._filter_error)
+                logger.debug("Including filter error in response: %s", self._filter_error)
 
             return JsonResponse(data, encoder=self.get_json_encoder())
         except Exception as e:
-            package_logger.error("Error in autocomplete request: %s", str(e))
+            logger.error("Error in autocomplete request: %s", str(e))
 
             # Create empty results response
             empty_response = {
@@ -741,7 +746,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
-        package_logger.debug("Handling POST request")
+        logger.debug("Handling POST request")
         return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())
 
 
@@ -774,7 +779,7 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
     def get_iterable(self) -> list[dict[str, str | int]]:
         """Get the choices from the iterable or choices class."""
         if not self.iterable:
-            package_logger.warning("No iterable provided")
+            logger.warning("No iterable provided")
             return []
 
         try:
@@ -811,20 +816,20 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
             # Handle simple iterables
             return [{"value": str(item), "label": str(item)} for item in self.iterable]
         except Exception as e:
-            package_logger.error("Error getting iterable: %s", str(e))  # Fixed error printing format
+            logger.error("Error getting iterable: %s", str(e))  # Fixed error printing format
             return []
 
     def search(self, items: list[dict[str, str]]) -> list[dict[str, str]]:
         """Apply search filtering to the items."""
         if not self.query:
-            package_logger.debug("No query provided")
+            logger.debug("No query provided")
             return items
 
         query_lower = self.query.lower()
         search_results = [
             item for item in items if query_lower in item["label"].lower() or query_lower in item["value"].lower()
         ]
-        package_logger.debug("Search results %s", search_results)
+        logger.debug("Search results %s", search_results)
         return search_results
 
     def paginate_iterable(self, results: list[dict[str, str]]) -> dict[str, Any]:
@@ -845,7 +850,7 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
         total_items = len(results)
         total_pages = (total_items + self.page_size - 1) // self.page_size if total_items > 0 else 1
 
-        package_logger.debug("Paginating iterable with page %s of %s", page_number, total_pages)
+        logger.debug("Paginating iterable with page %s of %s", page_number, total_pages)
 
         return {
             "results": page_results,
@@ -857,7 +862,7 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle GET requests."""
-        package_logger.debug("Handling GET request")
+        logger.debug("Handling GET request")
         if self.iterable is None:
             return JsonResponse({"results": [], "page": 1, "has_more": False}, encoder=self.get_json_encoder())
 
@@ -867,7 +872,7 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
             data = self.paginate_iterable(filtered)
             return JsonResponse(data, encoder=self.get_json_encoder())
         except Exception as e:
-            package_logger.error("Error in autocomplete iterables request: %s", str(e))
+            logger.error("Error in autocomplete iterables request: %s", str(e))
 
             # Create empty results response
             empty_response = {
@@ -884,5 +889,5 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
-        package_logger.debug("Handling POST request")
+        logger.debug("Handling POST request")
         return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())
