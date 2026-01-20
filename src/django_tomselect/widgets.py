@@ -32,6 +32,7 @@ from django_tomselect.autocompletes import (
     AutocompleteIterablesView,
     AutocompleteModelView,
 )
+from django_tomselect.constants import EXCLUDEBY_VAR, FILTERBY_VAR, PAGE_VAR, SEARCH_VAR
 from django_tomselect.lazy_utils import LazyView
 from django_tomselect.logging import get_logger
 from django_tomselect.middleware import get_current_request
@@ -296,6 +297,19 @@ class TomSelectWidgetMixin:
         )
         logger.debug("Media loaded for TomSelectWidgetMixin.")
         return media
+
+    def get_url_param_constants(self) -> dict[str, str]:
+        """Get URL parameter constants for use in templates.
+
+        Returns a dictionary of URL parameter names that can be used
+        in JavaScript for building autocomplete request URLs.
+        """
+        return {
+            "search_param": SEARCH_VAR,
+            "filter_param": FILTERBY_VAR,
+            "exclude_param": EXCLUDEBY_VAR,
+            "page_param": PAGE_VAR,
+        }
 
     def _get_css_paths(self) -> list[str]:
         """Get CSS paths based on framework."""
@@ -706,6 +720,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 "template_name": self.template_name,
                 "value": value,
                 **self.get_autocomplete_context(),
+                **self.get_url_param_constants(),
             }
         }
 
@@ -1102,6 +1117,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                 "template_name": self.template_name,
                 "value": value,
                 **self.get_autocomplete_context(),
+                **self.get_url_param_constants(),
             }
         }
 
