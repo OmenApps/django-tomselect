@@ -221,8 +221,21 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         self.query = query if not query == "undefined" else ""
         self.page = request.GET.get(PAGE_VAR, 1)
 
-        self.filter_by = request.GET.get(FILTERBY_VAR, None)
-        self.exclude_by = request.GET.get(EXCLUDEBY_VAR, None)
+        # Support multiple filter/exclude parameters via getlist
+        # Handle both QueryDict (has getlist) and regular dict (used in some test scenarios)
+        if hasattr(request.GET, "getlist"):
+            self.filters_by: list[str] = request.GET.getlist(FILTERBY_VAR) or []
+            self.excludes_by: list[str] = request.GET.getlist(EXCLUDEBY_VAR) or []
+        else:
+            # Fallback for regular dict
+            filter_val = request.GET.get(FILTERBY_VAR)
+            exclude_val = request.GET.get(EXCLUDEBY_VAR)
+            self.filters_by: list[str] = [filter_val] if filter_val else []
+            self.excludes_by: list[str] = [exclude_val] if exclude_val else []
+
+        # Keep legacy single-value references for backwards compatibility
+        self.filter_by: str | None = self.filters_by[0] if self.filters_by else None
+        self.exclude_by: str | None = self.excludes_by[0] if self.excludes_by else None
         self.ordering_from_request = request.GET.get("ordering", None)
 
         # Track filter errors to include in response (helps with debugging)
@@ -276,82 +289,140 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         except FieldDoesNotExist:
             return False
 
+    def _parse_filter_string(self, filter_str: str) -> tuple[str, str, bool]:
+        """Parse a filter string into lookup field and value.
+
+        Handles both field-based filters ('field__lookup=value') and
+        constant filters ('__const__lookup=value').
+
+        Args:
+            filter_str: The raw filter string from the URL parameter.
+
+        Returns:
+            A tuple of (lookup_field, value, is_constant).
+
+        Raises:
+            ValueError: If the filter string is malformed.
+        """
+        cleaned = unquote(filter_str).replace("'", "")
+        lookup, value = cleaned.split("=", 1)
+
+        # Check for constant filter format: __const__lookup=value
+        if lookup.startswith("__const__"):
+            lookup_field = lookup[9:]  # Remove '__const__' prefix
+            return (lookup_field, value, True)
+
+        # Regular field filter: field__lookup=value
+        _dependent_field, lookup_field = lookup.split("__", 1)
+        return (lookup_field, value, False)
+
+    def _apply_single_filter(
+        self, queryset: QuerySet, filter_str: str, is_exclude: bool = False
+    ) -> QuerySet | None:
+        """Apply a single filter or exclude to the queryset.
+
+        Args:
+            queryset: The queryset to filter.
+            filter_str: The filter string in format 'field__lookup=value' or '__const__lookup=value'.
+            is_exclude: If True, exclude instead of filter.
+
+        Returns:
+            The filtered queryset, or None if there was an error (queryset.none() should be used).
+        """
+        try:
+            lookup_field, value, is_constant = self._parse_filter_string(filter_str)
+
+            if not value or not lookup_field:
+                action = "exclude_by" if is_exclude else "filter_by"
+                self._filter_error = f"Invalid {action} format: {filter_str}"
+                package_logger.warning("Invalid %s value (%s)", action, filter_str)
+                return None
+
+            # Validate that the filter field exists on the model
+            if not self._validate_filter_field(lookup_field):
+                action = "exclude" if is_exclude else "filter"
+                self._filter_error = f"Invalid {action} field: {lookup_field}"
+                package_logger.warning(
+                    "Invalid %s field '%s' - field does not exist on model %s",
+                    action,
+                    lookup_field,
+                    self.model.__name__ if self.model else "Unknown",
+                )
+                return None
+
+            filter_dict = {lookup_field: value}
+            if is_exclude:
+                package_logger.debug("Applying exclude_by %s (constant=%s)", filter_dict, is_constant)
+                return queryset.exclude(**filter_dict)
+            else:
+                package_logger.debug("Applying filter_by %s (constant=%s)", filter_dict, is_constant)
+                return queryset.filter(**filter_dict)
+
+        except ValueError as e:
+            action = "exclude_by" if is_exclude else "filter_by"
+            self._filter_error = f"Invalid {action} syntax: {e}"
+            package_logger.error(
+                "Invalid %s syntax in %s: %s. "
+                "Expected format: 'dependent_field__lookup_field=value' or '__const__lookup=value'. Error: %s",
+                action,
+                self.__class__.__name__,
+                filter_str,
+                str(e),
+            )
+            return None
+
     def apply_filters(self, queryset: QuerySet) -> QuerySet:
         """Apply additional filters to the queryset.
 
-        The filter_by and exclude_by parameters, if provided, are expected to be in the format:
-        'dependent_field__lookup_field=value'
+        Supports multiple filter_by and exclude_by parameters. Each parameter can be in one of:
+        - Field filter: 'dependent_field__lookup_field=value'
+        - Constant filter: '__const__lookup_field=value'
+
+        Multiple filters are combined with AND logic.
         """
-        if not self.filter_by and not self.exclude_by:
+        # Get effective filter lists - support both direct assignment and setup() initialized
+        filters_by = getattr(self, "filters_by", []) or []
+        excludes_by = getattr(self, "excludes_by", []) or []
+
+        # Also handle direct assignment of filter_by/exclude_by for backwards compatibility
+        # (used in some tests that set these directly)
+        if not filters_by and getattr(self, "filter_by", None):
+            filters_by = [self.filter_by]
+        if not excludes_by and getattr(self, "exclude_by", None):
+            excludes_by = [self.exclude_by]
+
+        if not filters_by and not excludes_by:
             return queryset
 
         try:
-            if self.filter_by:
-                lookup, value = unquote(self.filter_by).replace("'", "").split("=")
-                dependent_field, dependent_field_lookup = lookup.split("__", 1)
-                if not value or not dependent_field or not dependent_field_lookup:
-                    self._filter_error = f"Invalid filter_by format: {self.filter_by}"
-                    package_logger.warning("Invalid filter_by value (%s)", self.filter_by)
+            # Apply all filter_by parameters
+            for filter_str in filters_by:
+                result = self._apply_single_filter(queryset, filter_str, is_exclude=False)
+                if result is None:
                     return queryset.none()
+                queryset = result
 
-                # Validate that the filter field exists on the model
-                if not self._validate_filter_field(dependent_field_lookup):
-                    self._filter_error = f"Invalid filter field: {dependent_field_lookup}"
-                    package_logger.warning(
-                        "Invalid filter field '%s' - field does not exist on model %s",
-                        dependent_field_lookup,
-                        self.model.__name__ if self.model else "Unknown",
-                    )
+            # Apply all exclude_by parameters
+            for exclude_str in excludes_by:
+                result = self._apply_single_filter(queryset, exclude_str, is_exclude=True)
+                if result is None:
                     return queryset.none()
+                queryset = result
 
-                filter_dict = {dependent_field_lookup: value}
-                package_logger.debug("Applying filter_by %s", filter_dict)
-                queryset = queryset.filter(**filter_dict)
-
-            if self.exclude_by:
-                lookup, value = unquote(self.exclude_by).replace("'", "").split("=")
-                exclude_field, exclude_field_lookup = lookup.split("__", 1)
-                if not value or not exclude_field or not exclude_field_lookup:
-                    self._filter_error = f"Invalid exclude_by format: {self.exclude_by}"
-                    package_logger.warning("Invalid exclude_by value (%s)", self.exclude_by)
-                    return queryset.none()
-
-                # Validate that the exclude field exists on the model
-                if not self._validate_filter_field(exclude_field_lookup):
-                    self._filter_error = f"Invalid exclude field: {exclude_field_lookup}"
-                    package_logger.warning(
-                        "Invalid exclude field '%s' - field does not exist on model %s",
-                        exclude_field_lookup,
-                        self.model.__name__ if self.model else "Unknown",
-                    )
-                    return queryset.none()
-
-                exclude_dict = {exclude_field_lookup: value}
-                package_logger.debug("Applying exclude_by %s", exclude_dict)
-                queryset = queryset.exclude(**exclude_dict)
             return queryset
-        except ValueError as e:
-            self._filter_error = f"Invalid filter syntax: {e}"
-            package_logger.error(
-                "Invalid filter syntax in %s: filter_by=%s, exclude_by=%s. "
-                "Expected format: 'dependent_field__lookup_field=value'. Error: %s",
-                self.__class__.__name__,
-                self.filter_by,
-                self.exclude_by,
-                str(e),
-            )
+
         except FieldError as e:
             self._filter_error = f"Invalid lookup field: {e}"
             package_logger.error(
-                "Invalid lookup field in %s (model=%s): filter_by=%s, exclude_by=%s. "
+                "Invalid lookup field in %s (model=%s): filters_by=%s, excludes_by=%s. "
                 "The specified field may not exist on the model. Error: %s",
                 self.__class__.__name__,
                 self.model.__name__ if self.model else "Unknown",
-                self.filter_by,
-                self.exclude_by,
+                filters_by,
+                excludes_by,
                 str(e),
             )
-        return queryset.none()
+            return queryset.none()
 
     def search(self, queryset: QuerySet, query: str) -> QuerySet:
         """Apply search filtering to the queryset."""

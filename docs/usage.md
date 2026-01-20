@@ -770,7 +770,7 @@ As your project grows, you may need more than just basic autocomplete functional
 
 One common pattern is to make the options in one dropdown field depend on the selected value of another field. For example, after a user chooses a `Category`, you might need to restrict available `Subcategories` to those related to that `Category`.
 
-To achieve this, `django_tomselect` supports dependent (chained) fields. When setting up your widget configuration, you can specify a `dependent_field` attribute, instructing the field to refresh its options whenever the parent field changes.
+To achieve this, `django_tomselect` supports dependent (chained) fields. When setting up your widget configuration, you can specify a `filter_by` attribute, instructing the field to refresh its options whenever the parent field changes.
 
 ```python
 from django import forms
@@ -793,10 +793,68 @@ class CategoryForm(forms.Form):
             label_field="name",
             # Instructs the subcategory field to dynamically filter by the selected category
             filter_by=("category", "category_id"),
-            # The widget also sets 'dependent_field' internally, linking it to the 'category' field
         ),
     )
 ```
+
+#### Multiple Field Filters
+
+You can filter by multiple fields using a list of tuples. All conditions are combined (aka: AND):
+
+```python
+from django_tomselect.app_settings import TomSelectConfig
+
+class ArticleFilterForm(forms.Form):
+    magazine = TomSelectModelChoiceField(
+        config=TomSelectConfig(url="autocomplete-magazine"),
+    )
+    status = TomSelectChoiceField(
+        config=TomSelectConfig(url="autocomplete-article-status"),
+    )
+    # Filter articles by BOTH magazine AND status
+    articles = TomSelectModelMultipleChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-article",
+            filter_by=[
+                ("magazine", "magazine_id"),  # Filter by selected magazine
+                ("status", "status"),         # AND by selected status
+            ],
+        ),
+    )
+```
+
+See the [Multiple Filter-By](example_app/multiple_filter_by.md) example for complete demonstration.
+
+#### Constant Value Filters
+
+Use the `Const` helper to filter by a constant value that doesn't come from a form field. This is useful for enforcing business rules in the UI:
+
+```python
+from django_tomselect.app_settings import TomSelectConfig, Const
+
+class PublishedArticleForm(forms.Form):
+    magazine = TomSelectModelChoiceField(
+        config=TomSelectConfig(url="autocomplete-magazine"),
+        required=False,
+    )
+    # Articles always filtered to published status, optionally by magazine
+    published_articles = TomSelectModelMultipleChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-article",
+            filter_by=[
+                ("magazine", "magazine_id"),       # Optional magazine filter
+                Const("published", "status"),      # Always filter to published
+            ],
+        ),
+    )
+```
+
+Common use cases for constant filters:
+- Only show published content: `Const("published", "status")`
+- Only show active items: `Const("true", "is_active")`
+- Filter by current year: `Const("2024", "year")`
+
+See the [Constant Filter-By](example_app/constant_filter_by.md) example for complete demonstration.
 
 ### Field Exclusions
 

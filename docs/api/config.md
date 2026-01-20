@@ -59,6 +59,8 @@ config = TomSelectConfig(
 #### Complete Configuration Example
 
 ```python
+from django_tomselect.app_settings import TomSelectConfig, Const
+
 config = TomSelectConfig(
     # Core Settings
     url='book-autocomplete',
@@ -66,9 +68,14 @@ config = TomSelectConfig(
     label_field='name',
     create_field='',
 
-    # Additional Core Settings
-    filter_by=('category__id', 'id'),  # Filter by category.id = id
-    exclude_by=('author__id', 'id'),    # Exclude where author.id = id
+    # Filtering - supports multiple formats (see "Dependent Fields" section below)
+    filter_by=('category', 'category_id'),  # Simple: filter by category form field
+    # Or for multiple filters:
+    # filter_by=[
+    #     ('category', 'category_id'),
+    #     Const('published', 'status'),  # Always filter to published status
+    # ],
+    exclude_by=(),  # No excludes (default)
     use_htmx=False,  # Enable HTMX integration
     attrs={},  # Additional HTML attributes
 
@@ -112,6 +119,44 @@ config = TomSelectConfig(
     plugin_dropdown_input=PluginDropdownInput(),
     plugin_remove_button=PluginRemoveButton()
 )
+```
+
+## Filter Specification Classes
+
+### FilterSpec
+
+```{eval-rst}
+.. autoclass:: django_tomselect.app_settings.FilterSpec
+   :members:
+   :show-inheritance:
+```
+
+The `FilterSpec` dataclass represents a single filter or exclude condition. It supports both field-based filtering (where the value comes from another form field) and constant filtering (where the value is a static constant).
+
+```python
+from django_tomselect.app_settings import FilterSpec
+
+# Field-based filter (value from form field)
+spec = FilterSpec(source='category', lookup='category_id', source_type='field')
+
+# Constant filter (static value)
+spec = FilterSpec(source='published', lookup='status', source_type='const')
+```
+
+### Const Helper
+
+```{eval-rst}
+.. autofunction:: django_tomselect.app_settings.Const
+```
+
+The `Const` function is a convenience helper for creating constant filter specs:
+
+```python
+from django_tomselect.app_settings import Const
+
+# These are equivalent:
+Const('published', 'status')
+FilterSpec(source='published', lookup='status', source_type='const')
 ```
 
 ## Plugin Configurations
@@ -301,16 +346,86 @@ TOMSELECT = {
 
 ## Advanced Usage
 
-### Dependent Fields
+### Dependent Fields (filter_by / exclude_by)
 
-Configure fields that depend on other field values:
+The `filter_by` and `exclude_by` options allow you to create dependent fields that filter based on other form field values or constant values.
+
+#### Basic Usage (Legacy Format)
+
+The simplest format is a 2-tuple of `(form_field_name, lookup_field)`:
 
 ```python
 config = TomSelectConfig(
-    filter_by=('category__id', 'id'),  # Filter by category.id = id
-    exclude_by=('author__id', 'id')    # Exclude where author.id = id
+    filter_by=('category', 'category_id'),  # Filter where category_id = value of 'category' form field
+    exclude_by=('author', 'author_id')      # Exclude where author_id = value of 'author' form field
 )
 ```
+
+#### Multiple Field Filters
+
+You can filter by multiple fields using a list of tuples. All conditions are combined (AND):
+
+```python
+config = TomSelectConfig(
+    filter_by=[
+        ('magazine', 'magazine_id'),  # Filter by selected magazine
+        ('status', 'status'),         # AND by selected status
+    ]
+)
+```
+
+#### Constant Value Filters
+
+Use the `Const` helper to filter by a constant value that doesn't come from a form field:
+
+```python
+from django_tomselect.app_settings import TomSelectConfig, Const
+
+config = TomSelectConfig(
+    filter_by=[
+        ('magazine', 'magazine_id'),       # Filter by selected magazine
+        Const('published', 'status'),      # Always filter to published only
+    ]
+)
+```
+
+This is useful for:
+- Always showing only active/published items
+- Filtering by the current user's organization
+- Enforcing business rules in the UI
+
+#### FilterSpec Objects
+
+For advanced use cases, you can use `FilterSpec` objects directly:
+
+```python
+from django_tomselect.app_settings import TomSelectConfig, FilterSpec
+
+config = TomSelectConfig(
+    filter_by=[
+        FilterSpec(source='category', lookup='category_id', source_type='field'),
+        FilterSpec(source='active', lookup='is_active', source_type='const'),
+    ]
+)
+```
+
+#### Accepted Formats Summary
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Empty tuple | `()` | No filtering (default) |
+| 2-tuple | `('field', 'lookup')` | Single field filter |
+| FilterSpec | `FilterSpec(...)` | Single spec object |
+| Const | `Const('value', 'lookup')` | Constant value filter |
+| List | `[('f1', 'l1'), Const(...)]` | Multiple filters (AND logic) |
+
+#### URL Parameter Format
+
+When using multiple filters, the autocomplete URL will include multiple `f` (filter) or `e` (exclude) parameters:
+
+- Field filters: `?f='fieldname__lookup=value'`
+- Constant filters: `?f='__const__lookup=value'`
+- Multiple: `?f='...'&f='...'&f='...'`
 
 ### Logging
 

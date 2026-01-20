@@ -16,6 +16,7 @@ from django.utils.html import escape
 from django_tomselect.app_settings import (
     GLOBAL_DEFAULT_CONFIG,
     AllowedCSSFrameworks,
+    FilterSpec,
     TomSelectConfig,
     merge_configs,
 )
@@ -53,8 +54,12 @@ class TomSelectWidgetMixin:
         self.url: str = final_config.url
         self.value_field: str = final_config.value_field
         self.label_field: str = final_config.label_field
-        self.filter_by: tuple[str, str] | None = final_config.filter_by
-        self.exclude_by: tuple[str, str] | None = final_config.exclude_by
+        # Store normalized filter lists
+        self.filters: list[FilterSpec] = final_config.get_normalized_filters()
+        self.excludes: list[FilterSpec] = final_config.get_normalized_excludes()
+        # Keep for backwards compatibility
+        self.filter_by = final_config.filter_by
+        self.exclude_by = final_config.exclude_by
         self.use_htmx: bool = final_config.use_htmx
 
         # Behavior config
@@ -694,24 +699,40 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             }
         }
 
-        # Add filter/exclude configuration
-        if self.filter_by:
-            dependent_field, dependent_field_lookup = self.filter_by
-            base_context["widget"].update(
-                {
-                    "dependent_field": dependent_field,
-                    "dependent_field_lookup": dependent_field_lookup,
-                }
-            )
+        # Add filter/exclude configuration - pass normalized lists
+        if self.filters:
+            # Convert FilterSpec objects to dicts for template use
+            base_context["widget"]["filters"] = [
+                {"source": f.source, "lookup": f.lookup, "source_type": f.source_type}
+                for f in self.filters
+            ]
+            # Keep for backwards compatibility with custom templates
+            # Uses first field-type filter for legacy dependent_field
+            field_filters = [f for f in self.filters if f.source_type == "field"]
+            if field_filters:
+                base_context["widget"].update(
+                    {
+                        "dependent_field": field_filters[0].source,
+                        "dependent_field_lookup": field_filters[0].lookup,
+                    }
+                )
 
-        if self.exclude_by:
-            exclude_field, exclude_field_lookup = self.exclude_by
-            base_context["widget"].update(
-                {
-                    "exclude_field": exclude_field,
-                    "exclude_field_lookup": exclude_field_lookup,
-                }
-            )
+        if self.excludes:
+            # Convert FilterSpec objects to dicts for template use
+            base_context["widget"]["excludes"] = [
+                {"source": e.source, "lookup": e.lookup, "source_type": e.source_type}
+                for e in self.excludes
+            ]
+            # Keep for backwards compatibility with custom templates
+            # Uses first field-type exclude for legacy exclude_field
+            field_excludes = [e for e in self.excludes if e.source_type == "field"]
+            if field_excludes:
+                base_context["widget"].update(
+                    {
+                        "exclude_field": field_excludes[0].source,
+                        "exclude_field_lookup": field_excludes[0].lookup,
+                    }
+                )
 
         # Handle model instances directly, if they are provided
         if value and hasattr(value, "_meta") and hasattr(value, "pk") and value.pk is not None:

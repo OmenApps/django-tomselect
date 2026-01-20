@@ -92,13 +92,47 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 var originalFirstUrl = function(query) {
                     var url = '{{ widget.autocomplete_url }}' + '?q=' + encodeURIComponent(query){% if 'autocomplete_params' in widget.keys and not widget.autocomplete_params == "" %} + '&{{ widget.autocomplete_params|safe }}'{% endif %};
 
-                    {% if "dependent_field" in widget.keys %}
+                    {% if "filters" in widget.keys %}
+                        // Multiple filters support
+                        {% for filter in widget.filters %}
+                            {% if filter.source_type == "field" %}
+                                {
+                                    const filterField_{{ forloop.counter }} = document.getElementById('id_{{ filter.source }}');
+                                    const filterValue_{{ forloop.counter }} = filterField_{{ forloop.counter }} ? filterField_{{ forloop.counter }}.value : '';
+                                    if (filterValue_{{ forloop.counter }}) {
+                                        url = addUrlParam(url, "f", `'{{ filter.source }}__{{ filter.lookup }}=${filterValue_{{ forloop.counter }}}'`);
+                                    }
+                                }
+                            {% else %}
+                                // Constant filter. This is always applied if present
+                                url = addUrlParam(url, "f", `'__const__{{ filter.lookup }}={{ filter.source }}'`);
+                            {% endif %}
+                        {% endfor %}
+                    {% elif "dependent_field" in widget.keys %}
+                        // Legacy filter support
                         const dependentField = document.getElementById('id_{{ widget.dependent_field }}');
                         const dependentValue = dependentField ? dependentField.value : '';
                         url = addUrlParam(url, "f", `'{{ widget.dependent_field }}__{{ widget.dependent_field_lookup }}=${dependentValue}'`);
                     {% endif %}
 
-                    {% if "exclude_field" in widget.keys %}
+                    {% if "excludes" in widget.keys %}
+                        // Multiple excludes support
+                        {% for exclude in widget.excludes %}
+                            {% if exclude.source_type == "field" %}
+                                {
+                                    const excludeField_{{ forloop.counter }} = document.getElementById('id_{{ exclude.source }}');
+                                    const excludeValue_{{ forloop.counter }} = excludeField_{{ forloop.counter }} ? excludeField_{{ forloop.counter }}.value : '';
+                                    if (excludeValue_{{ forloop.counter }}) {
+                                        url = addUrlParam(url, "e", `'{{ exclude.source }}__{{ exclude.lookup }}=${excludeValue_{{ forloop.counter }}}'`);
+                                    }
+                                }
+                            {% else %}
+                                // Constant exclude. This is always applied if present
+                                url = addUrlParam(url, "e", `'__const__{{ exclude.lookup }}={{ exclude.source }}'`);
+                            {% endif %}
+                        {% endfor %}
+                    {% elif "exclude_field" in widget.keys %}
+                        // Legacy exclude support
                         const excludeField = document.getElementById('id_{{ widget.exclude_field }}');
                         const excludeValue = excludeField ? excludeField.value : '';
                         url = addUrlParam(url, "e", `'{{ widget.exclude_field }}__{{ widget.exclude_field_lookup }}=${excludeValue}'`);
@@ -123,10 +157,14 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     create: {% if 'create' in widget.keys and widget.create %}true{% else %}false{% endif %},
                     resetVarName: resetVarName,
                     originalFirstUrl: originalFirstUrl,
-                    {% if "dependent_field" in widget.keys %}
+                    {% if "filters" in widget.keys %}
+                        filterFields: [{% for filter in widget.filters %}{% if filter.source_type == "field" %}'id_{{ filter.source }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
+                    {% elif "dependent_field" in widget.keys %}
                         dependentField: 'id_{{ widget.dependent_field }}',
                     {% endif %}
-                    {% if "exclude_field" in widget.keys %}
+                    {% if "excludes" in widget.keys %}
+                        excludeFields: [{% for exclude in widget.excludes %}{% if exclude.source_type == "field" %}'id_{{ exclude.source }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
+                    {% elif "exclude_field" in widget.keys %}
                         excludeField: 'id_{{ widget.exclude_field }}',
                     {% endif %}
 

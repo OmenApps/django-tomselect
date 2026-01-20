@@ -1,15 +1,82 @@
 """Settings for the django-tomselect package."""
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.module_loading import import_string
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class FilterSpec:
+    """Specification for a single filter/exclude condition.
+
+    This class represents a single filter or exclude condition that can be applied
+    to an autocomplete queryset. It supports both field-based filtering (where the
+    value comes from another form field) and constant filtering (where the value
+    is a static constant).
+
+    Attributes:
+        source: Form field name (for field-based filters) OR constant value (for const filters).
+        lookup: Django ORM lookup field (e.g., "category_id", "status").
+        source_type: Either "field" (value from form field) or "const" (static value).
+
+    Example:
+        # Field-based filter (filter by value from another form field)
+        FilterSpec(source="category", lookup="category_id", source_type="field")
+
+        # Constant filter (always filter to a specific value)
+        FilterSpec(source="published", lookup="status", source_type="const")
+    """
+
+    source: str  # Form field name OR constant value
+    lookup: str  # Django ORM lookup (e.g., "category_id")
+    source_type: Literal["field", "const"] = "field"
+
+    @classmethod
+    def from_tuple(cls, t: tuple[str, str]) -> "FilterSpec":
+        """Create a FilterSpec from a legacy 2-tuple format.
+
+        Args:
+            t: A tuple of (field_name, lookup_field).
+
+        Returns:
+            A FilterSpec with source_type="field".
+        """
+        return cls(source=t[0], lookup=t[1], source_type="field")
+
+
+def Const(value: str, lookup: str) -> FilterSpec:  # noqa: N802
+    """Helper to create constant filter specs.
+
+    Creates a FilterSpec that always filters by a constant value rather than
+    getting the value from another form field.
+
+    Args:
+        value: The constant value to filter by.
+        lookup: The Django ORM lookup field.
+
+    Returns:
+        A FilterSpec with source_type="const".
+
+    Example:
+        # Always filter to only published items
+        Const("published", "status")
+
+        # Filter by a specific category ID
+        Const("5", "category_id")
+    """
+    return FilterSpec(source=str(value), lookup=lookup, source_type="const")
+
+
+# Type alias for filter_by/exclude_by input formats
+FilterByInput = tuple[()] | tuple[str, str] | FilterSpec | Sequence[tuple[str, str] | FilterSpec]
 
 
 class AllowedCSSFrameworks(Enum):
@@ -264,8 +331,14 @@ class TomSelectConfig(BaseConfig):
         value_field: field name for the value field.
         label_field: field name for the label field.
         create_field: field name for the create field.
-        filter_by: tuple of model field and lookup value to filter by.
-        exclude_by: tuple of model field and lookup value to exclude by.
+        filter_by: Filter conditions to apply. Accepts:
+            - Empty tuple () for no filtering (default)
+            - 2-tuple ("field", "lookup") for legacy single field filter
+            - FilterSpec object for a single condition
+            - List of FilterSpec or 2-tuples for multiple conditions
+            - Use Const("value", "lookup") for constant filters.
+
+        exclude_by: Exclude conditions to apply. Same format as filter_by.
         use_htmx: if True, use HTMX for AJAX requests.
         css_framework: CSS framework to use ("default", "bootstrap4", "bootstrap5").
         attrs: additional attributes for the widget.
@@ -305,8 +378,8 @@ class TomSelectConfig(BaseConfig):
     value_field: str = "id"
     label_field: str = "name"
     create_field: str = ""
-    filter_by: tuple = field(default_factory=tuple)
-    exclude_by: tuple = field(default_factory=tuple)
+    filter_by: tuple | FilterSpec | list = field(default_factory=tuple)
+    exclude_by: tuple | FilterSpec | list = field(default_factory=tuple)
     use_htmx: bool = False
     attrs: dict[str, str] = field(default_factory=dict)
 
@@ -329,23 +402,76 @@ class TomSelectConfig(BaseConfig):
     use_minified: bool = DEFAULT_USE_MINIFIED
 
     # Plugin configurations
-    plugin_checkbox_options: Optional["PluginCheckboxOptions"] = None
-    plugin_clear_button: Optional["PluginClearButton"] = None
+    plugin_checkbox_options: PluginCheckboxOptions | None = None
+    plugin_clear_button: PluginClearButton | None = None
     plugin_dropdown_header: PluginDropdownHeader | None = None
-    plugin_dropdown_footer: Optional["PluginDropdownFooter"] = None
-    plugin_dropdown_input: Optional["PluginDropdownInput"] = None
-    plugin_remove_button: Optional["PluginRemoveButton"] = None
+    plugin_dropdown_footer: PluginDropdownFooter | None = None
+    plugin_dropdown_input: PluginDropdownInput | None = None
+    plugin_remove_button: PluginRemoveButton | None = None
+
+    def _is_filterspec(self, obj: object) -> bool:
+        """Check if an object is a FilterSpec."""
+        if isinstance(obj, FilterSpec):
+            return True
+        # Handle module reload case where class identity differs
+        return type(obj).__name__ == "FilterSpec" and hasattr(obj, "source") and hasattr(obj, "lookup")
+
+    def _validate_filter_input(self, value: FilterByInput, field_name: str) -> None:
+        """Validate a filter_by or exclude_by input value."""
+        # Empty tuple is valid
+        if isinstance(value, tuple) and len(value) == 0:
+            return
+
+        # Single FilterSpec is valid
+        if self._is_filterspec(value):
+            return
+
+        # Legacy 2-tuple is valid
+        if isinstance(value, tuple) and len(value) == 2:
+            if not all(isinstance(v, str) for v in value):
+                raise ValidationError(f"{field_name} 2-tuple must contain only strings")
+            return
+
+        # List of specs/tuples is valid
+        if isinstance(value, list):
+            for i, item in enumerate(value):
+                if self._is_filterspec(item):
+                    continue
+                if isinstance(item, tuple) and len(item) == 2:
+                    if not all(isinstance(v, str) for v in item):
+                        raise ValidationError(
+                            f"{field_name}[{i}] 2-tuple must contain only strings"
+                        )
+                    continue
+                raise ValidationError(
+                    f"{field_name}[{i}] must be a FilterSpec or a 2-tuple, got {type(item).__name__}"
+                )
+            return
+
+        # Invalid format
+        raise ValidationError(
+            f"{field_name} must be an empty tuple, a 2-tuple (field, lookup), "
+            f"a FilterSpec, or a list of FilterSpec/tuples"
+        )
 
     def validate(self) -> None:
         """Validate the complete configuration."""
-        if len(self.filter_by) > 0 and len(self.filter_by) != 2:
-            raise ValidationError("filter_by must be either empty or a 2-tuple")
+        # Validate filter_by and exclude_by formats
+        self._validate_filter_input(self.filter_by, "filter_by")
+        self._validate_filter_input(self.exclude_by, "exclude_by")
 
-        if len(self.exclude_by) > 0 and len(self.exclude_by) != 2:
-            raise ValidationError("exclude_by must be either empty or a 2-tuple")
-
-        if (len(self.filter_by) > 0 or len(self.exclude_by) > 0) and self.filter_by == self.exclude_by:
-            raise ValidationError("filter_by and exclude_by cannot refer to the same field")
+        # Check for identical filter_by and exclude_by (when non-empty)
+        filters = self.get_normalized_filters()
+        excludes = self.get_normalized_excludes()
+        if filters and excludes:
+            # Check if any filter matches any exclude exactly
+            for f in filters:
+                for e in excludes:
+                    if f.source == e.source and f.lookup == e.lookup and f.source_type == e.source_type:
+                        raise ValidationError(
+                            f"filter_by and exclude_by cannot contain identical conditions: "
+                            f"source={f.source!r}, lookup={f.lookup!r}"
+                        )
 
         if self.load_throttle < 0:
             raise ValidationError("load_throttle must be positive")
@@ -364,6 +490,42 @@ class TomSelectConfig(BaseConfig):
                     f"css_framework must be one of {sorted(allowed_frameworks)}, got {self.css_framework!r}"
                 )
 
+    def _normalize_filter_input(self, value: FilterByInput) -> list[FilterSpec]:
+        """Normalize filter_by or exclude_by input to a list of FilterSpec objects."""
+        # Empty tuple
+        if isinstance(value, tuple) and len(value) == 0:
+            return []
+
+        # Single FilterSpec (handle module reload case)
+        if self._is_filterspec(value):
+            # Convert to ensure it's the current FilterSpec class
+            return [FilterSpec(source=value.source, lookup=value.lookup, source_type=value.source_type)]
+
+        # Legacy 2-tuple
+        if isinstance(value, tuple) and len(value) == 2:
+            return [FilterSpec.from_tuple(value)]
+
+        # List of specs/tuples
+        if isinstance(value, list):
+            result = []
+            for item in value:
+                if self._is_filterspec(item):
+                    # Convert to ensure it's the current FilterSpec class
+                    result.append(FilterSpec(source=item.source, lookup=item.lookup, source_type=item.source_type))
+                elif isinstance(item, tuple) and len(item) == 2:
+                    result.append(FilterSpec.from_tuple(item))
+            return result
+
+        return []
+
+    def get_normalized_filters(self) -> list[FilterSpec]:
+        """Get filter_by as a normalized list of FilterSpec objects."""
+        return self._normalize_filter_input(self.filter_by)
+
+    def get_normalized_excludes(self) -> list[FilterSpec]:
+        """Get exclude_by as a normalized list of FilterSpec objects."""
+        return self._normalize_filter_input(self.exclude_by)
+
     def as_dict(self) -> dict:
         """Convert config to dictionary for template rendering."""
         return {k: v.as_dict() if isinstance(v, BaseConfig) else v for k, v in self.__dict__.items()}
@@ -371,7 +533,7 @@ class TomSelectConfig(BaseConfig):
     def update(self, **kwargs) -> "TomSelectConfig":
         """Return a new config with updated values.
 
-        Since TomSelectConfig is a frozen dataclass, this method returns a new
+        Note: Since TomSelectConfig is a frozen dataclass, this method returns a new
         instance with the specified fields updated rather than modifying in place.
         """
         return replace(self, **kwargs)
