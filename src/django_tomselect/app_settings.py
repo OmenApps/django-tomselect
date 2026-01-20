@@ -170,6 +170,45 @@ PERMISSION_CACHE_NAMESPACE = PERMISSION_CACHE.get("NAMESPACE", "")
 LOGGING_ENABLED = PROJECT_TOMSELECT.get("ENABLE_LOGGING", True)
 
 
+def validate_json_encoder_class():
+    """Validate and return the JSON encoder class from settings.
+
+    Returns:
+        A JSONEncoder subclass or None (to use Django's default DjangoJSONEncoder).
+
+    Raises:
+        ImportError: If the DEFAULT_JSON_ENCODER string cannot be imported.
+        TypeError: If the class is not a subclass of json.JSONEncoder.
+    """
+    import json
+
+    json_encoder_class = PROJECT_TOMSELECT.get("DEFAULT_JSON_ENCODER", None)
+    if json_encoder_class is None:
+        return None
+
+    if isinstance(json_encoder_class, str):
+        try:
+            json_encoder_class = import_string(json_encoder_class)
+        except ImportError as e:
+            logger.exception(
+                "Could not import %s. Please check your DEFAULT_JSON_ENCODER setting. %s",
+                json_encoder_class,
+                e,
+            )
+            raise ImportError(f"Failed to import DEFAULT_JSON_ENCODER: {e}") from e
+
+    if not (isinstance(json_encoder_class, type) and issubclass(json_encoder_class, json.JSONEncoder)):
+        raise TypeError(
+            "DEFAULT_JSON_ENCODER must be a subclass of json.JSONEncoder "
+            "or an importable string pointing to such a subclass."
+        )
+
+    return json_encoder_class
+
+
+DEFAULT_JSON_ENCODER = validate_json_encoder_class()
+
+
 def validate_proxy_request_class():
     """Validate the ProxyRequest class based on settings.
 

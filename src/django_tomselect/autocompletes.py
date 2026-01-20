@@ -1,5 +1,6 @@
 """Views for handling queries from django-tomselect widgets."""
 
+import json
 from typing import Any, TypeVar
 from urllib.parse import unquote
 
@@ -13,6 +14,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.urls import NoReverseMatch
 from django.views.generic import View
 
+from django_tomselect.app_settings import DEFAULT_JSON_ENCODER
 from django_tomselect.cache import cache_permission, permission_cache
 from django_tomselect.constants import EXCLUDEBY_VAR, FILTERBY_VAR, PAGE_VAR, SEARCH_VAR
 from django_tomselect.logging import package_logger
@@ -23,7 +25,62 @@ T = TypeVar("T", bound=Model)
 IterableType = list[Any] | tuple[Any, ...] | dict[Any, Any] | type
 
 
-class AutocompleteModelView(View):
+class JSONEncoderMixin:
+    """Mixin providing custom JSON encoder support for autocomplete views."""
+
+    json_encoder: type[json.JSONEncoder] | str | None = None  # Custom JSON encoder for responses
+
+    def get_json_encoder(self) -> type[json.JSONEncoder] | None:
+        """Get the JSON encoder to use for responses.
+
+        Precedence:
+        1. View-level `json_encoder` attribute (if set and not None)
+        2. Global `DEFAULT_JSON_ENCODER` setting
+        3. None (Django's default DjangoJSONEncoder will be used)
+
+        The encoder can be specified as:
+        - A class (subclass of json.JSONEncoder)
+        - A dotted string path (e.g., "myapp.encoders.CustomEncoder")
+
+        Returns:
+            A JSONEncoder subclass or None.
+        """
+        from django.utils.module_loading import import_string
+
+        encoder = self.json_encoder
+
+        # If not set on the view, fall back to global setting
+        if encoder is None:
+            encoder = DEFAULT_JSON_ENCODER
+
+        # If still None, return None (Django will use DjangoJSONEncoder)
+        if encoder is None:
+            return None
+
+        # Handle dotted string path
+        if isinstance(encoder, str):
+            try:
+                encoder = import_string(encoder)
+            except ImportError as e:
+                package_logger.error(
+                    "Could not import JSON encoder %s: %s. Falling back to default.",
+                    self.json_encoder,
+                    e,
+                )
+                return None
+
+        # Validate it's a proper encoder class
+        if not (isinstance(encoder, type) and issubclass(encoder, json.JSONEncoder)):
+            package_logger.error(
+                "json_encoder must be a subclass of json.JSONEncoder, got %s. Falling back to default.",
+                type(encoder),
+            )
+            return None
+
+        return encoder
+
+
+class AutocompleteModelView(JSONEncoderMixin, View):
     """Base view for handling autocomplete requests.
 
     Intended to be flexible enough for many use cases, but can be subclassed for more specific needs.
@@ -587,7 +644,7 @@ class AutocompleteModelView(View):
                 data["filter_error"] = self._filter_error
                 package_logger.debug("Including filter error in response: %s", self._filter_error)
 
-            return JsonResponse(data)
+            return JsonResponse(data, encoder=self.get_json_encoder())
         except Exception as e:
             package_logger.error("Error in autocomplete request: %s", str(e))
 
@@ -603,15 +660,15 @@ class AutocompleteModelView(View):
             if settings.DEBUG:
                 empty_response["error"] = str(e)
 
-            return JsonResponse(empty_response, status=200)
+            return JsonResponse(empty_response, status=200, encoder=self.get_json_encoder())
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
         package_logger.debug("Handling POST request")
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())
 
 
-class AutocompleteIterablesView(View):
+class AutocompleteIterablesView(JSONEncoderMixin, View):
     """Autocomplete view for iterables and django choices classes."""
 
     iterable: IterableType | None = None
@@ -720,13 +777,13 @@ class AutocompleteIterablesView(View):
         """Handle GET requests."""
         package_logger.debug("Handling GET request")
         if self.iterable is None:
-            return JsonResponse({"results": [], "page": 1, "has_more": False})
+            return JsonResponse({"results": [], "page": 1, "has_more": False}, encoder=self.get_json_encoder())
 
         try:
             items = self.get_iterable()
             filtered = self.search(items)
             data = self.paginate_iterable(filtered)
-            return JsonResponse(data)
+            return JsonResponse(data, encoder=self.get_json_encoder())
         except Exception as e:
             package_logger.error("Error in autocomplete iterables request: %s", str(e))
 
@@ -741,9 +798,9 @@ class AutocompleteIterablesView(View):
             if settings.DEBUG:
                 empty_response["error"] = str(e)
 
-            return JsonResponse(empty_response, status=200)
+            return JsonResponse(empty_response, status=200, encoder=self.get_json_encoder())
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
         package_logger.debug("Handling POST request")
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())
