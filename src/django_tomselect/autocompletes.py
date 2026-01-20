@@ -492,6 +492,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         """Paginate the queryset with improved page handling."""
         try:
             page_number = int(self.page)
+            page_number = max(1, page_number)  # Ensure positive
         except (TypeError, ValueError):
             page_number = 1
 
