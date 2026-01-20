@@ -56,6 +56,24 @@ TEMPLATES = [
 ]
 ```
 
+### Note on Django Management Commands
+
+`django_tomselect` includes an internal `EmptyModel` that serves as a placeholder for widget querysets. This model has `managed = False`, meaning Django does not create a database table for it.
+
+When running `dumpdata`, you may encounter an error like:
+
+```
+CommandError: Unable to serialize database: relation "django_tomselect_emptymodel" does not exist
+```
+
+To resolve this, exclude the `django_tomselect` app when dumping data:
+
+```bash
+python manage.py dumpdata --exclude django_tomselect
+```
+
+This is the [recommended approach by Django](https://code.djangoproject.com/ticket/13816) for handling unmanaged models that don't have corresponding database tables.
+
 ### Verify Required Dependencies
 
 `django_tomselect` integrates Tom Select with Django forms. Ensure you meet the following minimum requirements:
