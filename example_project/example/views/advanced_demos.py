@@ -15,9 +15,11 @@ from django.views.decorators.http import require_GET
 
 from example_project.example.forms import (
     ArticleBulkActionForm,
+    ConstantFilterByForm,
     DynamicArticleForm,
     EditionYearForm,
     MarketSelectionForm,
+    MultipleFilterByForm,
     RichArticleSelectForm,
     WordCountForm,
 )
@@ -311,4 +313,30 @@ def rich_article_select_demo(request):
     context = {}
 
     context["form"] = RichArticleSelectForm()
+    return TemplateResponse(request, template, context)
+
+
+def multiple_filter_by_demo(request):
+    """View demonstrating filter_by with multiple field-based filters.
+
+    This demo shows how to filter articles by both magazine AND status,
+    combining multiple filter conditions with AND logic.
+    """
+    template = "example/advanced_demos/multiple_filter_by.html"
+    context = {}
+
+    context["form"] = MultipleFilterByForm()
+    return TemplateResponse(request, template, context)
+
+
+def constant_filter_by_demo(request):
+    """View demonstrating filter_by with constant values.
+
+    This demo shows how to always filter to a specific value (e.g., only
+    published articles) while allowing additional field-based filters.
+    """
+    template = "example/advanced_demos/constant_filter_by.html"
+    context = {}
+
+    context["form"] = ConstantFilterByForm()
     return TemplateResponse(request, template, context)

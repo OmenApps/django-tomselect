@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from django_tomselect.app_settings import (
+    Const,
     PluginClearButton,
     PluginDropdownFooter,
     PluginDropdownHeader,
@@ -620,4 +621,122 @@ class RichArticleSelectForm(forms.Form):
             },
         ),
         help_text=_("Search for articles by title, author, or category"),
+    )
+
+
+class MultipleFilterByForm(forms.Form):
+    """Demonstrates filter_by with multiple field-based filters.
+
+    This form shows how to filter articles by both magazine AND status,
+    combining multiple filter conditions with AND logic.
+    """
+
+    magazine = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-magazine",
+            value_field="id",
+            label_field="name",
+            placeholder=_("Select a magazine..."),
+            highlight=True,
+            preload="focus",
+            minimum_query_length=0,
+            plugin_clear_button=PluginClearButton(title=_("Clear magazine")),
+        ),
+        required=False,
+        help_text=_("Filter articles by magazine"),
+    )
+
+    status = TomSelectChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-article-status",
+            value_field="value",
+            label_field="label",
+            placeholder=_("Select a status..."),
+            highlight=True,
+            preload="focus",
+            minimum_query_length=0,
+            plugin_clear_button=PluginClearButton(title=_("Clear status")),
+        ),
+        required=False,
+        help_text=_("Filter articles by status"),
+    )
+
+    # Articles filtered by BOTH magazine AND status
+    articles = TomSelectModelMultipleChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-article",
+            value_field="id",
+            label_field="title",
+            # Multiple field filters - filter by magazine AND status
+            filter_by=[
+                ("magazine", "magazine_id"),  # Filter by selected magazine
+                ("status", "status"),  # AND by selected status
+            ],
+            placeholder=_("Select articles (filtered by magazine and status)..."),
+            highlight=True,
+            max_items=None,
+            plugin_dropdown_header=PluginDropdownHeader(
+                title=_("Articles"),
+                extra_columns={
+                    "status": _("Status"),
+                    "magazine_name": _("Magazine"),
+                },
+            ),
+            plugin_clear_button=PluginClearButton(title=_("Clear articles")),
+            plugin_remove_button=PluginRemoveButton(),
+        ),
+        required=False,
+        help_text=_("Articles are filtered by both the selected magazine AND status above"),
+    )
+
+
+class ConstantFilterByForm(forms.Form):
+    """Demonstrates filter_by with constant values.
+
+    This form shows how to always filter articles to a specific value
+    (e.g., only show published articles) while also allowing additional
+    field-based filters.
+    """
+
+    magazine = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-magazine",
+            value_field="id",
+            label_field="name",
+            placeholder=_("Optionally select a magazine..."),
+            highlight=True,
+            preload="focus",
+            minimum_query_length=0,
+            plugin_clear_button=PluginClearButton(title=_("Clear magazine")),
+        ),
+        required=False,
+        help_text=_("Optionally filter published articles by magazine"),
+    )
+
+    # Articles always filtered to "published" status, optionally by magazine
+    published_articles = TomSelectModelMultipleChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-article",
+            value_field="id",
+            label_field="title",
+            # Mixed filters - field-based AND constant
+            filter_by=[
+                ("magazine", "magazine_id"),  # Optional magazine filter
+                Const("published", "status"),  # Always filter to published
+            ],
+            placeholder=_("Select published articles..."),
+            highlight=True,
+            max_items=None,
+            plugin_dropdown_header=PluginDropdownHeader(
+                title=_("Published Articles"),
+                extra_columns={
+                    "magazine_name": _("Magazine"),
+                    "word_count": _("Words"),
+                },
+            ),
+            plugin_clear_button=PluginClearButton(title=_("Clear articles")),
+            plugin_remove_button=PluginRemoveButton(),
+        ),
+        required=False,
+        help_text=_("Only published articles are shown. Optionally filter further by magazine above."),
     )

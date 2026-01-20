@@ -44,6 +44,8 @@ example_app/tagging
 example_app/custom_content_display
 example_app/weighted_author_search
 example_app/three_level_filter_by
+example_app/multiple_filter_by
+example_app/constant_filter_by
 example_app/rich_article_select
 example_app/article_list_and_create
 example_app/article_bulk_actions

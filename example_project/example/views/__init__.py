@@ -7,7 +7,9 @@ from example_project.example.views.advanced_demos import (
     article_filtered_table,
     article_list_view,
     article_update_view,
+    constant_filter_by_demo,
     market_selection_view,
+    multiple_filter_by_demo,
     rich_article_select_demo,
 )
 from example_project.example.views.basic_demos import (
@@ -64,7 +66,9 @@ __all__ = [
     "article_filtered_table",
     "article_list_view",
     "article_update_view",
+    "constant_filter_by_demo",
     "market_selection_view",
+    "multiple_filter_by_demo",
     "rich_article_select_demo",
     # Basic demos
     "bootstrap4_demo",

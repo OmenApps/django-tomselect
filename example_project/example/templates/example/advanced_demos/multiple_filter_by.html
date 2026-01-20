@@ -1,0 +1,94 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .demo-container {
+            max-width: 700px;
+            margin: 20px auto;
+        }
+        .code-example {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Multiple Filter By Demo</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>This example demonstrates filtering articles by <strong>multiple field-based conditions</strong> combined with AND logic:</p>
+            <ul>
+                <li>Select a <strong>Magazine</strong> to filter articles by that magazine</li>
+                <li>Select a <strong>Status</strong> to filter articles by that status</li>
+                <li>The <strong>Articles</strong> field will only show articles that match BOTH conditions</li>
+                <li>If you don't select a filter, that condition is ignored (shows all values for that field)</li>
+            </ul>
+
+            <h5 class="mt-4">Code Example</h5>
+            <pre class="code-example">from django_tomselect.app_settings import TomSelectConfig
+
+# Multiple field filters - filter by magazine AND status
+articles = TomSelectModelMultipleChoiceField(
+    config=TomSelectConfig(
+        url="autocomplete-article",
+        filter_by=[
+            ("magazine", "magazine_id"),  # Filter by selected magazine
+            ("status", "status"),         # AND by selected status
+        ],
+    ),
+)</pre>
+        </div>
+
+        <div class="demo-container">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="{{ form.magazine.id_for_label }}" class="form-label">Magazine</label>
+                    {{ form.magazine }}
+                    {% if form.magazine.help_text %}
+                        <div class="helptext">{{ form.magazine.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.status.id_for_label }}" class="form-label">Status</label>
+                    {{ form.status }}
+                    {% if form.status.help_text %}
+                        <div class="helptext">{{ form.status.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.articles.id_for_label }}" class="form-label">Articles (filtered by Magazine AND Status)</label>
+                    {{ form.articles }}
+                    {% if form.articles.help_text %}
+                        <div class="helptext">{{ form.articles.help_text }}</div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <div class="alert alert-info mt-4">
+            <h6 class="alert-heading">How It Works</h6>
+            <p class="mb-0">
+                When you select both a magazine and a status, the autocomplete URL will include multiple
+                <code>f</code> parameters: <code>?f='magazine__magazine_id=X'&amp;f='status__status=Y'</code>.
+                The server applies these filters with AND logic, returning only articles that match both conditions.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

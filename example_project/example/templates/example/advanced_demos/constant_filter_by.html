@@ -1,0 +1,97 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .demo-container {
+            max-width: 700px;
+            margin: 20px auto;
+        }
+        .code-example {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Constant Filter By Demo</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>This example demonstrates filtering with <strong>constant values</strong> that are always applied:</p>
+            <ul>
+                <li>The <strong>Published Articles</strong> field always filters to show only articles with <code>status=published</code></li>
+                <li>This constant filter is applied regardless of user interaction</li>
+                <li>You can optionally select a <strong>Magazine</strong> to further narrow down the results</li>
+                <li>Constant filters are useful for enforcing business rules (e.g., only show active items)</li>
+            </ul>
+
+            <h5 class="mt-4">Code Example</h5>
+            <pre class="code-example">from django_tomselect.app_settings import TomSelectConfig, Const
+
+# Mixed filters - field-based AND constant
+published_articles = TomSelectModelMultipleChoiceField(
+    config=TomSelectConfig(
+        url="autocomplete-article",
+        filter_by=[
+            ("magazine", "magazine_id"),       # Optional magazine filter
+            Const("published", "status"),      # Always filter to published
+        ],
+    ),
+)</pre>
+        </div>
+
+        <div class="demo-container">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="{{ form.magazine.id_for_label }}" class="form-label">Magazine (Optional)</label>
+                    {{ form.magazine }}
+                    {% if form.magazine.help_text %}
+                        <div class="helptext">{{ form.magazine.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.published_articles.id_for_label }}" class="form-label">Published Articles Only</label>
+                    {{ form.published_articles }}
+                    {% if form.published_articles.help_text %}
+                        <div class="helptext">{{ form.published_articles.help_text }}</div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <div class="alert alert-info mt-4">
+            <h6 class="alert-heading">How It Works</h6>
+            <p class="mb-0">
+                Constant filters use the <code>Const("value", "lookup")</code> helper to always include a filter parameter.
+                The URL will include <code>f='__const__status=published'</code> which the server interprets as a constant
+                filter (not dependent on a form field). This is useful for enforcing business rules like "only show
+                active/published items" without requiring a visible form field.
+            </p>
+        </div>
+
+        <div class="alert alert-warning mt-3">
+            <h6 class="alert-heading">Use Cases</h6>
+            <ul class="mb-0">
+                <li><strong>Content Management:</strong> Only show published articles/pages</li>
+                <li><strong>E-commerce:</strong> Only show active/in-stock products</li>
+                <li><strong>User Management:</strong> Only show active users</li>
+                <li><strong>Multi-tenant:</strong> Always filter by current organization</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

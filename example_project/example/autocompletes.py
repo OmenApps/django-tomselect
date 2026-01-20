@@ -577,6 +577,9 @@ class ArticleAutocompleteView(AutocompleteModelView):
 
     def hook_queryset(self, queryset: QuerySet) -> QuerySet:
         """Apply date range, category, and status filters to the queryset."""
+        # Optimize queries by selecting related magazine
+        queryset = queryset.select_related("magazine")
+
         # Apply date range filter
         if self.date_range and self.date_range != "all":
             now = timezone.now()
@@ -621,6 +624,8 @@ class ArticleAutocompleteView(AutocompleteModelView):
                     "category": ", ".join(c.name for c in categories),
                     "authors": ", ".join(a.name for a in authors),
                     "created_at": article.created_at.strftime("%Y-%m-%d %H:%M"),
+                    "magazine_name": article.magazine.name if article.magazine else "",
+                    "word_count": article.word_count or 0,
                 }
             )
 

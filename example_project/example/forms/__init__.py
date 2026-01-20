@@ -2,9 +2,11 @@
 
 from example_project.example.forms.advanced_demos import (
     ArticleBulkActionForm,
+    ConstantFilterByForm,
     DynamicArticleForm,
     EditionYearForm,
     MarketSelectionForm,
+    MultipleFilterByForm,
     RichArticleSelectForm,
     WordCountForm,
 )
@@ -43,9 +45,11 @@ from example_project.example.forms.oddball_model_forms import (
 __all__ = [
     # Advanced demos
     "ArticleBulkActionForm",
+    "ConstantFilterByForm",
     "DynamicArticleForm",
     "EditionYearForm",
     "MarketSelectionForm",
+    "MultipleFilterByForm",
     "RichArticleSelectForm",
     "WordCountForm",
     # Basic demos
