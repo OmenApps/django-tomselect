@@ -315,9 +315,6 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         Returns:
             A tuple of (lookup_field, value, is_constant).
-
-        Raises:
-            ValueError: If the filter string is malformed.
         """
         cleaned = unquote(filter_str).replace("'", "")
         lookup, value = cleaned.split("=", 1)
