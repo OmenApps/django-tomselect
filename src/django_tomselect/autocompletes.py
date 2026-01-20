@@ -835,13 +835,18 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
         page_results = results[start_idx:end_idx]
         has_more = len(results) > end_idx
 
-        package_logger.debug("Paginating iterable with page %s of %s", page_number, len(results))
+        # Calculate total pages for virtual_scroll plugin compatibility
+        total_items = len(results)
+        total_pages = (total_items + self.page_size - 1) // self.page_size if total_items > 0 else 1
+
+        package_logger.debug("Paginating iterable with page %s of %s", page_number, total_pages)
 
         return {
             "results": page_results,
-            "page": page_number,  # Return the corrected page number
+            "page": page_number,
             "has_more": has_more,
             "next_page": page_number + 1 if has_more else None,
+            "total_pages": total_pages,
         }
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
