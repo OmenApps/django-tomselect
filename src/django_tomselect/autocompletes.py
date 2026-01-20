@@ -32,6 +32,8 @@ logger = get_logger(__name__)
 T = TypeVar("T", bound=Model)
 IterableType = list[Any] | tuple[Any, ...] | dict[Any, Any] | type
 
+MAX_PAGE_SIZE = 200  # Maximum allowed page size to prevent DoS
+
 
 class JSONEncoderMixin:
     """Mixin providing custom JSON encoder support for autocomplete views."""
@@ -252,8 +254,10 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         # Handle page size with validation
         try:
             requested_page_size = int(request.GET.get("page_size", self.page_size))
-            if requested_page_size > 0:
+            if 0 < requested_page_size <= MAX_PAGE_SIZE:
                 self.page_size = requested_page_size
+            elif requested_page_size > MAX_PAGE_SIZE:
+                self.page_size = MAX_PAGE_SIZE
                 logger.debug(
                     "Requested page_size %d exceeded maximum, clamped to %d", requested_page_size, MAX_PAGE_SIZE
                 )
@@ -771,8 +775,13 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
         # Handle page size with validation
         try:
             requested_page_size = int(request.GET.get("page_size", self.page_size))
-            if requested_page_size > 0:
+            if 0 < requested_page_size <= MAX_PAGE_SIZE:
                 self.page_size = requested_page_size
+            elif requested_page_size > MAX_PAGE_SIZE:
+                self.page_size = MAX_PAGE_SIZE
+                logger.debug(
+                    "Requested page_size %d exceeded maximum, clamped to %d", requested_page_size, MAX_PAGE_SIZE
+                )
         except (ValueError, TypeError):
             pass  # Keep default page_size for invalid values
 
