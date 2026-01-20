@@ -1,5 +1,17 @@
 """Constants used across django_tomselect."""
 
+__all__ = [
+    # Cache settings
+    "PERMISSION_CACHE_TIMEOUT",
+    "PERMISSION_CACHE_KEY_PREFIX",
+    "PERMISSION_CACHE_NAMESPACE",
+    # Autocomplete view URL parameter names
+    "SEARCH_VAR",
+    "FILTERBY_VAR",
+    "EXCLUDEBY_VAR",
+    "PAGE_VAR",
+]
+
 from django.conf import settings
 
 # Cache settings

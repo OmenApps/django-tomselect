@@ -1,5 +1,9 @@
 """Utility classes for lazy loading views and URLs."""
 
+__all__ = [
+    "LazyView",
+]
+
 from typing import Any
 
 from django.contrib.auth.models import AnonymousUser, User

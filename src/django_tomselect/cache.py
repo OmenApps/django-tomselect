@@ -1,5 +1,11 @@
 """Caching for user permissions in TomSelect fields."""
 
+__all__ = [
+    "PermissionCache",
+    "cache_permission",
+    "permission_cache",
+]
+
 import hashlib
 from collections.abc import Callable
 from functools import wraps

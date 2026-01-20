@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "DefaultProxyRequest",
+]
+
 from typing import TYPE_CHECKING
 
 from django_tomselect.constants import SEARCH_VAR

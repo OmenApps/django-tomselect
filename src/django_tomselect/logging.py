@@ -1,5 +1,11 @@
 """Logging wrapper for django-tomselect package."""
 
+__all__ = [
+    "PackageLogger",
+    "get_logger",
+    "package_logger",  # Deprecated: use get_logger(__name__) instead
+]
+
 import logging
 from collections.abc import Callable
 from functools import wraps

@@ -1,5 +1,10 @@
 """Middleware for django_tomselect to manage request objects."""
 
+__all__ = [
+    "TomSelectMiddleware",
+    "get_current_request",
+]
+
 try:
     from asgiref.local import Local as local  # noqa: N813
 except ImportError:

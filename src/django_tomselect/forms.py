@@ -1,5 +1,12 @@
 """Form fields for the django-tomselect package."""
 
+__all__ = [
+    "TomSelectChoiceField",
+    "TomSelectMultipleChoiceField",
+    "TomSelectModelChoiceField",
+    "TomSelectModelMultipleChoiceField",
+]
+
 from typing import Any, ClassVar
 
 from django import forms

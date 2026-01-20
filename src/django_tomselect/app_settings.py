@@ -1,5 +1,23 @@
 """Settings for the django-tomselect package."""
 
+__all__ = [
+    # Configuration classes
+    "TomSelectConfig",
+    "FilterSpec",
+    "Const",
+    "AllowedCSSFrameworks",
+    # Plugin configuration classes
+    "PluginCheckboxOptions",
+    "PluginClearButton",
+    "PluginDropdownHeader",
+    "PluginDropdownFooter",
+    "PluginDropdownInput",
+    "PluginRemoveButton",
+    # Configuration utilities
+    "GLOBAL_DEFAULT_CONFIG",
+    "merge_configs",
+]
+
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace

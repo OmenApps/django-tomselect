@@ -1,5 +1,13 @@
 """Form widgets for the django-tomselect package."""
 
+__all__ = [
+    "TomSelectWidgetMixin",
+    "TomSelectModelWidget",
+    "TomSelectModelMultipleWidget",
+    "TomSelectIterablesWidget",
+    "TomSelectIterablesMultipleWidget",
+]
+
 import html
 import json
 import re

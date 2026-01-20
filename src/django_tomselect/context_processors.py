@@ -1,5 +1,9 @@
 """Context processors for django_tomselect."""
 
+__all__ = [
+    "tomselect",
+]
+
 
 def tomselect(request):
     """Add tomselect-related context to the template context.
