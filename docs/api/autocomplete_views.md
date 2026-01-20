@@ -223,6 +223,40 @@ def hook_prepare_results(self, results):
     return results
 ```
 
+6. **Custom JSON Encoder**
+
+If your model has fields with non-serializable types (e.g., a `PhoneNumber` from the django-phonenumber-field package), you can specify a custom JSON encoder:
+
+```python
+import json
+
+class PhoneNumberEncoder(json.JSONEncoder):
+    """Encoder that handles PhoneNumber objects."""
+
+    def default(self, obj):
+        if hasattr(obj, 'as_e164'):
+            return obj.as_e164
+        return super().default(obj)
+
+class ContactAutocomplete(AutocompleteModelView):
+    model = Contact
+    search_lookups = ['name__icontains']
+    value_fields = ['id', 'name', 'phone']
+
+    # Use the custom encoder for this view
+    json_encoder = PhoneNumberEncoder
+```
+
+The encoder can also be specified as a dotted string path:
+
+```python
+class ContactAutocomplete(AutocompleteModelView):
+    model = Contact
+    json_encoder = 'myapp.encoders.PhoneNumberEncoder'
+```
+
+See [Configuration documentation](config.md#custom-json-encoder) for details on setting a global default encoder.
+
 ## Iterables Autocomplete Views
 
 ### AutocompleteIterablesView Processing

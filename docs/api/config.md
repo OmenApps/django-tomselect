@@ -292,7 +292,10 @@ TOMSELECT = {
         'TIMEOUT': 3600,  # Cache timeout in seconds
         'KEY_PREFIX': 'myapp',  # Prefix for cache keys
         'NAMESPACE': 'tomselect'  # Namespace for cache keys
-    }
+    },
+
+    # Custom JSON encoder for autocomplete responses (optional)
+    'DEFAULT_JSON_ENCODER': 'path.to.CustomJSONEncoder',
 }
 ```
 
@@ -367,6 +370,67 @@ TOMSELECT = {
     'PROXY_REQUEST_CLASS': 'path.to.CustomProxyRequest',
 }
 ```
+
+### Custom JSON Encoder
+
+If your models contain fields with non-serializable types (e.g.: using `PhoneNumber` from django-phonenumber-field, custom objects, etc), you can specify a custom JSON encoder to handle serialization in autocomplete responses.
+
+#### Global Configuration
+
+Set a default JSON encoder for all autocomplete views:
+
+```python
+# settings.py
+import json
+
+class CustomJSONEncoder(json.JSONEncoder):
+    """Custom encoder that handles otherwise non-serializable types."""
+
+    def default(self, obj):
+        # Handle PhoneNumber objects
+        if hasattr(obj, 'as_e164'):
+            return obj.as_e164
+        # Handle other custom types
+        if hasattr(obj, '__str__'):
+            return str(obj)
+        return super().default(obj)
+
+TOMSELECT = {
+    # Other settings...
+
+    # Custom JSON encoder (can be a class or dotted string path)
+    'DEFAULT_JSON_ENCODER': CustomJSONEncoder,
+    # Or as a string:
+    # 'DEFAULT_JSON_ENCODER': 'myapp.encoders.CustomJSONEncoder',
+}
+```
+
+#### Per-View Configuration
+
+You can also set a custom encoder on individual autocomplete views, which takes precedence over global setting:
+
+```python
+from django_tomselect.autocompletes import AutocompleteModelView
+from myapp.encoders import CustomJSONEncoder
+
+class ContactAutocomplete(AutocompleteModelView):
+    model = Contact
+    search_lookups = ['name__icontains', 'phone__icontains']
+    value_fields = ['id', 'name', 'phone']
+
+    # Custom JSON encoder for this view
+    json_encoder = CustomJSONEncoder
+    # Or as dotted string path:
+    # json_encoder = 'myapp.encoders.CustomJSONEncoder'
+```
+
+#### Precedence
+
+The JSON encoder is resolved in this order:
+
+1. View-level `json_encoder` attribute (if set)
+2. Global `DEFAULT_JSON_ENCODER` setting
+3. Django's default `DjangoJSONEncoder` (when neither is set)
 
 ### Custom Validation
 
