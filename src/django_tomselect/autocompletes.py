@@ -294,18 +294,34 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         return queryset
 
     def _validate_filter_field(self, field_lookup: str) -> bool:
-        """Validate that a filter field exists on the model."""
+        """Validate that a filter field lookup path exists on the model."""
         if not self.model:
             return False
 
-        # Extract the base field name (before any double underscore lookups)
-        field_name = field_lookup.split("__")[0]
+        # Define common Django ORM lookup types to skip in validation
+        lookup_types = {
+            "exact", "iexact", "contains", "icontains", "in", "gt", "gte",
+            "lt", "lte", "startswith", "istartswith", "endswith", "iendswith",
+            "range", "date", "year", "month", "day", "week", "week_day",
+            "quarter", "time", "hour", "minute", "second", "isnull", "regex",
+            "iregex", "search"
+        }
 
-        try:
-            self.model._meta.get_field(field_name)
-            return True
-        except FieldDoesNotExist:
-            return False
+        parts = field_lookup.split("__")
+        model = self.model
+
+        for i, part in enumerate(parts):
+            # If this is the last part and it's a lookup type, skip validation
+            if i == len(parts) - 1 and part.lower() in lookup_types:
+                break
+            try:
+                field = model._meta.get_field(part)
+                # Follow foreign key / related field chain
+                if hasattr(field, "related_model") and field.related_model:
+                    model = field.related_model
+            except FieldDoesNotExist:
+                return False
+        return True
 
     def _parse_filter_string(self, filter_str: str) -> tuple[str, str, bool]:
         """Parse a filter string into lookup field and value.
@@ -347,7 +363,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         try:
             lookup_field, value, is_constant = self._parse_filter_string(filter_str)
 
-            if not value or not lookup_field:
+            if not value or not value.strip() or not lookup_field:
                 action = "exclude_by" if is_exclude else "filter_by"
                 self._filter_error = f"Invalid {action} format: {filter_str}"
                 logger.warning("Invalid %s value (%s)", action, filter_str)
