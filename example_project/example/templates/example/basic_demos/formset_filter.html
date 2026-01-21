@@ -1,0 +1,261 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+
+{% block extra_header %}
+    {{ formset.media }}
+    <style>
+        .helptext {
+            font-size: 10px;
+            color: #757575;
+        }
+        .filter-form {
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background-color: #f8f9fa;
+        }
+        .filter-form:hover {
+            background-color: #fff;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .delete-row {
+            color: #dc3545;
+            cursor: pointer;
+        }
+        .row-number {
+            font-weight: bold;
+            color: #6c757d;
+        }
+        .feature-highlight {
+            background-color: #e7f1ff;
+            border-left: 4px solid #0d6efd;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Formset with filter_by Demo</h2>
+        </div>
+        <div class="card-body">
+            <div class="feature-highlight">
+                <h5><i class="bi bi-lightbulb"></i> Key Feature: Dependent Fields in Formsets</h5>
+                <p class="mb-0">
+                    This demo shows how to use <code>filter_by</code> in Django's formsets.
+                    Each row has its own magazine/edition pair. When you select a magazine in any row,
+                    the edition dropdown in that row updates to show only editions from that magazine. 
+                    Changes in one row won't affect other rows.
+                </p>
+            </div>
+
+            <div class="pb-3">
+                <strong>Notes:</strong>
+                <ul>
+                    <li>The <code>edition</code> field uses <code>filter_by=("magazine", "magazine_id")</code></li>
+                    <li>Form prefixes (e.g., <code>edition_filter-0-magazine</code>) are automatically handled</li>
+                    <li>Each row's edition field watches only its corresponding magazine field</li>
+                    <li>Dynamically added rows also work correctly with the filter</li>
+                </ul>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                {{ formset.management_form }}
+
+                <div id="form-container">
+                    {% for form in formset %}
+                        <div class="filter-form">
+                            <div class="row align-items-center">
+                                <div class="col-11">
+                                    <div class="row">
+                                        <div class="col-1 d-flex align-items-center">
+                                            <span class="row-number">Row {{ forloop.counter }}</span>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label">Magazine (Parent)</label>
+                                            {{ form.magazine }}
+                                            {% if form.magazine.help_text %}
+                                                <small class="helptext">{{ form.magazine.help_text }}</small>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label">Edition (Filtered)</label>
+                                            {{ form.edition }}
+                                            {% if form.edition.help_text %}
+                                                <small class="helptext">{{ form.edition.help_text }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-1">
+                                    <div class="form-check">
+                                        {{ form.DELETE }}
+                                        <label class="delete-row" title="Mark for deletion">
+                                            <i class="bi bi-trash"></i>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col">
+                        <button type="button" class="btn btn-secondary" id="add-form">
+                            <i class="bi bi-plus-circle"></i> Add Another Row
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Submit All
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Code Example</h4>
+        </div>
+        <div class="card-body">
+            <pre><code class="language-python">class EditionWithFilterFormsetForm(forms.Form):
+    """Form demonstrating filter_by in formsets."""
+
+    magazine = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-magazine",
+            value_field="id",
+            label_field="name",
+            # ... other options
+        ),
+    )
+
+    edition = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="name",
+            filter_by=("magazine", "magazine_id"),  # Key feature!
+            # ... other options
+        ),
+        required=False,
+    )
+
+# Create the formset
+EditionWithFilterFormset = formset_factory(
+    EditionWithFilterFormsetForm, extra=2, can_delete=True
+)</code></pre>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const addButton = document.getElementById('add-form');
+            const formContainer = document.getElementById('form-container');
+            const totalForms = document.getElementById('id_edition_filter-TOTAL_FORMS');
+
+            // Store references to TomSelect configs from the first form
+            const magazineSelect = document.querySelector('select[name$="-magazine"][data-tomselect]');
+            const editionSelect = document.querySelector('select[name$="-edition"][data-tomselect]');
+            const magazineConfig = magazineSelect ? window.djangoTomSelect.configs.get(magazineSelect.id) : null;
+            const editionConfig = editionSelect ? window.djangoTomSelect.configs.get(editionSelect.id) : null;
+
+            addButton.addEventListener('click', function() {
+                const formCount = parseInt(totalForms.value);
+                const firstForm = formContainer.children[0];
+
+                // Create a new div to hold our cloned form
+                const container = document.createElement('div');
+                container.classList.add('filter-form');
+
+                // Clone only the form structure, excluding scripts
+                const formStructure = firstForm.querySelector('.row').cloneNode(true);
+                container.appendChild(formStructure);
+
+                // Update form indices and row number
+                container.innerHTML = container.innerHTML
+                    .replace(/form-(\d+)/g, `form-${formCount}`)
+                    .replace(/id_edition_filter-(\d+)/g, `id_edition_filter-${formCount}`)
+                    .replace(/edition_filter-(\d+)/g, `edition_filter-${formCount}`)
+                    .replace(/Row \d+/g, `Row ${formCount + 1}`);
+
+                // Clean up TomSelect elements and prepare new selects
+                const selectElements = container.querySelectorAll('select[data-tomselect]');
+                selectElements.forEach((selectElement, index) => {
+                    // Remove any ts-wrapper divs that might have been cloned
+                    const parentElement = selectElement.parentElement;
+                    while (parentElement.querySelector('.ts-wrapper')) {
+                        parentElement.querySelector('.ts-wrapper').remove();
+                    }
+
+                    // Clean the select element
+                    selectElement.className = selectElement.className
+                        .replace(/\btomselected\b/g, '')
+                        .replace(/\bts-hidden-accessible\b/g, '');
+                    selectElement.style.display = '';
+                    selectElement.removeAttribute('tabindex');
+                    selectElement.removeAttribute('data-ts-hidden');
+
+                    // Clear existing options (keeping only empty option if present)
+                    while (selectElement.options.length > 1) {
+                        selectElement.remove(1);
+                    }
+                    if (selectElement.options.length > 0) {
+                        selectElement.options[0].selected = true;
+                    }
+                });
+
+                // Remove any existing script tags
+                container.querySelectorAll('script').forEach(script => script.remove());
+
+                // Append the clean container
+                formContainer.appendChild(container);
+
+                // Initialize TomSelect on the new selects
+                const newMagazineSelect = container.querySelector('select[name$="-magazine"]');
+                const newEditionSelect = container.querySelector('select[name$="-edition"]');
+
+                if (newMagazineSelect && magazineConfig) {
+                    const newMagazineConfig = window.djangoTomSelect.cloneConfig(magazineConfig);
+                    delete newMagazineConfig.items;
+                    delete newMagazineConfig.renderCache;
+                    window.djangoTomSelect.initialize(newMagazineSelect, newMagazineConfig);
+                }
+
+                if (newEditionSelect && editionConfig) {
+                    const newEditionConfig = window.djangoTomSelect.cloneConfig(editionConfig);
+                    delete newEditionConfig.items;
+                    delete newEditionConfig.renderCache;
+                    // Update the filter_by reference to point to the new magazine field
+                    if (newEditionConfig.filterByFieldId) {
+                        newEditionConfig.filterByFieldId = newMagazineSelect.id;
+                    }
+                    window.djangoTomSelect.initialize(newEditionSelect, newEditionConfig);
+                }
+
+                // Update the total forms count
+                totalForms.value = formCount + 1;
+            });
+
+            // Handle delete checkboxes
+            formContainer.addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox' && e.target.name.includes('-DELETE')) {
+                    const formDiv = e.target.closest('.filter-form');
+                    if (formDiv) {
+                        if (e.target.checked) {
+                            formDiv.style.opacity = '0.5';
+                            formDiv.style.textDecoration = 'line-through';
+                        } else {
+                            formDiv.style.opacity = '1';
+                            formDiv.style.textDecoration = 'none';
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+{% endblock %}

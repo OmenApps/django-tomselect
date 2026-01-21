@@ -19,6 +19,8 @@ from example_project.example.forms.basic_demos import (
     DefaultStylingForm,
     EditionFormset,
     EditionFormsetForm,
+    EditionWithFilterFormset,
+    EditionWithFilterFormsetForm,
     MultipleHeavySelectorsForm,
 )
 from example_project.example.forms.crud import (
@@ -61,6 +63,8 @@ __all__ = [
     "DefaultStylingForm",
     "EditionFormset",
     "EditionFormsetForm",
+    "EditionWithFilterFormset",
+    "EditionWithFilterFormsetForm",
     "MultipleHeavySelectorsForm",
     # CRUD forms
     "AuthorForm",

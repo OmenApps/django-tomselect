@@ -626,7 +626,10 @@ EditionFormset = formset_factory(EditionFormsetForm, extra=1, can_delete=True)
 
 
 class CategoryModelForm(forms.ModelForm):
-    """ModelForm for managing categories with their parent categories using TomSelect."""
+    """ModelForm for managing categories with their parent categories using TomSelect.
+
+    Demonstrates exclude_by in a model formset to prevent circular parent-child relationships.
+    """
 
     # Override the parent field to use TomSelect with tabular display
     parent = TomSelectModelChoiceField(
@@ -635,6 +638,7 @@ class CategoryModelForm(forms.ModelForm):
             show_list=True,
             value_field="id",
             label_field="name",
+            exclude_by=("id", "id"),  # Exclude current category from parent options (prevents circular references)
             css_framework="bootstrap5",
             highlight=True,
             open_on_focus=True,
@@ -655,7 +659,7 @@ class CategoryModelForm(forms.ModelForm):
         required=False,
         attrs={"class": "form-control mb-3"},
         label="Parent Category",
-        help_text="Select a parent category (optional)",
+        help_text="Select a parent category (optional) - current category is excluded to prevent circular references",
     )
 
     class Meta:
@@ -670,3 +674,53 @@ class CategoryModelForm(forms.ModelForm):
 
 # A model formset factory based on the CategoryModelForm
 CategoryModelFormset = modelformset_factory(Category, form=CategoryModelForm, extra=1, can_delete=True)
+
+
+class EditionWithFilterFormsetForm(forms.Form):
+    """Form demonstrating filter_by in formsets.
+
+    This form shows how dependent/chained fields work within a Django formset.
+    Each row has a magazine field that controls the available editions in that same row.
+    """
+
+    magazine = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-magazine",
+            value_field="id",
+            label_field="name",
+            css_framework="bootstrap5",
+            highlight=True,
+            open_on_focus=True,
+            preload="focus",
+            placeholder="Select a magazine first",
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(title="Clear Selection"),
+        ),
+        attrs={"class": "form-control mb-3"},
+        label="Magazine",
+        help_text="Select a magazine to filter available editions",
+    )
+
+    edition = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-edition",
+            value_field="id",
+            label_field="name",
+            filter_by=("magazine", "magazine_id"),  # Key feature: filter editions by selected magazine
+            css_framework="bootstrap5",
+            highlight=True,
+            open_on_focus=True,
+            placeholder="Select an edition (filtered by magazine)",
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(title="Clear Selection"),
+            plugin_dropdown_footer=PluginDropdownFooter(),
+        ),
+        attrs={"class": "form-control mb-3"},
+        label="Edition",
+        help_text="Editions are filtered based on the selected magazine",
+        required=False,
+    )
+
+
+# Formset factory for the EditionWithFilterFormsetForm
+EditionWithFilterFormset = formset_factory(EditionWithFilterFormsetForm, extra=2, can_delete=True)

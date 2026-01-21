@@ -24,6 +24,7 @@ urlpatterns = [
     ),
     path("demo-formset/", views.formset_demo, name="demo-formset"),
     path("demo-model-formset/", views.model_formset_demo, name="demo-model-formset"),
+    path("demo-formset-filter/", views.formset_filter_demo, name="demo-formset-filter"),
     # Intermediate Examples
     path("filter-by-magazine/", views.filter_by_magazine_demo, name="filter-by-magazine"),
     path("filter-by-category/", views.filter_by_category_demo, name="filter-by-category"),

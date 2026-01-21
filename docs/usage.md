@@ -843,6 +843,29 @@ class ArticleFilterForm(forms.Form):
 
 See the [Multiple Filter-By](example_app/multiple_filter_by.md) example for complete demonstration.
 
+#### Formset Support
+
+Both `filter_by` and `exclude_by` work within Django formsets. Each formset row operates independently - selecting a value in row 1 only affects dependent fields in row 1, not other rows. The widget automatically handles form prefixes (e.g., `myformset-0-magazine`, `myformset-1-magazine`).
+
+```python
+from django.forms import formset_factory
+
+class MagazineEditionForm(forms.Form):
+    magazine = TomSelectModelChoiceField(
+        config=TomSelectConfig(url="autocomplete-magazine"),
+    )
+    edition = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-edition",
+            filter_by=("magazine", "magazine_id"),  # Works per-row in formsets
+        ),
+    )
+
+MagazineEditionFormset = formset_factory(MagazineEditionForm, extra=2)
+```
+
+See the [Formset with filter_by](example_app/formset_filter_by.md) example for complete demonstration including dynamic row addition.
+
 #### Constant Value Filters
 
 Use the `Const` helper to filter by a constant value that doesn't come from a form field. This is useful for enforcing business rules in the UI:

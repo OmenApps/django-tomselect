@@ -39,6 +39,7 @@ example_app/htmx_in_tabs
 example_app/filter_by_magazine
 example_app/filter_by_category
 example_app/exclude_by_primary_author
+example_app/formset_filter_by
 example_app/view_range_based_data
 example_app/tagging
 example_app/custom_content_display

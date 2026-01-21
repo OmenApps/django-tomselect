@@ -75,6 +75,7 @@ This may take a couple of minutes to complete. It creates a large number of obje
 
 - [Styling](styling.md)
 - [HTMX Integration](htmx.md)
+- [Formset with filter_by](formset_filter_by.md) - Dependent fields in formsets, including using `exclude_by` to prevent circular parent-child relationships in model formsets
 
 ### Intermediate Examples
 

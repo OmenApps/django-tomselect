@@ -13,6 +13,7 @@ from example_project.example.forms import (
     CategoryModelFormset,
     DefaultStylingForm,
     EditionFormset,
+    EditionWithFilterFormset,
     MultipleHeavySelectorsForm,
 )
 from example_project.example.models import Category, Edition
@@ -181,4 +182,35 @@ def model_formset_demo(request: HttpRequest) -> HttpResponse:
         "total_count": Category.objects.count(),
         "root_count": initial_queryset.count(),
     }
+    return TemplateResponse(request, template, context)
+
+
+def formset_filter_demo(request: HttpRequest) -> HttpResponse:
+    """View for demonstrating filter_by/exclude_by with formsets.
+
+    This demo shows how dependent/chained fields work within Django formsets.
+    Each formset row has a magazine field that controls the available editions
+    in that same row using the filter_by parameter.
+    """
+    template = "example/basic_demos/formset_filter.html"
+
+    # Using a prefix helps avoid conflicts with other forms on the page
+    formset = EditionWithFilterFormset(request.POST or None, prefix="edition_filter")
+
+    if request.method == "POST":
+        if formset.is_valid():
+            # Process the valid formset data
+            processed_count = 0
+            for form in formset:
+                if form.cleaned_data and not form.cleaned_data.get("DELETE", False):
+                    magazine = form.cleaned_data.get("magazine")
+                    edition = form.cleaned_data.get("edition")
+                    if magazine and edition:
+                        processed_count += 1
+                        # In a real app, you would save/process the data here
+            messages.success(request, f"Successfully processed {processed_count} magazine-edition selections!")
+            return HttpResponseRedirect(request.path)
+        messages.error(request, "Please correct the errors below.")
+
+    context = {"formset": formset}
     return TemplateResponse(request, template, context)
