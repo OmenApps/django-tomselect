@@ -46,7 +46,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 <script>
     {% block tomselect_init %}
         (function() {
-            const elementId = '{% if "id" in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}';
+            const elementId = '{% if "id" in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id|escapejs }}{% else %}{{ widget.name|escapejs }}{% endif %}';
             const element = document.getElementById(elementId);
             if (!element) return;
 
@@ -89,69 +89,105 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
             {% block tomselect_url_setup %}
                 // URL parameter constants
-                const SEARCH_PARAM = '{{ widget.search_param }}';
-                const FILTER_PARAM = '{{ widget.filter_param }}';
-                const EXCLUDE_PARAM = '{{ widget.exclude_param }}';
-                const PAGE_PARAM = '{{ widget.page_param }}';
+                const SEARCH_PARAM = '{{ widget.search_param|escapejs }}';
+                const FILTER_PARAM = '{{ widget.filter_param|escapejs }}';
+                const EXCLUDE_PARAM = '{{ widget.exclude_param|escapejs }}';
+                const PAGE_PARAM = '{{ widget.page_param|escapejs }}';
 
-                // Constructing the originalFirstUrl function based on query and filters
-                var originalFirstUrl = function(query) {
-                    var url = '{{ widget.autocomplete_url }}' + '?' + SEARCH_PARAM + '=' + encodeURIComponent(query){% if 'autocomplete_params' in widget.keys and not widget.autocomplete_params == "" %} + '&{{ widget.autocomplete_params|safe }}'{% endif %};
+                // Extract form prefix from widget name (e.g., "formset-0-field" -> "formset-0-") for formsets where field IDs include a prefix
+                const widgetName = '{{ widget.name|escapejs }}';
+                const lastDashIndex = widgetName.lastIndexOf('-');
+                const formPrefix = lastDashIndex !== -1 ? widgetName.slice(0, lastDashIndex + 1) : '';
 
+                // Store filter/exclude field configuration for URL building
+                // Used by originalFirstUrl to construct the correct URL
+                const filterConfig = {
                     {% if "filters" in widget.keys %}
-                        // Multiple filters support
-                        {% for filter in widget.filters %}
-                            {% if filter.source_type == "field" %}
-                                {
-                                    const filterField_{{ forloop.counter }} = document.getElementById('id_{{ filter.source }}');
-                                    const filterValue_{{ forloop.counter }} = filterField_{{ forloop.counter }} ? filterField_{{ forloop.counter }}.value : '';
-                                    if (filterValue_{{ forloop.counter }}) {
-                                        url = addUrlParam(url, FILTER_PARAM, `'{{ filter.source }}__{{ filter.lookup }}=${filterValue_{{ forloop.counter }}}'`);
-                                    }
-                                }
-                            {% else %}
-                                // Constant filter. This is always applied if present
-                                url = addUrlParam(url, FILTER_PARAM, `'__const__{{ filter.lookup }}={{ filter.source }}'`);
-                            {% endif %}
-                        {% endfor %}
+                        filters: [
+                            {% for filter in widget.filters %}
+                                { source: '{{ filter.source|escapejs }}', lookup: '{{ filter.lookup|escapejs }}', sourceType: '{{ filter.source_type|escapejs }}' }{% if not forloop.last %},{% endif %}
+                            {% endfor %}
+                        ],
                     {% elif "dependent_field" in widget.keys %}
-                        // Legacy filter support
-                        const dependentField = document.getElementById('id_{{ widget.dependent_field }}');
-                        const dependentValue = dependentField ? dependentField.value : '';
-                        url = addUrlParam(url, FILTER_PARAM, `'{{ widget.dependent_field }}__{{ widget.dependent_field_lookup }}=${dependentValue}'`);
+                        dependentField: '{{ widget.dependent_field|escapejs }}',
+                        dependentFieldLookup: '{{ widget.dependent_field_lookup|escapejs }}',
                     {% endif %}
-
                     {% if "excludes" in widget.keys %}
-                        // Multiple excludes support
-                        {% for exclude in widget.excludes %}
-                            {% if exclude.source_type == "field" %}
-                                {
-                                    const excludeField_{{ forloop.counter }} = document.getElementById('id_{{ exclude.source }}');
-                                    const excludeValue_{{ forloop.counter }} = excludeField_{{ forloop.counter }} ? excludeField_{{ forloop.counter }}.value : '';
-                                    if (excludeValue_{{ forloop.counter }}) {
-                                        url = addUrlParam(url, EXCLUDE_PARAM, `'{{ exclude.source }}__{{ exclude.lookup }}=${excludeValue_{{ forloop.counter }}}'`);
-                                    }
-                                }
-                            {% else %}
-                                // Constant exclude. This is always applied if present
-                                url = addUrlParam(url, EXCLUDE_PARAM, `'__const__{{ exclude.lookup }}={{ exclude.source }}'`);
-                            {% endif %}
-                        {% endfor %}
+                        excludes: [
+                            {% for exclude in widget.excludes %}
+                                { source: '{{ exclude.source|escapejs }}', lookup: '{{ exclude.lookup|escapejs }}', sourceType: '{{ exclude.source_type|escapejs }}' }{% if not forloop.last %},{% endif %}
+                            {% endfor %}
+                        ],
                     {% elif "exclude_field" in widget.keys %}
-                        // Legacy exclude support
-                        const excludeField = document.getElementById('id_{{ widget.exclude_field }}');
-                        const excludeValue = excludeField ? excludeField.value : '';
-                        url = addUrlParam(url, EXCLUDE_PARAM, `'{{ widget.exclude_field }}__{{ widget.exclude_field_lookup }}=${excludeValue}'`);
+                        excludeField: '{{ widget.exclude_field|escapejs }}',
+                        excludeFieldLookup: '{{ widget.exclude_field_lookup|escapejs }}',
                     {% endif %}
-
-                    return url;
+                    autocompleteUrl: '{{ widget.autocomplete_url|escapejs }}',
+                    autocompleteParams: '{% if 'autocomplete_params' in widget.keys and not widget.autocomplete_params == "" %}{{ widget.autocomplete_params|escapejs }}{% endif %}'
                 };
+
+                // Factory function to create originalFirstUrl using provided prefix so it can be updated when cloning for new formset rows
+                function createFirstUrlFunction(prefix, filterCfg) {
+                    return function(query) {
+                        var url = filterCfg.autocompleteUrl + '?' + SEARCH_PARAM + '=' + encodeURIComponent(query);
+                        if (filterCfg.autocompleteParams) {
+                            url += '&' + filterCfg.autocompleteParams;
+                        }
+
+                        // Handle multiple filters
+                        if (filterCfg.filters) {
+                            filterCfg.filters.forEach(function(filter) {
+                                if (filter.sourceType === 'field') {
+                                    const filterField = document.getElementById('id_' + prefix + filter.source);
+                                    const filterValue = filterField ? filterField.value : '';
+                                    if (filterValue) {
+                                        url = addUrlParam(url, FILTER_PARAM, `'${filter.source}__${filter.lookup}=${filterValue}'`);
+                                    }
+                                } else {
+                                    // Constant filter - always applied
+                                    url = addUrlParam(url, FILTER_PARAM, `'__const__${filter.lookup}=${filter.source}'`);
+                                }
+                            });
+                        } else if (filterCfg.dependentField) {
+                            // Legacy filter support
+                            const dependentField = document.getElementById('id_' + prefix + filterCfg.dependentField);
+                            const dependentValue = dependentField ? dependentField.value : '';
+                            url = addUrlParam(url, FILTER_PARAM, `'${filterCfg.dependentField}__${filterCfg.dependentFieldLookup}=${dependentValue}'`);
+                        }
+
+                        // Handle multiple excludes
+                        if (filterCfg.excludes) {
+                            filterCfg.excludes.forEach(function(exclude) {
+                                if (exclude.sourceType === 'field') {
+                                    const excludeField = document.getElementById('id_' + prefix + exclude.source);
+                                    const excludeValue = excludeField ? excludeField.value : '';
+                                    if (excludeValue) {
+                                        url = addUrlParam(url, EXCLUDE_PARAM, `'${exclude.source}__${exclude.lookup}=${excludeValue}'`);
+                                    }
+                                } else {
+                                    // Constant exclude - always applied
+                                    url = addUrlParam(url, EXCLUDE_PARAM, `'__const__${exclude.lookup}=${exclude.source}'`);
+                                }
+                            });
+                        } else if (filterCfg.excludeField) {
+                            // Legacy exclude support
+                            const excludeField = document.getElementById('id_' + prefix + filterCfg.excludeField);
+                            const excludeValue = excludeField ? excludeField.value : '';
+                            url = addUrlParam(url, EXCLUDE_PARAM, `'${filterCfg.excludeField}__${filterCfg.excludeFieldLookup}=${excludeValue}'`);
+                        }
+
+                        return url;
+                    };
+                }
+
+                // Create the originalFirstUrl function using the factory
+                var originalFirstUrl = createFirstUrlFunction(formPrefix, filterConfig);
             {% endblock tomselect_url_setup %}
 
             {% block tomselect_config %}
                 const config = {
-                    valueField: '{{ widget.value_field }}',
-                    labelField: '{{ widget.label_field }}',
+                    valueField: '{{ widget.value_field|escapejs }}',
+                    labelField: '{{ widget.label_field|escapejs }}',
                     searchField: [],
                     highlight: {{ widget.highlight|yesno:"true,false" }},
                     openOnFocus: {{ widget.open_on_focus|yesno:"true,false" }},
@@ -163,15 +199,18 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     create: {% if 'create' in widget.keys and widget.create %}true{% else %}false{% endif %},
                     resetVarName: resetVarName,
                     originalFirstUrl: originalFirstUrl,
+                    formPrefix: formPrefix,
+                    filterConfig: filterConfig,
+                    createFirstUrlFunction: createFirstUrlFunction,
                     {% if "filters" in widget.keys %}
-                        filterFields: [{% for filter in widget.filters %}{% if filter.source_type == "field" %}'id_{{ filter.source }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
+                        filterFields: [{% for filter in widget.filters %}{% if filter.source_type == "field" %}'id_' + formPrefix + '{{ filter.source|escapejs }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
                     {% elif "dependent_field" in widget.keys %}
-                        dependentField: 'id_{{ widget.dependent_field }}',
+                        dependentField: 'id_' + formPrefix + '{{ widget.dependent_field|escapejs }}',
                     {% endif %}
                     {% if "excludes" in widget.keys %}
-                        excludeFields: [{% for exclude in widget.excludes %}{% if exclude.source_type == "field" %}'id_{{ exclude.source }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
+                        excludeFields: [{% for exclude in widget.excludes %}{% if exclude.source_type == "field" %}'id_' + formPrefix + '{{ exclude.source|escapejs }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
                     {% elif "exclude_field" in widget.keys %}
-                        excludeField: 'id_{{ widget.exclude_field }}',
+                        excludeField: 'id_' + formPrefix + '{{ widget.exclude_field|escapejs }}',
                     {% endif %}
 
                     {% block tomselect_plugins %}
@@ -182,23 +221,23 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                             {% if 'clear_button' in widget.plugins.keys %}
                                 clear_button: {
-                                    title: '{{ widget.plugins.clear_button.title }}',
-                                    className: '{{ widget.plugins.clear_button.class_name }}'
+                                    title: '{{ widget.plugins.clear_button.title|escapejs }}',
+                                    className: '{{ widget.plugins.clear_button.class_name|escapejs }}'
                                 },
                             {% endif %}
 
                             {% if 'dropdown_header' in widget.plugins.keys %}
                                 dropdown_header:{
-                                    title: '{% if widget.plugins.dropdown_header.title %}{{ widget.plugins.dropdown_header.title }}{% else %}Select an option{% endif %}',
-                                    headerClass: '{{ widget.plugins.dropdown_header.header_class }}',
+                                    title: '{% if widget.plugins.dropdown_header.title %}{{ widget.plugins.dropdown_header.title|escapejs }}{% else %}Select an option{% endif %}',
+                                    headerClass: '{{ widget.plugins.dropdown_header.header_class|escapejs }}',
                                     {% include "django_tomselect/render/dropdown_header.html" with widget=widget %}
                                 },
                             {% endif %}
 
                             {% if 'dropdown_footer' in widget.plugins.keys %}
                                 dropdown_footer:{
-                                    title: '{% if widget.plugins.dropdown_footer.title %}{{ widget.plugins.dropdown_footer.title }}{% else %}Select an option{% endif %}',
-                                    footerClass: '{{ widget.plugins.dropdown_footer.footer_class }}',
+                                    title: '{% if widget.plugins.dropdown_footer.title %}{{ widget.plugins.dropdown_footer.title|escapejs }}{% else %}Select an option{% endif %}',
+                                    footerClass: '{{ widget.plugins.dropdown_footer.footer_class|escapejs }}',
                                     {% include "django_tomselect/render/dropdown_footer.html" with widget=widget %}
                                 },
                             {% endif %}
@@ -209,9 +248,9 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                             {% if 'remove_button' in widget.plugins.keys %}
                                 remove_button: {
-                                    title: '{{ widget.plugins.remove_button.title }}',
-                                    label: '{{ widget.plugins.remove_button.label|safe }}',
-                                    className: '{{ widget.plugins.remove_button.class_name }}'
+                                    title: '{{ widget.plugins.remove_button.title|escapejs }}',
+                                    label: '{{ widget.plugins.remove_button.label|escapejs }}',
+                                    className: '{{ widget.plugins.remove_button.class_name|escapejs }}'
                                 },
                             {% endif %}
 
@@ -226,15 +265,15 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             const allItems = [];
 
                             {% for option in widget.selected_options %}
-                                allOptions['{{ option.value }}'] = {
-                                    {{ widget.value_field }}: '{{ option.value }}',
-                                    {{ widget.label_field }}: '{{ option.label }}',
-                                    {% if "create_url" in option.keys %}create_url: '{{ option.create_url }}',{% endif %}
-                                    {% if "detail_url" in option.keys %}detail_url: '{{ option.detail_url }}',{% endif %}
-                                    {% if "update_url" in option.keys %}update_url: '{{ option.update_url }}',{% endif %}
-                                    {% if "delete_url" in option.keys %}delete_url: '{{ option.delete_url }}',{% endif %}
+                                allOptions['{{ option.value|escapejs }}'] = {
+                                    '{{ widget.value_field|escapejs }}': '{{ option.value|escapejs }}',
+                                    '{{ widget.label_field|escapejs }}': '{{ option.label|escapejs }}',
+                                    {% if "create_url" in option.keys %}create_url: '{{ option.create_url|escapejs }}',{% endif %}
+                                    {% if "detail_url" in option.keys %}detail_url: '{{ option.detail_url|escapejs }}',{% endif %}
+                                    {% if "update_url" in option.keys %}update_url: '{{ option.update_url|escapejs }}',{% endif %}
+                                    {% if "delete_url" in option.keys %}delete_url: '{{ option.delete_url|escapejs }}',{% endif %}
                                 };
-                                allItems.push('{{ option.value }}');
+                                allItems.push('{{ option.value|escapejs }}');
                             {% endfor %}
 
                             // Add all options at once

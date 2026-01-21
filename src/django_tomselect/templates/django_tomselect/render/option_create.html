@@ -1,14 +1,18 @@
 {% comment %}
 Renders the "Create new option" element if enabled.
+
+When create_with_htmx is True and a view_create_url is configured on the autocomplete view,
+the create option will POST to that URL via HTMX. Otherwise, it renders the standard
+Tom Select create option that triggers the native create flow.
 {% endcomment %}
 {% load i18n %}
 option_create: function(data, escape) {
-    {% if 'create_with_htmx' in widget.keys and widget.create_with_htmx %}
+    {% if 'create_with_htmx' in widget.keys and widget.create_with_htmx and 'view_create_url' in widget.keys and widget.view_create_url %}
         return `<div class="create"
-                    hx-post="{% url 'create' %}"
+                    hx-post="{{ widget.view_create_url|escapejs }}"
                     hx-swap="outerHTML"
                     hx-trigger="click"
-                    hx-target="#id_{{ name }}"
+                    hx-target="#id_{{ widget.name|escapejs }}"
                     role="option"
                     aria-label="{% translate 'Create new item' %}">${escape(data.input)}</div>`;
     {% else %}

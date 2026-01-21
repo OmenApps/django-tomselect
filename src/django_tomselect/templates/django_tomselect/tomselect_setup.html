@@ -122,29 +122,38 @@ This will replace the original code block in the `tomselect_setup.html` template
 
                 // Set up dependent/exclude field handlers
                 setupFieldHandlers: function(instance, config) {
-                    if (!config.dependentField && !config.excludeField) return;
+                    const hasFilterFields = config.filterFields && config.filterFields.length > 0;
+                    const hasExcludeFields = config.excludeFields && config.excludeFields.length > 0;
+
+                    if (!config.dependentField && !config.excludeField && !hasFilterFields && !hasExcludeFields) return;
 
                     const self = this;
                     const change_handler = function(value) {
                         self.resetTomSelectState(instance, config);
                     };
 
-                    // Set up dependent field handler
-                    if (config.dependentField) {
-                        const dependentField = document.getElementById(config.dependentField);
-                        const dependentInstance = this.instances.get(config.dependentField);
-                        if (dependentInstance) {
-                            dependentInstance.on('change', change_handler);
+                    // Helper to set up handler for a single field ID
+                    const setupHandler = function(fieldId) {
+                        const fieldInstance = self.instances.get(fieldId);
+                        if (fieldInstance) {
+                            fieldInstance.on('change', change_handler);
                         }
+                    };
+
+                    // Set up handlers for multiple filter fields
+                    if (hasFilterFields) {
+                        config.filterFields.forEach(setupHandler);
+                    } else if (config.dependentField) {
+                        // Legacy single dependent field
+                        setupHandler(config.dependentField);
                     }
 
-                    // Set up exclude field handler
-                    if (config.excludeField) {
-                        const excludeField = document.getElementById(config.excludeField);
-                        const excludeInstance = this.instances.get(config.excludeField);
-                        if (excludeInstance) {
-                            excludeInstance.on('change', change_handler);
-                        }
+                    // Set up handlers for multiple exclude fields
+                    if (hasExcludeFields) {
+                        config.excludeFields.forEach(setupHandler);
+                    } else if (config.excludeField) {
+                        // Legacy single exclude field
+                        setupHandler(config.excludeField);
                     }
                 },
 
@@ -206,8 +215,9 @@ This will replace the original code block in the `tomselect_setup.html` template
 
                 // Find a similar configuration based on ID pattern
                 findSimilarConfig: function(selectId) {
+                    // Match patterns like "id_formset-0-field" or "id_prefix-0-field"
                     const similarId = Array.from(this.configs.keys()).find(id =>
-                        id.replace(/form-\d+-/, '') === selectId.replace(/form-\d+-/, ''));
+                        id.replace(/-\d+-/, '-X-') === selectId.replace(/-\d+-/, '-X-'));
 
                     if (!similarId) return null;
 
@@ -224,6 +234,46 @@ This will replace the original code block in the `tomselect_setup.html` template
 
                     // Store the reset variable name in the config for the load function to use
                     config._resetVarName = newResetVar;
+                    config.resetVarName = newResetVar;
+
+                    // Extract the new form prefix from the select ID
+                    // e.g., "id_formset-1-field" -> "formset-1-"
+                    const idWithoutPrefix = selectId.replace(/^id_/, '');
+                    const lastDashIndex = idWithoutPrefix.lastIndexOf('-');
+                    const newFormPrefix = lastDashIndex !== -1 ? idWithoutPrefix.slice(0, lastDashIndex + 1) : '';
+                    const formIndex = idWithoutPrefix.match(/-(\d+)-/)?.[1] || '0';
+
+                    // Update the formPrefix in config
+                    config.formPrefix = newFormPrefix;
+
+                    // Update filter/exclude field IDs with new prefix
+                    if (config.filterFields && Array.isArray(config.filterFields)) {
+                        config.filterFields = config.filterFields.map(fieldId => {
+                            // Replace old prefix with new prefix in field ID
+                            // e.g., "id_formset-0-parent" -> "id_formset-1-parent"
+                            return fieldId.replace(/-\d+-/, `-${formIndex}-`);
+                        });
+                    }
+
+                    if (config.dependentField) {
+                        config.dependentField = config.dependentField.replace(/-\d+-/, `-${formIndex}-`);
+                    }
+
+                    if (config.excludeFields && Array.isArray(config.excludeFields)) {
+                        config.excludeFields = config.excludeFields.map(fieldId => {
+                            return fieldId.replace(/-\d+-/, `-${formIndex}-`);
+                        });
+                    }
+
+                    if (config.excludeField) {
+                        config.excludeField = config.excludeField.replace(/-\d+-/, `-${formIndex}-`);
+                    }
+
+                    // Rebuild originalFirstUrl with the new prefix using the stored factory function
+                    // This is critical for formsets - the closure in originalFirstUrl captures the old prefix
+                    if (config.createFirstUrlFunction && config.filterConfig) {
+                        config.originalFirstUrl = config.createFirstUrlFunction(newFormPrefix, config.filterConfig);
+                    }
 
                     // If there's an original load function, wrap it to use the new reset variable
                     // This avoids the fragile approach of string-replacing function code
