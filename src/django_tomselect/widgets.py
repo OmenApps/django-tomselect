@@ -12,7 +12,10 @@ import html
 import json
 import re
 from collections.abc import Callable
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from django_tomselect._types import PluginContext, SelectedOption
 
 from django import forms
 from django.db.models import Model, Q, QuerySet
@@ -144,7 +147,7 @@ class TomSelectWidgetMixin:
         )
         return self._render(self.template_name, context, renderer)
 
-    def get_plugin_context(self) -> dict[str, Any]:
+    def get_plugin_context(self) -> "PluginContext":
         """Get context for plugins."""
         plugins: dict[str, Any] = {}
 
@@ -822,7 +825,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         return context
 
-    def _get_selected_options(self, value: Any, autocomplete_view: AutocompleteModelView) -> list[dict[str, Any]]:
+    def _get_selected_options(self, value: Any, autocomplete_view: AutocompleteModelView) -> list["SelectedOption"]:
         """Get selected options from value."""
         selected: list[dict[str, Any]] = []
         value_field = self.value_field or "id"
@@ -1126,7 +1129,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
 
         return context
 
-    def _get_selected_options(self, value: Any) -> list[dict[str, str]]:
+    def _get_selected_options(self, value: Any) -> list["SelectedOption"]:
         """Get selected options based on value."""
         try:
             autocomplete_view = self.get_autocomplete_view()
@@ -1168,7 +1171,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
             logger.warning("Error checking tuple iterable format", exc_info=True)
             return False
 
-    def _get_enum_choices_options(self, value: Any, view: AutocompleteIterablesView) -> list[dict[str, str]]:
+    def _get_enum_choices_options(self, value: Any, view: AutocompleteIterablesView) -> list["SelectedOption"]:
         """Get options from enum choices."""
         values = [value] if not isinstance(value, (list, tuple)) else value
         selected = []
@@ -1183,7 +1186,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
 
         return selected
 
-    def _get_tuple_iterable_options(self, value: Any, view: AutocompleteIterablesView) -> list[dict[str, str]]:
+    def _get_tuple_iterable_options(self, value: Any, view: AutocompleteIterablesView) -> list["SelectedOption"]:
         """Get options from tuple-based iterable."""
         values = [value] if not isinstance(value, (list, tuple)) else value
         selected = []

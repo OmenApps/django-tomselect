@@ -7,7 +7,10 @@ __all__ = [
 ]
 
 import json
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from django_tomselect._types import PaginatedResponse
 from urllib.parse import unquote
 
 from django.conf import settings
@@ -485,7 +488,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             logger.error("Error applying ordering: %s", str(e))
         return queryset
 
-    def paginate_queryset(self, queryset: QuerySet) -> dict[str, Any]:
+    def paginate_queryset(self, queryset: QuerySet) -> "PaginatedResponse":
         """Paginate the queryset with improved page handling."""
         try:
             page_number = int(self.page)
@@ -839,7 +842,7 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
         logger.debug("Search results %s", search_results)
         return search_results
 
-    def paginate_iterable(self, results: list[dict[str, str]]) -> dict[str, Any]:
+    def paginate_iterable(self, results: list[dict[str, str]]) -> "PaginatedResponse":
         """Paginate the filtered results."""
         try:
             page_number = int(self.page)

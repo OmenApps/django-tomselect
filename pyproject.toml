@@ -95,6 +95,7 @@ django_tomselect = [
     "static/**/*.map",
     "locale/**/*.mo",
     "locale/**/*.po",
+    "py.typed",
 ]
 
 [tool.coverage.paths]
