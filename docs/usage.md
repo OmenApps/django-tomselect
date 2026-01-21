@@ -414,7 +414,7 @@ Basic settings for the widget are typically passed as keyword arguments directly
 - **Search Behavior**: `minimum_query_length` to determine when to trigger searches.
 - **Display Settings**: `placeholder` text, whether to `open_on_focus`, and `highlight` matching terms.
 - **Loading and Performance**: `load_throttle` to control how frequently searches occur, and `max_options` to limit how many results appear.
-- **Creation and HTMX**: `create` to allow new item creation, and `create_with_htmx` to handle server-driven creation workflows.
+- **Creation and HTMX**: `create` to allow new item creation, and `create_with_htmx` to handle server-driven creation workflows. See [Creating New Items](api/config.md#creating-new-items) for detailed documentation.
 
 **Example:**
 
@@ -641,7 +641,7 @@ For a field that depends on another selection, the widget configuration might lo
 ```python
 from django import forms
 from django_tomselect.forms import TomSelectModelChoiceField, TomSelectModelMultipleChoiceField
-from django_tomselect.configs import TomSelectConfig
+from django_tomselect import TomSelectConfig
 
 class ArticleForm(forms.ModelForm):
     magazine = TomSelectModelChoiceField(
@@ -793,7 +793,7 @@ To achieve this, `django_tomselect` supports dependent (chained) fields. When se
 ```python
 from django import forms
 from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect.configs import TomSelectConfig
+from django_tomselect import TomSelectConfig
 
 class CategoryForm(forms.Form):
     category = TomSelectModelChoiceField(
@@ -1011,11 +1011,12 @@ One of the simplest ways to customize the look of your TomSelect widgets is by c
 ```python
 # settings.py
 
-# Options: "default", "bootstrap4", "bootstrap5"
-TOMSELECT_CSS_FRAMEWORK = "bootstrap5"
-
-# Controls whether to use minified JS/CSS; defaults to opposite of DEBUG
-TOMSELECT_MINIFIED = True
+TOMSELECT = {
+    # Options: "default", "bootstrap4", "bootstrap5"
+    "DEFAULT_CSS_FRAMEWORK": "bootstrap5",
+    # Controls whether to use minified JS/CSS; defaults to opposite of DEBUG
+    "DEFAULT_USE_MINIFIED": True,
+}
 ```
 
 If you choose a bootstrap-based theme, `django_tomselect` will automatically apply framework-specific classes to your dropdowns and items, creating a consistent look and feel with the rest of your UI.
@@ -1027,7 +1028,7 @@ You can further refine the appearance by adding custom CSS classes to the widget
 ```python
 from django import forms
 from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect.configs import TomSelectConfig
+from django_tomselect import TomSelectConfig
 
 class CustomStyledForm(forms.Form):
     category = TomSelectModelChoiceField(
@@ -1132,7 +1133,7 @@ item: function(data, escape) {
 ```python
 from django import forms
 from django_tomselect.forms import TomSelectModelMultipleChoiceField
-from django_tomselect.configs import (
+from django_tomselect import (
     TomSelectConfig,
     PluginDropdownHeader,
     PluginDropdownFooter,
@@ -1177,7 +1178,7 @@ The dropdown can be rendered in a tabular format, show multiple columns, or pres
 If you have additional metadata for each option (e.g., year, pages, publication number), you can create a tabular layout by enabling `plugin_dropdown_header` with extra columns:
 
 ```python
-from django_tomselect.configs import TomSelectConfig, PluginDropdownHeader
+from django_tomselect import TomSelectConfig, PluginDropdownHeader
 
 config = TomSelectConfig(
     url="autocomplete-edition",
@@ -1244,7 +1245,7 @@ You can start using `django_tomselect` fields in regular Django forms without an
 ```python
 from django import forms
 from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect.configs import TomSelectConfig
+from django_tomselect import TomSelectConfig
 
 class MagazineFilterForm(forms.Form):
     magazine = TomSelectModelChoiceField(
@@ -1268,7 +1269,7 @@ When dealing with database-backed models, `ModelForm` provides a more integrated
 ```python
 from django import forms
 from django_tomselect.forms import TomSelectModelChoiceField, TomSelectModelMultipleChoiceField
-from django_tomselect.configs import TomSelectConfig
+from django_tomselect import TomSelectConfig
 from .models import Article
 
 class ArticleForm(forms.ModelForm):

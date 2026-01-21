@@ -427,41 +427,148 @@ When using multiple filters, the autocomplete URL will include multiple `f` (fil
 - Constant filters: `?f='__const__lookup=value'`
 - Multiple: `?f='...'&f='...'&f='...'`
 
+### Creating New Items
+
+Django TomSelect provides two different mechanisms for creating new items:
+
+1. **Dropdown Footer Link** (`show_create`) - Adds a "Create New" link in the dropdown footer that navigates to a create view
+2. **Inline Creation** (`create`) - Enables Tom Select's native feature where users can type a new value and create it directly
+
+#### Understanding the Parameters
+
+| Parameter | Location | Purpose |
+|-----------|----------|---------|
+| `show_create` | `TomSelectConfig` | Shows a "Create New" link in the dropdown footer (requires `PluginDropdownFooter`) |
+| `create` | `TomSelectConfig` | Enables Tom Select's inline item creation when typing non-matching values |
+| `create_field` | `TomSelectConfig` | Specifies which field receives the new value when creating inline |
+| `create_with_htmx` | `TomSelectConfig` | When `True`, inline creation POSTs to a URL via HTMX instead of client-side handling |
+| `create_url` | Autocomplete view | URL name for the create view (used by both dropdown footer link and HTMX creation) |
+
+#### Dropdown Footer "Create New" Link
+
+To add a "Create New" link in the dropdown that opens a separate create view:
+
+```python
+from django_tomselect.app_settings import TomSelectConfig, PluginDropdownFooter
+
+class ArticleForm(forms.Form):
+    author = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url='author-autocomplete',
+            show_create=True,  # Enable the create link
+            plugin_dropdown_footer=PluginDropdownFooter(
+                create_view_label="Add New Author",
+            ),
+        )
+    )
+```
+
+You must also define `create_url` on your autocomplete view:
+
+```python
+from django_tomselect.autocompletes import AutocompleteModelView
+
+class AuthorAutocompleteView(AutocompleteModelView):
+    model = Author
+    search_lookups = ['name__icontains']
+    create_url = 'author-create'  # URL name for the create view
+```
+
+The link will only appear if the user has the appropriate `add` permission for the model.
+
+#### Inline Item Creation
+
+Tom Select's native create feature allows users to type a value that doesn't exist and create it:
+
+```python
+config = TomSelectConfig(
+    url='tag-autocomplete',
+    create=True,           # Enable inline creation
+    create_field='name',   # Field to populate with the typed value
+)
+```
+
+#### HTMX-Based Inline Creation
+
+For server-side validation and creation, use HTMX:
+
+```python
+from django_tomselect.app_settings import TomSelectConfig
+
+class ArticleForm(forms.Form):
+    category = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url='category-autocomplete',
+            create=True,              # Enable inline creation UI
+            create_field='name',      # Field for the new value
+            create_with_htmx=True,    # POST to server via HTMX
+        )
+    )
+```
+
+When `create_with_htmx=True`, clicking the create option will POST to the `create_url` defined on your autocomplete view. Your autocomplete view must have `create_url` set:
+
+```python
+class CategoryAutocompleteView(AutocompleteModelView):
+    model = Category
+    search_lookups = ['name__icontains']
+    create_url = 'category-create'  # Required for HTMX creation
+```
+
+```{note}
+The HTMX creation feature requires:
+1. `create=True` in the config
+2. `create_with_htmx=True` in the config
+3. `create_url` defined on the autocomplete view
+4. User must have `add` permission for the model
+```
+
+#### Complete Example
+
+Here's a complete example combining both dropdown footer and inline HTMX creation:
+
+```python
+# autocompletes.py
+class CategoryAutocompleteView(AutocompleteModelView):
+    model = Category
+    search_lookups = ['name__icontains']
+    create_url = 'category-create'
+    list_url = 'category-list'
+
+# forms.py
+class ArticleForm(forms.Form):
+    category = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url='category-autocomplete',
+            # Dropdown footer link
+            show_create=True,
+            plugin_dropdown_footer=PluginDropdownFooter(
+                create_view_label="Open Create Form",
+            ),
+            # Inline HTMX creation
+            create=True,
+            create_field='name',
+            create_with_htmx=True,
+        )
+    )
+
+# urls.py
+urlpatterns = [
+    path('autocomplete/category/', CategoryAutocompleteView.as_view(), name='category-autocomplete'),
+    path('category/create/', CategoryCreateView.as_view(), name='category-create'),
+    path('category/', CategoryListView.as_view(), name='category-list'),
+]
+```
+
 ### Logging
 
-`django_tomselect` uses a custom wrapper with the built-in Python logging module to make it easier to turn logging on and off. Each module uses its own logger (following the `logging.getLogger(__name__)` pattern), allowing fine-grained control over which parts of the package emit log messages.
+By default, logging is enabled. To disable logging or configure per-module log levels, see the [Logging section in Utilities](utilities.md#logging).
 
-By default, logging is enabled. To disable logging completely:
+Quick disable:
 
 ```python
 TOMSELECT = {
-    # Other settings...
-
-    # Disable logging
     "ENABLE_LOGGING": False
-}
-```
-
-You can customize logging levels per module through Django's `LOGGING` setting:
-
-```python
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        # Configure all django-tomselect logging
-        'django_tomselect': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    },
 }
 ```
 

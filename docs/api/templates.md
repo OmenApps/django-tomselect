@@ -172,10 +172,19 @@ option: function(data, escape) {
     {% include "django_tomselect/helpers/decode_if_needed.html" %}
 
     {% if 'data_template_option' in widget.attrs.keys and widget.attrs.data_template_option %}
-        // Use safe Function constructor with escape function provided
         var template = {{ widget.attrs.data_template_option|safe }};
-        // Always use escape function
-        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
+        var result = template.replace(/\$\{data\.(\w+)\}/g, function(match, fieldName) {
+            var value = data[fieldName];
+            if (value === undefined || value === null) return '';
+            return escape(String(value));
+        });
+        // Also support ${escape(data.fieldName)} pattern for explicit escaping
+        result = result.replace(/\$\{escape\(data\.(\w+)\)\}/g, function(match, fieldName) {
+            var value = data[fieldName];
+            if (value === undefined || value === null) return '';
+            return escape(String(value));
+        });
+        return result;
     {% elif widget.is_tabular %}
         // For tabular display, show in rows and columns
         let columns = '';
@@ -188,12 +197,12 @@ option: function(data, escape) {
         {% endif %}
 
         {% for item in widget.plugins.dropdown_header.extra_values %}
-            columns += `<div class="col" role="gridcell">${escape(data['{{ item }}'] || '')}</div>`;
+            columns += `<div class="col" role="gridcell">${escape(data['{{ item|escapejs }}'] || '')}</div>`;
         {% endfor %}
 
         return `<div class="row" role="row">${columns}</div>`;
     {% else %}
-        const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
+        const safeValue = escape(decodeIfNeeded(data['{{ widget.label_field|escapejs }}']));
 
         return `<div role="option">${safeValue}</div>`;
     {% endif %}
@@ -214,13 +223,22 @@ item: function(data, escape) {
     {% include "django_tomselect/helpers/decode_if_needed.html" %}
 
     {% if 'data_template_item' in widget.attrs.keys and widget.attrs.data_template_item %}
-        // Use safe Function constructor with escape function provided
         var template = {{ widget.attrs.data_template_item|safe }};
-        // Always use escape function
-        return new Function('data', 'escape', 'return `' + template + '`')(data, escape);
+        var result = template.replace(/\$\{data\.(\w+)\}/g, function(match, fieldName) {
+            var value = data[fieldName];
+            if (value === undefined || value === null) return '';
+            return escape(String(value));
+        });
+        // Also support ${escape(data.fieldName)} pattern for explicit escaping
+        result = result.replace(/\$\{escape\(data\.(\w+)\)\}/g, function(match, fieldName) {
+            var value = data[fieldName];
+            if (value === undefined || value === null) return '';
+            return escape(String(value));
+        });
+        return result;
     {% else %}
         let item = '';
-        const safeValue = escape(decodeIfNeeded(data.{{ widget.label_field }}));
+        const safeValue = escape(decodeIfNeeded(data['{{ widget.label_field|escapejs }}']));
 
         item += `<div role="option">${safeValue}`;
 
@@ -414,20 +432,26 @@ no_more_results: function(data, escape) {
 
 ### option_create.html
 
-Template for the "create new option" element.
+Template for the "create new option" element. This template renders the UI that appears when a user types a value that doesn't match any existing options (when `create=True` in the config).
+
+When `create_with_htmx=True` and a `create_url` is configured on the autocomplete view, clicking the create option will POST to that URL via HTMX. Otherwise, it renders the standard Tom Select create option.
 
 ```django
 {% comment %}
 Renders the "Create new option" element if enabled.
+
+When create_with_htmx is True and a view_create_url is configured on the autocomplete view,
+the create option will POST to that URL via HTMX. Otherwise, it renders the standard
+Tom Select create option that triggers the native create flow.
 {% endcomment %}
 {% load i18n %}
 option_create: function(data, escape) {
-    {% if 'create_with_htmx' in widget.keys and widget.create_with_htmx %}
+    {% if 'create_with_htmx' in widget.keys and widget.create_with_htmx and 'view_create_url' in widget.keys and widget.view_create_url %}
         return `<div class="create"
-                    hx-post="{% url 'create' %}"
+                    hx-post="{{ widget.view_create_url|escapejs }}"
                     hx-swap="outerHTML"
                     hx-trigger="click"
-                    hx-target="#id_{{ name }}"
+                    hx-target="#id_{{ widget.name|escapejs }}"
                     role="option"
                     aria-label="{% translate 'Create new item' %}">${escape(data.input)}</div>`;
     {% else %}
@@ -436,6 +460,10 @@ option_create: function(data, escape) {
         </div>`;
     {% endif %}
 },
+```
+
+```{note}
+The HTMX version requires `create_url` to be defined on your autocomplete view. If `create_with_htmx=True` but no `create_url` is configured, the template falls back to the standard (non-HTMX) create option.
 ```
 
 ## Custom Rendering Examples
@@ -532,6 +560,6 @@ For HTMX-enabled templates, additional attributes and functionality are availabl
     hx-post="{{ widget.create_url }}"
     hx-swap="outerHTML"
     hx-trigger="click"
-    hx-target="#id_{{ widget.name }}"
+    hx-target="#id_{{ widget.name|escapejs }}"
 {% endif %}
 ```

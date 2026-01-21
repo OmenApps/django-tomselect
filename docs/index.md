@@ -25,6 +25,7 @@ api/context_processor_and_middleware.md
 api/forms.md
 api/template_tags.md
 api/templates.md
+api/utilities.md
 api/widgets.md
 ```
 
