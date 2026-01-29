@@ -12,7 +12,8 @@
  * governing permissions and limitations under the License.
  *
  */
-import { getDom } from 'tom-select/vanilla';
+
+import { getDom } from 'tom-select/dist/esm/vanilla.js';
 
 type DFOptions = {
 	title	    ?: string,

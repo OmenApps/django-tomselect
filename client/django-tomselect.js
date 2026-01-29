@@ -1,4 +1,4 @@
-import TomSelect from 'tom-select';  // Use the full package instead of base
+import TomSelect from 'tom-select' // Use the full package instead of base
 /* eslint-disable camelcase */
 import TomSelect_checkbox_options from 'tom-select/plugins/checkbox_options/plugin.js'
 import TomSelect_clear_button from 'tom-select/plugins/clear_button/plugin.js'
@@ -20,7 +20,7 @@ TomSelect.define('dropdown_footer', TomSelect_dropdown_footer)
 
 // Export to window with constructor check
 if (typeof TomSelect === 'function') {
-    window.TomSelect = TomSelect;
+  window.TomSelect = TomSelect
 } else {
-    window.TomSelect = TomSelect.default || TomSelect;
+  window.TomSelect = TomSelect.default || TomSelect
 }
