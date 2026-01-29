@@ -800,6 +800,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                 "results": [],
                 "page": 1,
                 "has_more": False,
+                "show_create_option": False,
             }
 
             # Only include error details when DEBUG is True
