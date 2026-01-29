@@ -18,6 +18,7 @@ from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import FieldDoesNotExist, FieldError, PermissionDenied
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Model, Q, QuerySet
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.urls import NoReverseMatch
@@ -66,9 +67,12 @@ class JSONEncoderMixin:
         if encoder is None:
             encoder = DEFAULT_JSON_ENCODER
 
-        # If still None, return None (Django will use DjangoJSONEncoder)
+        # If still None, return DjangoJSONEncoder. We must NOT return None here
+        # because JsonResponse(encoder=None) passes cls=None to json.dumps(),
+        # which uses the basic json.JSONEncoder that cannot handle UUID, Decimal,
+        # datetime, etc. DjangoJSONEncoder handles all of these correctly.
         if encoder is None:
-            return None
+            return DjangoJSONEncoder
 
         # Handle dotted string path
         if isinstance(encoder, str):
@@ -76,19 +80,19 @@ class JSONEncoderMixin:
                 encoder = import_string(encoder)
             except ImportError as e:
                 logger.error(
-                    "Could not import JSON encoder %s: %s. Falling back to default.",
+                    "Could not import JSON encoder %s: %s. Falling back to DjangoJSONEncoder.",
                     self.json_encoder,
                     e,
                 )
-                return None
+                return DjangoJSONEncoder
 
         # Validate it's a proper encoder class
         if not (isinstance(encoder, type) and issubclass(encoder, json.JSONEncoder)):
             logger.error(
-                "json_encoder must be a subclass of json.JSONEncoder, got %s. Falling back to default.",
+                "json_encoder must be a subclass of json.JSONEncoder, got %s. Falling back to DjangoJSONEncoder.",
                 type(encoder),
             )
-            return None
+            return DjangoJSONEncoder
 
         return encoder
 
