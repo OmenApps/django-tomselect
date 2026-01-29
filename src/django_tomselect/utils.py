@@ -8,7 +8,10 @@ __all__ = [
     "safe_reverse_lazy",
 ]
 
+import datetime
 import re
+import uuid
+from decimal import Decimal
 from typing import Any
 
 from django.conf import settings
@@ -27,6 +30,9 @@ DOMAIN_PATTERN = r"^[a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,}"
 
 # Maximum recursion depth for dictionary sanitization
 MAX_RECURSION_DEPTH = 10
+
+# Types that are inherently JSON-safe and should not be escaped/stringified
+_SAFE_TYPES = (int, float, bool, type(None), Decimal, uuid.UUID, datetime.datetime, datetime.date, datetime.time, datetime.timedelta)
 
 
 def safe_reverse(viewname: str, args: list | None = None, kwargs: dict | None = None) -> str:
@@ -189,9 +195,13 @@ def sanitize_dict(data: dict, escape_keys: bool = False, depth: int = 0) -> dict
                 for item in value:
                     if isinstance(item, dict):
                         sanitized_list.append(sanitize_dict(item, escape_keys, depth + 1))
+                    elif isinstance(item, _SAFE_TYPES):
+                        sanitized_list.append(item)
                     else:
                         sanitized_list.append(safe_escape(item))
                 result[safe_key] = sanitized_list
+            elif isinstance(value, _SAFE_TYPES):
+                result[safe_key] = value
             elif key.endswith("_url") and isinstance(value, str):
                 # Special handling for URL fields
                 sanitized_url = safe_url(value)
