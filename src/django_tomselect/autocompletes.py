@@ -271,7 +271,46 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         except (ValueError, TypeError):
             pass  # Keep default page_size for invalid values
 
+        self._validate_value_fields()
+
         logger.debug("%s setup complete", self.__class__.__name__)
+
+    def _validate_value_fields(self) -> None:
+        """Check value_fields for non-database columns and auto-mitigate.
+
+        Fields that are not concrete database columns (properties, annotations, non-existent)
+        are automatically moved to virtual_fields so they are excluded from .values() queries.
+        """
+        if not self.value_fields or not self.model:
+            return
+
+        non_concrete = []
+        for field_path in self.value_fields:
+            if "__" in field_path:
+                continue  # FK lookups are resolved by Django ORM
+            try:
+                field_obj = self.model._meta.get_field(field_path)
+                if not getattr(field_obj, "concrete", True):
+                    non_concrete.append(field_path)
+            except FieldDoesNotExist:
+                non_concrete.append(field_path)
+
+        if non_concrete:
+            logger.warning(
+                "%s: value_fields %s are not concrete database columns on %s. "
+                "These will be automatically excluded from .values() queries. "
+                "Consider adding them to virtual_fields and populating them "
+                "in prepare_results() or hook_prepare_results().",
+                self.__class__.__name__,
+                non_concrete,
+                self.model.__name__,
+            )
+            # Auto-mitigate: add to virtual_fields so get_value_fields() excludes them
+            current_virtual = list(getattr(self, "virtual_fields", []))
+            for field_name in non_concrete:
+                if field_name not in current_virtual:
+                    current_virtual.append(field_name)
+            self.virtual_fields = current_virtual
 
     def hook_queryset(self, queryset: QuerySet[T]) -> QuerySet[T]:
         """Hook to allow for additional queryset manipulation before filtering, searching, and ordering.
@@ -572,7 +611,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         # Ensure each result has an 'id' key
         pk_name = self.model._meta.pk.name
-        for item in values:
+        for i, item in enumerate(values):
             # Only include URLs if user has relevant permissions
             item["can_view"] = self.has_permission(self.request, "view")
             item["can_update"] = self.has_permission(self.request, "update")
@@ -601,7 +640,8 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                     logger.warning("Could not reverse delete_url %s", self.delete_url)
 
             # Sanitize all values to prevent XSS
-            item = sanitize_dict(item)
+            # sanitize_dict returns a new dict, so we must update the list
+            values[i] = sanitize_dict(item)
 
         # Allow custom processing through hook
         return self.hook_prepare_results(values)
@@ -752,20 +792,21 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                 logger.debug("Including filter error in response: %s", self._filter_error)
 
             return JsonResponse(data, encoder=self.get_json_encoder())
-        except Exception as e:
-            logger.error("Error in autocomplete request: %s", str(e))
+        except Exception:
+            logger.exception("Error in autocomplete request")
 
             # Create empty results response
-            empty_response = {
+            empty_response: dict[str, Any] = {
                 "results": [],
                 "page": 1,
                 "has_more": False,
-                "show_create_option": False,
             }
 
             # Only include error details when DEBUG is True
             if settings.DEBUG:
-                empty_response["error"] = str(e)
+                import traceback
+
+                empty_response["error"] = traceback.format_exc()
 
             return JsonResponse(empty_response, status=200, encoder=self.get_json_encoder())
 
@@ -901,11 +942,11 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
             filtered = self.search(items)
             data = self.paginate_iterable(filtered)
             return JsonResponse(data, encoder=self.get_json_encoder())
-        except Exception as e:
-            logger.error("Error in autocomplete iterables request: %s", str(e))
+        except Exception:
+            logger.exception("Error in autocomplete iterables request")
 
             # Create empty results response
-            empty_response = {
+            empty_response: dict[str, Any] = {
                 "results": [],
                 "page": 1,
                 "has_more": False,
@@ -913,7 +954,9 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
 
             # Only include error details when DEBUG is True
             if settings.DEBUG:
-                empty_response["error"] = str(e)
+                import traceback
+
+                empty_response["error"] = traceback.format_exc()
 
             return JsonResponse(empty_response, status=200, encoder=self.get_json_encoder())
 
