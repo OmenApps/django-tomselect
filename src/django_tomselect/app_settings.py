@@ -388,11 +388,11 @@ class TomSelectConfig(BaseConfig):
     """
 
     url: str = "autocomplete"
-    show_list: bool = False
-    show_create: bool = False
-    show_detail: bool = False
-    show_update: bool = False
-    show_delete: bool = False
+    show_list: bool = True
+    show_create: bool = True
+    show_detail: bool = True
+    show_update: bool = True
+    show_delete: bool = True
     value_field: str = "id"
     label_field: str = "name"
     create_field: str = ""

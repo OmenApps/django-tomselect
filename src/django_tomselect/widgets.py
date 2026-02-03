@@ -433,10 +433,20 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         Instance-specific URLs are stored in the selected_options.
         """
-        context: dict[str, Any] = {
-            "view_list_url": self._get_model_url(autocomplete_view, "list_url", "view"),
-            "view_create_url": self._get_model_url(autocomplete_view, "create_url", "create"),
-        }
+        context: dict[str, Any] = {}
+
+        # Only try to resolve list_url if show_list is True
+        if self.show_list:
+            context["view_list_url"] = self._get_model_url(autocomplete_view, "list_url", "view")
+        else:
+            context["view_list_url"] = None
+
+        # Only try to resolve create_url if show_create is True
+        if self.show_create:
+            context["view_create_url"] = self._get_model_url(autocomplete_view, "create_url", "create")
+        else:
+            context["view_create_url"] = None
+
         logger.debug("Model URL context: %s", context)
         return context
 

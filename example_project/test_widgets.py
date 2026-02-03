@@ -1453,6 +1453,87 @@ class TestWidgetAttributeHandling:
         context = widget.get_model_url_context(MockView())
         assert context == {"view_list_url": None, "view_create_url": None}
 
+    def test_get_model_url_context_no_warnings_when_show_flags_false(self, caplog):
+        """Test get_model_url_context doesn't warn when show_list and show_create are False."""
+
+        class MockView:
+            """Mock view with no URL attributes."""
+
+            def has_permission(self, request, action):
+                """Mock has_permission method."""
+                return True
+
+            def get_queryset(self):
+                """Return all editions."""
+                return Edition.objects.all()
+
+        # Widget with show_list=False and show_create=False
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition", show_list=False, show_create=False)
+        )
+
+        with caplog.at_level(logging.WARNING):
+            context = widget.get_model_url_context(MockView())
+
+        # Should return None for both URLs
+        assert context == {"view_list_url": None, "view_create_url": None}
+
+        # Should NOT generate any warnings about missing URLs
+        assert "No valid list_url" not in caplog.text
+        assert "No valid create_url" not in caplog.text
+
+    def test_get_model_url_context_warns_when_show_list_true_url_missing(self, caplog):
+        """Test get_model_url_context warns when show_list=True but list_url is missing."""
+
+        class MockView:
+            """Mock view with no URL attributes."""
+
+            def has_permission(self, request, action):
+                """Mock has_permission method."""
+                return True
+
+            def get_queryset(self):
+                """Return all editions."""
+                return Edition.objects.all()
+
+        # Widget with show_list=True (default) but view has no list_url
+        widget = TomSelectModelWidget(config=TomSelectConfig(url="autocomplete-edition", show_list=True))
+
+        with caplog.at_level(logging.WARNING):
+            context = widget.get_model_url_context(MockView())
+
+        # Should return None for list_url
+        assert context["view_list_url"] is None
+
+        # SHOULD generate warning about missing list_url
+        assert "No valid list_url" in caplog.text
+
+    def test_get_model_url_context_warns_when_show_create_true_url_missing(self, caplog):
+        """Test get_model_url_context warns when show_create=True but create_url is missing."""
+
+        class MockView:
+            """Mock view with no URL attributes."""
+
+            def has_permission(self, request, action):
+                """Mock has_permission method."""
+                return True
+
+            def get_queryset(self):
+                """Return all editions."""
+                return Edition.objects.all()
+
+        # Widget with show_create=True (default) but view has no create_url
+        widget = TomSelectModelWidget(config=TomSelectConfig(url="autocomplete-edition", show_create=True))
+
+        with caplog.at_level(logging.WARNING):
+            context = widget.get_model_url_context(MockView())
+
+        # Should return None for create_url
+        assert context["view_create_url"] is None
+
+        # SHOULD generate warning about missing create_url
+        assert "No valid create_url" in caplog.text
+
 
 @pytest.mark.django_db
 class TestWidgetPluginHandling:
