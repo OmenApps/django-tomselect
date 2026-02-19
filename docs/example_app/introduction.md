@@ -4,7 +4,7 @@ The example project demonstrates how to use the `django-tomselect` package in a 
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - Django 4.2+
 - `django-tomselect` package
 - Basic understanding of Django forms and views
@@ -20,14 +20,8 @@ The example project demonstrates how to use the `django-tomselect` package in a 
 2. Install the required packages:
 
    ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
-
-   Or with `uv`:
-
-   ```bash
-    uv sync
-    ```
 
 ## Running the Example Project
 
