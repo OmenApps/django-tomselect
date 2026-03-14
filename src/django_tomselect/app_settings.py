@@ -522,17 +522,23 @@ class TomSelectConfig(BaseConfig):
 
         # Legacy 2-tuple
         if isinstance(value, tuple) and len(value) == 2:
-            return [FilterSpec.from_tuple(value)]
+            first, second = value
+            if isinstance(first, str) and isinstance(second, str):
+                return [FilterSpec.from_tuple((first, second))]
 
         # List of specs/tuples
         if isinstance(value, list):
-            result = []
+            result: list[FilterSpec] = []
             for item in value:
-                if self._is_filterspec(item):
-                    # Convert to ensure it's the current FilterSpec class
-                    result.append(FilterSpec(source=item.source, lookup=item.lookup, source_type=item.source_type))
+                if isinstance(item, FilterSpec):
+                    result.append(item)
+                elif self._is_filterspec(item):
+                    # Convert to ensure it's the current FilterSpec class (duck-typed)
+                    result.append(FilterSpec(source=item.source, lookup=item.lookup, source_type=item.source_type))  # type: ignore[union-attr]
                 elif isinstance(item, tuple) and len(item) == 2:
-                    result.append(FilterSpec.from_tuple(item))
+                    first, second = item
+                    if isinstance(first, str) and isinstance(second, str):
+                        result.append(FilterSpec.from_tuple((first, second)))
             return result
 
         return []
