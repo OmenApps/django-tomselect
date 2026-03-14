@@ -293,12 +293,14 @@ class PermissionCache:
 
             # Try atomic increment first
             if not self._atomic_increment(version_key):
-                # Log warning instead of using non-atomic fallback that risks race conditions
+                # Fall back to deleting the version key so the next lookup is a cache miss
+                # rather than returning stale data
                 logger.warning(
-                    "Atomic increment not available for cache key %s, skipping invalidation. "
+                    "Atomic increment not available for cache key %s, falling back to cache.delete(). "
                     "Consider using Redis or Memcached for reliable cache invalidation.",
-                    version_key
+                    version_key,
                 )
+                self.cache.delete(version_key)
 
         except (AttributeError, TypeError, OSError) as e:
             logger.warning("Permission cache invalidation failed for user %s: %s", user_id, e, exc_info=True)
@@ -342,11 +344,12 @@ class PermissionCache:
                 logger.debug("Pattern-based deletion not available, incrementing global version")
                 version_key = self._get_version_key()
                 if not self._atomic_increment(version_key):
-                    # Log warning instead of using non-atomic fallback
+                    # Fall back to deleting the version key so the next lookup is a cache miss
                     logger.warning(
-                        "Atomic increment not available for global version key, skipping invalidation. "
+                        "Atomic increment not available for global version key, falling back to cache.delete(). "
                         "Consider using Redis or Memcached for reliable cache invalidation."
                     )
+                    self.cache.delete(version_key)
 
         except (AttributeError, TypeError, OSError) as e:
             logger.warning("Permission cache clear failed: %s", e, exc_info=True)
