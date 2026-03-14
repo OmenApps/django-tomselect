@@ -188,6 +188,13 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     valueField: '{{ widget.value_field|escapejs }}',
                     labelField: '{{ widget.label_field|escapejs }}',
                     searchField: [],
+                    score: function(query) {
+                        var minQueryLen = {{ widget.minimum_query_length }};
+                        if (query.length > 0 && query.length < minQueryLen) {
+                            return function() { return 0; };
+                        }
+                        return function() { return 1; };
+                    },
                     highlight: {{ widget.highlight|yesno:"true,false" }},
                     openOnFocus: {{ widget.open_on_focus|yesno:"true,false" }},
                     hideSelected: {{ widget.hide_selected|yesno:"true,false" }},
