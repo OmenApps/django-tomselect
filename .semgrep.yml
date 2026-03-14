@@ -1,0 +1,59 @@
+rules:
+  - id: django-safe-filter-in-script-context
+    patterns:
+      - pattern-regex: \|safe
+      - pattern-inside: |
+          <script ...>
+          ...
+          </script>
+    message: >
+      The |safe filter is used inside a <script> tag. Ensure the value has been
+      sanitized server-side (e.g., via json.dumps or DjangoJSONEncoder) before
+      marking it safe. See option.html and item.html for approved patterns.
+    languages: [html]
+    severity: WARNING
+
+  - id: django-innerhtml-assignment
+    pattern-regex: \.innerHTML\s*=
+    paths:
+      include:
+        - "src/django_tomselect/templates/"
+    message: >
+      Direct .innerHTML assignment found. Ensure the assigned value does not
+      contain unsanitized user input. Known safe uses: error message display
+      in tomselect.html (hardcoded strings), entity decoding in
+      decode_if_needed.html (textarea trick, never inserted into DOM).
+    languages: [html, javascript]
+    severity: WARNING
+
+  - id: django-mark-safe-without-nosec
+    patterns:
+      - pattern: mark_safe(...)
+      - pattern-not-regex: "nosec"
+    message: >
+      mark_safe() used without a # nosec annotation. Add a comment explaining
+      why the value is safe, and add # nosec B308 B703 to acknowledge the risk.
+    languages: [python]
+    severity: WARNING
+
+  - id: js-dangerous-eval
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: document.write(...)
+    message: >
+      Dangerous JavaScript function detected. These should never be used in
+      this project. Use safer alternatives.
+    languages: [javascript]
+    severity: ERROR
+
+  - id: django-template-eval
+    pattern-regex: \beval\(|new Function\(|document\.write\(
+    paths:
+      include:
+        - "src/django_tomselect/templates/"
+    message: >
+      Dangerous JavaScript function detected in Django template. These should
+      never be used in this project.
+    languages: [html]
+    severity: ERROR
