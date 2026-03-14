@@ -867,6 +867,17 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         selected_objects = queryset.filter(final_filter)
 
+        # Detect if label_field is a relation and add select_related to prevent N+1 queries
+        label_field = self.label_field or "name"
+        from django.core.exceptions import FieldDoesNotExist
+
+        try:
+            field_obj = selected_objects.model._meta.get_field(label_field)  # type: ignore[union-attr]
+            if field_obj.is_relation:
+                selected_objects = selected_objects.select_related(label_field)
+        except (FieldDoesNotExist, AttributeError):
+            pass
+
         # Pre-compute permissions once before the loop to avoid N+1 queries
         # Permissions are model-level, not object-level, so they're the same for all objects
         request = self.get_current_request()
