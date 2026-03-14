@@ -464,6 +464,9 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                     ? '{% translate "Request timed out. Please try again." %}'
                                     : '{% translate "Failed to load options. Please try again." %}';
                                 console.error(`Error loading data: '${error}' with url: ${url}`);
+                                // SECURITY: innerHTML is used here with a hardcoded HTML template.
+                                // The only dynamic value (errorMessage) is a Django translated
+                                // string, not user input. No user data is interpolated.
                                 // Show error message to user in the dropdown
                                 if (self.dropdown_content) {
                                     self.dropdown_content.innerHTML = `

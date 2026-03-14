@@ -6,6 +6,10 @@ item: function(data, escape) {
     {% include "django_tomselect/helpers/decode_if_needed.html" %}
 
     {% if 'data_template_item' in widget.attrs.keys and widget.attrs.data_template_item %}
+        {# SECURITY: |safe is required here to emit the JS template string without double-escaping. #}
+        {# The value is developer-provided via TomSelectConfig(attrs={"render": {"item": ...}}) #}
+        {# and JSON-encoded server-side in widgets.py build_attrs() via json.dumps(). #}
+        {# User data interpolated into the template is escaped by Tom Select's escape() function. #}
         var template = {{ widget.attrs.data_template_item|safe }};
         var result = template.replace(/\$\{data\.(\w+)\}/g, function(match, fieldName) {
             var value = data[fieldName];

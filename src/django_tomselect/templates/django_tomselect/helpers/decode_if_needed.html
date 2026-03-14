@@ -6,6 +6,10 @@ function decodeIfNeeded(str) {
 
     // Check if string contains HTML entities
     if (/&[a-z]+;|&#[0-9]+;/i.test(str)) {
+        {# SECURITY: innerHTML is used here on a detached <textarea> element solely to decode #}
+        {# HTML entities (e.g., &amp; -> &). The textarea is never inserted into the DOM, and #}
+        {# its .value property returns the decoded plain text (not HTML). This is a standard #}
+        {# entity-decoding pattern and does not execute scripts. #}
         const textarea = document.createElement('textarea');
         textarea.innerHTML = str;
         return textarea.value;
