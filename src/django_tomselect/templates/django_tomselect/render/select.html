@@ -13,7 +13,6 @@ Included from `tomselect.html` with:
 Place a modified version in your project's templates directory:
 `templates/django_tomselect/render/select.html`
 {% endcomment %}
-
 {% load i18n %}
 <select name="{{ widget.name }}"
         id="{% if 'id' in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}"

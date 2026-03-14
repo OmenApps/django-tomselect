@@ -643,7 +643,7 @@ class Command(BaseCommand):
             self.authors.append(author)
             self.stdout.write(f"Created author: {name}")
 
-    def create_articles(self) -> None:
+    def create_articles(self) -> None:  # noqa: C901
         """Create example articles."""
         self.stdout.write("Creating articles...")
 

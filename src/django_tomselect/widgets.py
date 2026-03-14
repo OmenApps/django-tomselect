@@ -12,10 +12,7 @@ import html
 import json
 import re
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, cast
-
-if TYPE_CHECKING:
-    from django_tomselect._types import PluginContext, SelectedOption
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from django import forms
 from django.db.models import Model, Q, QuerySet
@@ -44,8 +41,13 @@ from django_tomselect.utils import safe_reverse, safe_reverse_lazy
 
 logger = get_logger(__name__)
 
+if TYPE_CHECKING:
+    _MixinBase = forms.Select
+else:
+    _MixinBase = object
 
-class TomSelectWidgetMixin:
+
+class TomSelectWidgetMixin(_MixinBase):
     """Mixin to provide methods and properties for all TomSelect widgets."""
 
     template_name: str = "django_tomselect/tomselect.html"
@@ -54,7 +56,6 @@ class TomSelectWidgetMixin:
         """Initialize shared TomSelect configuration."""
         # Merge user provided config with global defaults
         base_config: TomSelectConfig = GLOBAL_DEFAULT_CONFIG
-
         if config is None:
             final_config = base_config
         elif isinstance(config, TomSelectConfig):
@@ -78,17 +79,17 @@ class TomSelectWidgetMixin:
 
         # Behavior config
         self.minimum_query_length: int = final_config.minimum_query_length
-        self.preload: bool = final_config.preload
+        self.preload: Literal["focus"] | bool = final_config.preload
         self.highlight: bool = final_config.highlight
         self.hide_selected: bool = final_config.hide_selected
         self.open_on_focus: bool = final_config.open_on_focus
         self.placeholder: str | None = final_config.placeholder
         self.max_items: int | None = final_config.max_items
         self.max_options: int | None = final_config.max_options
-        self.css_framework: str = final_config.css_framework
+        self.css_framework: str | AllowedCSSFrameworks = final_config.css_framework
         self.use_minified: bool = final_config.use_minified
-        self.close_after_select: bool = final_config.close_after_select
-        self.hide_placeholder: bool = final_config.hide_placeholder
+        self.close_after_select: bool | None = final_config.close_after_select
+        self.hide_placeholder: bool | None = final_config.hide_placeholder
         self.load_throttle: int = final_config.load_throttle
         self.loading_class: str = final_config.loading_class
         self.create: bool = final_config.create
@@ -101,7 +102,7 @@ class TomSelectWidgetMixin:
         self.plugin_dropdown_input: Any = final_config.plugin_dropdown_input
         self.plugin_remove_button: Any = final_config.plugin_remove_button
 
-        # Explicitly set self.attrs from config.attrsto ensure attributes are properly passed to the widget
+        # Explicitly set self.attrs from config.attrs to ensure attributes are properly passed to the widget
         if hasattr(final_config, "attrs") and final_config.attrs:
             self.attrs: dict[str, Any] = final_config.attrs.copy()
 
@@ -117,11 +118,7 @@ class TomSelectWidgetMixin:
         # Allow kwargs to override any config values
         for key, value in kwargs.items():
             if hasattr(final_config, key):
-                if (
-                    isinstance(value, dict)
-                    and hasattr(final_config, key)
-                    and isinstance(getattr(final_config, key), dict)
-                ):
+                if isinstance(value, dict) and isinstance(getattr(final_config, key), dict):
                     setattr(self, key, {**getattr(final_config, key), **value})
                 else:
                     setattr(self, key, value)
@@ -145,9 +142,9 @@ class TomSelectWidgetMixin:
             self.template_name,
             renderer,
         )
-        return self._render(self.template_name, context, renderer)
+        return str(self._render(self.template_name, context, renderer))
 
-    def get_plugin_context(self) -> "PluginContext":
+    def get_plugin_context(self) -> dict[str, Any]:
         """Get context for plugins."""
         plugins: dict[str, Any] = {}
 
@@ -357,7 +354,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         self.show_update: bool = False
         self.show_delete: bool = False
         self.create_field: str = ""
-        self.create_filter: Callable | None = None
+        self.create_filter: str | Callable | None = None
         self.create_with_htmx: bool = False
 
         super().__init__(config=config, **kwargs)
@@ -377,7 +374,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
     def get_autocomplete_context(self) -> dict[str, Any]:
         """Get context for autocomplete functionality."""
-        model_pk_name = self.model._meta.pk.name if self.model else ""
+        model_pk_name = self.model._meta.pk.name if self.model else ""  # type: ignore[union-attr]
         model_label_field = getattr(self.model, "name_field", "name") if self.model else ""
 
         autocomplete_context: dict[str, Any] = {
@@ -741,8 +738,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         if self.filters:
             # Convert FilterSpec objects to dicts for template use
             base_context["widget"]["filters"] = [
-                {"source": f.source, "lookup": f.lookup, "source_type": f.source_type}
-                for f in self.filters
+                {"source": f.source, "lookup": f.lookup, "source_type": f.source_type} for f in self.filters
             ]
             # Keep for backwards compatibility with custom templates
             # Uses first field-type filter for legacy dependent_field
@@ -758,8 +754,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         if self.excludes:
             # Convert FilterSpec objects to dicts for template use
             base_context["widget"]["excludes"] = [
-                {"source": e.source, "lookup": e.lookup, "source_type": e.source_type}
-                for e in self.excludes
+                {"source": e.source, "lookup": e.lookup, "source_type": e.source_type} for e in self.excludes
             ]
             # Keep for backwards compatibility with custom templates
             # Uses first field-type exclude for legacy exclude_field
@@ -835,7 +830,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         return context
 
-    def _get_selected_options(self, value: Any, autocomplete_view: AutocompleteModelView) -> list["SelectedOption"]:
+    def _get_selected_options(self, value: Any, autocomplete_view: AutocompleteModelView) -> list[dict[str, Any]]:
         """Get selected options from value."""
         selected: list[dict[str, Any]] = []
         value_field = self.value_field or "id"
@@ -848,10 +843,10 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         selected_values = [value] if not isinstance(value, (list, tuple)) else value
 
         if value_field == "pk":
-            final_filter = Q(pk__in=selected_values)
+            final_filter = Q(pk__in=selected_values)  # type: ignore[misc]
         else:
             # Filter on the value_field
-            final_filter = Q(**{f"{value_field}__in": selected_values})
+            final_filter = Q(**{f"{value_field}__in": selected_values})  # type: ignore[misc]
 
         selected_objects = queryset.filter(final_filter)
 
@@ -925,13 +920,14 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         model = None
 
         # Try to get model from choices queryset
-        if hasattr(self.choices, "queryset") and hasattr(self.choices.queryset, "model"):
-            model = self.choices.queryset.model
+        choices = self.choices
+        if hasattr(choices, "queryset") and hasattr(getattr(choices, "queryset", None), "model"):
+            model = choices.queryset.model
         # Try to get model directly from choices
-        elif hasattr(self.choices, "model"):
-            model = self.choices.model
+        elif hasattr(choices, "model"):
+            model = choices.model
         # If choices is a list, we can't determine model
-        elif isinstance(self.choices, list) and self.choices:
+        elif isinstance(choices, list) and choices:
             model = None
 
         logger.debug(
@@ -1006,7 +1002,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             return
 
         try:
-            model_fields = [f.name for f in self.model._meta.fields]
+            model_fields = [f.name for f in self.model._meta.fields]  # type: ignore[union-attr]
             is_related_field = "__" in self.label_field  # Allow double-underscore pattern
 
             # If it's not a real field or relation, add to virtual_fields
@@ -1042,7 +1038,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             # Explicitly check if model is a valid Django model with objects manager
             if model and hasattr(model, "_meta") and hasattr(model, "objects"):
                 logger.warning("Using fallback empty queryset for model %s", model)
-                return model.objects.none()
+                return model.objects.none()  # type: ignore[union-attr]
 
             logger.warning("Using EmptyModel.objects.none() as last resort")
             return EmptyModel.objects.none()
@@ -1139,7 +1135,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
 
         return context
 
-    def _get_selected_options(self, value: Any) -> list["SelectedOption"]:
+    def _get_selected_options(self, value: Any) -> list[dict[str, Any]]:
         """Get selected options based on value."""
         try:
             autocomplete_view = self.get_autocomplete_view()
@@ -1181,13 +1177,17 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
             logger.warning("Error checking tuple iterable format", exc_info=True)
             return False
 
-    def _get_enum_choices_options(self, value: Any, view: AutocompleteIterablesView) -> list["SelectedOption"]:
+    def _get_enum_choices_options(self, value: Any, view: AutocompleteIterablesView) -> list[dict[str, Any]]:
         """Get options from enum choices."""
         values = [value] if not isinstance(value, (list, tuple)) else value
-        selected = []
+        selected: list[dict[str, Any]] = []
+
+        iterable = view.iterable
+        if iterable is None or not isinstance(iterable, type) or not hasattr(iterable, "choices"):
+            return selected
 
         for val in values:
-            for choice_value, choice_label in view.iterable.choices:
+            for choice_value, choice_label in iterable.choices:
                 if str(val) == str(choice_value):
                     selected.append({"value": str(val), "label": escape(str(choice_label))})
                     break
@@ -1196,13 +1196,17 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
 
         return selected
 
-    def _get_tuple_iterable_options(self, value: Any, view: AutocompleteIterablesView) -> list["SelectedOption"]:
+    def _get_tuple_iterable_options(self, value: Any, view: AutocompleteIterablesView) -> list[dict[str, Any]]:
         """Get options from tuple-based iterable."""
         values = [value] if not isinstance(value, (list, tuple)) else value
-        selected = []
+        selected: list[dict[str, Any]] = []
+
+        iterable = view.iterable
+        if not isinstance(iterable, (list, tuple)):
+            return selected
 
         for val in values:
-            for item in view.iterable:
+            for item in iterable:
                 try:
                     if str(item[0]) == str(val):
                         # Handle tuples of different lengths properly

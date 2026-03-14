@@ -1,5 +1,7 @@
 """Views for handling queries from django-tomselect widgets."""
 
+from __future__ import annotations
+
 __all__ = [
     "AutocompleteModelView",
     "AutocompleteIterablesView",
@@ -7,16 +9,17 @@ __all__ = [
 ]
 
 import json
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 if TYPE_CHECKING:
+    from django.contrib.auth.models import AnonymousUser, User
+
     from django_tomselect._types import PaginatedResponse
 from urllib.parse import unquote
 
 from django.conf import settings
-from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.auth.views import redirect_to_login
-from django.core.exceptions import FieldDoesNotExist, FieldError, PermissionDenied
+from django.core.exceptions import FieldDoesNotExist, FieldError, ImproperlyConfigured, PermissionDenied
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Model, Q, QuerySet
@@ -214,7 +217,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         super().setup(request, *args, **kwargs)
 
-        self.request = request
+        self.request = request  # type: ignore[assignment]
         self.user = getattr(request, "user", None)
 
         # Explicitly set instance attributes from class attributes to prevent them from being overridden
@@ -234,33 +237,37 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
             kwargs.pop("model", None)
 
-        query = unquote(request.GET.get(SEARCH_VAR, ""))
+        query = unquote(str(request.GET.get(SEARCH_VAR, "")))
         self.query = query if not query == "undefined" else ""
-        self.page = request.GET.get(PAGE_VAR, 1)
+        self.page = request.GET.get(PAGE_VAR, 1)  # type: ignore[assignment]
 
         # Support multiple filter/exclude parameters via getlist
         # Handle both QueryDict (has getlist) and regular dict (used in some test scenarios)
+        filters_by: list[str]
+        excludes_by: list[str]
         if hasattr(request.GET, "getlist"):
-            self.filters_by: list[str] = request.GET.getlist(FILTERBY_VAR) or []
-            self.excludes_by: list[str] = request.GET.getlist(EXCLUDEBY_VAR) or []
+            filters_by = request.GET.getlist(FILTERBY_VAR) or []
+            excludes_by = request.GET.getlist(EXCLUDEBY_VAR) or []
         else:
             # Fallback for regular dict
             filter_val = request.GET.get(FILTERBY_VAR)
             exclude_val = request.GET.get(EXCLUDEBY_VAR)
-            self.filters_by: list[str] = [filter_val] if filter_val else []
-            self.excludes_by: list[str] = [exclude_val] if exclude_val else []
+            filters_by = [str(filter_val)] if filter_val else []
+            excludes_by = [str(exclude_val)] if exclude_val else []
+        self.filters_by = filters_by
+        self.excludes_by = excludes_by
 
         # Keep legacy single-value references for backwards compatibility
-        self.filter_by: str | None = self.filters_by[0] if self.filters_by else None
-        self.exclude_by: str | None = self.excludes_by[0] if self.excludes_by else None
-        self.ordering_from_request = request.GET.get("ordering", None)
+        self.filter_by = self.filters_by[0] if self.filters_by else None  # type: ignore[assignment]
+        self.exclude_by = self.excludes_by[0] if self.excludes_by else None  # type: ignore[assignment]
+        self.ordering_from_request = request.GET.get("ordering", None)  # type: ignore[assignment]
 
         # Track filter errors to include in response (helps with debugging)
         self._filter_error: str | None = None
 
         # Handle page size with validation
         try:
-            requested_page_size = int(request.GET.get("page_size", self.page_size))
+            requested_page_size = int(request.GET.get("page_size", self.page_size))  # type: ignore[arg-type]
             if 0 < requested_page_size <= MAX_PAGE_SIZE:
                 self.page_size = requested_page_size
             elif requested_page_size > MAX_PAGE_SIZE:
@@ -289,7 +296,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             if "__" in field_path:
                 continue  # FK lookups are resolved by Django ORM
             try:
-                field_obj = self.model._meta.get_field(field_path)
+                field_obj = self.model._meta.get_field(field_path)  # type: ignore[union-attr]
                 if not getattr(field_obj, "concrete", True):
                     non_concrete.append(field_path)
             except FieldDoesNotExist:
@@ -322,7 +329,9 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
     def get_queryset(self) -> QuerySet:
         """Get the base queryset for the view."""
-        queryset = self.model.objects.all()
+        if self.model is None:
+            raise ImproperlyConfigured(f"{self.__class__.__name__} requires a 'model' attribute.")
+        queryset = self.model.objects.all()  # type: ignore[union-attr]
 
         # Allow for additional queryset manipulation
         queryset = self.hook_queryset(queryset)
@@ -343,11 +352,35 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         # Define common Django ORM lookup types to skip in validation
         lookup_types = {
-            "exact", "iexact", "contains", "icontains", "in", "gt", "gte",
-            "lt", "lte", "startswith", "istartswith", "endswith", "iendswith",
-            "range", "date", "year", "month", "day", "week", "week_day",
-            "quarter", "time", "hour", "minute", "second", "isnull", "regex",
-            "iregex", "search"
+            "exact",
+            "iexact",
+            "contains",
+            "icontains",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "startswith",
+            "istartswith",
+            "endswith",
+            "iendswith",
+            "range",
+            "date",
+            "year",
+            "month",
+            "day",
+            "week",
+            "week_day",
+            "quarter",
+            "time",
+            "hour",
+            "minute",
+            "second",
+            "isnull",
+            "regex",
+            "iregex",
+            "search",
         }
 
         parts = field_lookup.split("__")
@@ -358,7 +391,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             if i == len(parts) - 1 and part.lower() in lookup_types:
                 break
             try:
-                field = model._meta.get_field(part)
+                field = model._meta.get_field(part)  # type: ignore[union-attr]
                 # Follow foreign key / related field chain
                 if hasattr(field, "related_model") and field.related_model:
                     model = field.related_model
@@ -390,9 +423,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         _dependent_field, lookup_field = lookup.split("__", 1)
         return (lookup_field, value, False)
 
-    def _apply_single_filter(
-        self, queryset: QuerySet, filter_str: str, is_exclude: bool = False
-    ) -> QuerySet | None:
+    def _apply_single_filter(self, queryset: QuerySet, filter_str: str, is_exclude: bool = False) -> QuerySet | None:
         """Apply a single filter or exclude to the queryset.
 
         Args:
@@ -547,7 +578,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             logger.error("Error applying ordering: %s", str(e))
         return queryset
 
-    def paginate_queryset(self, queryset: QuerySet) -> "PaginatedResponse":
+    def paginate_queryset(self, queryset: QuerySet) -> PaginatedResponse:
         """Paginate the queryset with improved page handling."""
         try:
             page_number = int(self.page)
@@ -570,6 +601,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             # Only include next_page if there are more results
             "next_page": page.number + 1 if page.has_next() else None,
             "total_pages": paginator.num_pages,
+            "total_pages": int(paginator.num_pages),  # type: ignore[arg-type]
         }
 
         logger.debug("Paginating queryset with page %s of %s", page.number, paginator.num_pages)
@@ -586,7 +618,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             real_fields = [f for f in self.value_fields if f not in virtual_fields]
             fields.extend(real_fields)
         else:
-            for field in self.model._meta.fields:
+            for field in self.model._meta.fields:  # type: ignore[union-attr]
                 if field.name in ["name", "title", "label"]:
                     fields.append(field.name)
 
@@ -682,7 +714,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         Supports custom auth backends via Django's auth system.
         """
         if hasattr(request, "user"):
-            self.user = request.user
+            self.user = request.user  # type: ignore[has-type]
 
         # Get directly from instance first, not from class
         skip_auth = getattr(self.__class__, "skip_authorization", False) or getattr(self, "skip_authorization", False)
@@ -699,30 +731,25 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             return True
 
         # Standard auth checks
-        if not self.user or not self.user.is_authenticated:
+        if self.user is None or not self.user.is_authenticated:
             logger.debug("User is not authenticated in %s", self.__class__.__name__)
             return False
 
         # Get base permissions
-        perms = self.get_permission_required()
+        perms: list[str] = list(self.get_permission_required())
         if not perms:  # No permissions required
             logger.debug("No permissions required in %s", self.__class__.__name__)
             return True
 
-        # Handle both string and iterable permission_required
-        if isinstance(perms, str):
-            perms = [
-                perms,
-            ]
-
         # Add action-specific permissions
-        opts = self.model._meta
-        if action == "create" and getattr(self.__class__, "create_url", ""):
-            perms.append(f"{opts.app_label}.add_{opts.model_name}")
-        elif action == "update" and getattr(self.__class__, "update_url", ""):
-            perms.append(f"{opts.app_label}.change_{opts.model_name}")
-        elif action == "delete" and getattr(self.__class__, "delete_url", ""):
-            perms.append(f"{opts.app_label}.delete_{opts.model_name}")
+        if self.model is not None:
+            opts = self.model._meta  # type: ignore[union-attr]
+            if action == "create" and getattr(self.__class__, "create_url", ""):
+                perms.append(f"{opts.app_label}.add_{opts.model_name}")
+            elif action == "update" and getattr(self.__class__, "update_url", ""):
+                perms.append(f"{opts.app_label}.change_{opts.model_name}")
+            elif action == "delete" and getattr(self.__class__, "delete_url", ""):
+                perms.append(f"{opts.app_label}.delete_{opts.model_name}")
 
         # Check permissions using auth backend
         has_perms = self.user.has_perms(perms)
@@ -744,7 +771,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
     def has_add_permission(self, request: HttpRequest | Any) -> bool:
         """Check if the user has permission to add objects."""
-        if not self.user.is_authenticated:
+        if self.user is None or not self.user.is_authenticated:
             return False
 
         opts = self.model._meta
@@ -758,7 +785,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         If user is provided, only invalidate that user's permissions.
         """
         if user is not None:
-            permission_cache.invalidate_user(user.id)
+            permission_cache.invalidate_user(user.id)  # type: ignore[attr-defined]
         else:
             permission_cache.invalidate_all()
         logger.debug("Invalidated permissions cache")
@@ -774,7 +801,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         Can be overridden to customize behavior.
         """
-        if not self.user.is_authenticated:
+        if self.user is None or not self.user.is_authenticated:
             logger.warning("User is not authenticated. Redirecting to login.")
             return redirect_to_login(request.get_full_path())
         raise PermissionDenied("Permission denied. User does not have any required permissions.")
@@ -784,14 +811,14 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         logger.debug("Handling GET request")
         try:
             queryset = self.get_queryset()  # Already includes search() via get_queryset -> search
-            data = self.paginate_queryset(queryset)
+            data: dict[str, Any] = dict(self.paginate_queryset(queryset))
 
             # Include filter error in response if one occurred (helps with debugging)
             if self._filter_error:
                 data["filter_error"] = self._filter_error
                 logger.debug("Including filter error in response: %s", self._filter_error)
 
-            return JsonResponse(data, encoder=self.get_json_encoder())
+            return JsonResponse(data, encoder=self.get_json_encoder())  # type: ignore[arg-type]
         except Exception:
             logger.exception("Error in autocomplete request")
 
@@ -814,7 +841,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
         logger.debug("Handling POST request")
-        return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())
+        return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())  # type: ignore[arg-type]
 
 
 class AutocompleteIterablesView(JSONEncoderMixin, View):
@@ -831,13 +858,13 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
         """Set up the view with request parameters."""
         super().setup(request, *args, **kwargs)
 
-        query = unquote(request.GET.get(SEARCH_VAR, ""))
+        query = unquote(str(request.GET.get(SEARCH_VAR, "")))
         self.query = query if not query == "undefined" else ""
-        self.page = request.GET.get(PAGE_VAR, 1)
+        self.page = request.GET.get(PAGE_VAR, 1)  # type: ignore[assignment]
 
         # Handle page size with validation
         try:
-            requested_page_size = int(request.GET.get("page_size", self.page_size))
+            requested_page_size = int(request.GET.get("page_size", self.page_size))  # type: ignore[arg-type]
             if 0 < requested_page_size <= MAX_PAGE_SIZE:
                 self.page_size = requested_page_size
             elif requested_page_size > MAX_PAGE_SIZE:
@@ -886,12 +913,15 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
                 ]
 
             # Handle simple iterables
-            return [{"value": str(item), "label": str(item)} for item in self.iterable]
+            if isinstance(self.iterable, (list, tuple)):
+                return [{"value": str(item), "label": str(item)} for item in self.iterable]
+
+            return []
         except Exception as e:
             logger.error("Error getting iterable: %s", str(e))  # Fixed error printing format
             return []
 
-    def search(self, items: list[dict[str, str]]) -> list[dict[str, str]]:
+    def search(self, items: list[dict[str, str | int]]) -> list[dict[str, str | int]]:
         """Apply search filtering to the items."""
         if not self.query:
             logger.debug("No query provided")
@@ -899,12 +929,14 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
 
         query_lower = self.query.lower()
         search_results = [
-            item for item in items if query_lower in item["label"].lower() or query_lower in item["value"].lower()
+            item
+            for item in items
+            if (query_lower in str(item["label"]).lower() or query_lower in str(item["value"]).lower())
         ]
         logger.debug("Search results %s", search_results)
         return search_results
 
-    def paginate_iterable(self, results: list[dict[str, str]]) -> "PaginatedResponse":
+    def paginate_iterable(self, results: list[dict[str, str | int]]) -> PaginatedResponse:
         """Paginate the filtered results."""
         try:
             page_number = int(self.page)
@@ -924,25 +956,26 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
 
         logger.debug("Paginating iterable with page %s of %s", page_number, total_pages)
 
-        return {
-            "results": page_results,
+        result: PaginatedResponse = {
+            "results": page_results,  # type: ignore[typeddict-item]
             "page": page_number,
             "has_more": has_more,
             "next_page": page_number + 1 if has_more else None,
             "total_pages": total_pages,
         }
+        return result
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle GET requests."""
         logger.debug("Handling GET request")
         if self.iterable is None:
-            return JsonResponse({"results": [], "page": 1, "has_more": False}, encoder=self.get_json_encoder())
+            return JsonResponse({"results": [], "page": 1, "has_more": False}, encoder=self.get_json_encoder())  # type: ignore[arg-type]
 
         try:
             items = self.get_iterable()
             filtered = self.search(items)
             data = self.paginate_iterable(filtered)
-            return JsonResponse(data, encoder=self.get_json_encoder())
+            return JsonResponse(data, encoder=self.get_json_encoder())  # type: ignore[arg-type]
         except Exception:
             logger.exception("Error in autocomplete iterables request")
 
@@ -964,4 +997,4 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
         logger.debug("Handling POST request")
-        return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())
+        return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())  # type: ignore[arg-type]

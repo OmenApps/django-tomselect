@@ -22,7 +22,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Literal
+from typing import Literal, TypeVar
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -457,13 +457,9 @@ class TomSelectConfig(BaseConfig):
                     continue
                 if isinstance(item, tuple) and len(item) == 2:
                     if not all(isinstance(v, str) for v in item):
-                        raise ValidationError(
-                            f"{field_name}[{i}] 2-tuple must contain only strings"
-                        )
+                        raise ValidationError(f"{field_name}[{i}] 2-tuple must contain only strings")
                     continue
-                raise ValidationError(
-                    f"{field_name}[{i}] must be a FilterSpec or a 2-tuple, got {type(item).__name__}"
-                )
+                raise ValidationError(f"{field_name}[{i}] must be a FilterSpec or a 2-tuple, got {type(item).__name__}")
             return
 
         # Invalid format
@@ -472,7 +468,7 @@ class TomSelectConfig(BaseConfig):
             f"a FilterSpec, or a list of FilterSpec/tuples"
         )
 
-    def validate(self) -> None:
+    def validate(self) -> None:  # noqa: C901
         """Validate the complete configuration."""
         # Validate filter_by and exclude_by formats
         self._validate_filter_input(self.filter_by, "filter_by")
@@ -508,16 +504,21 @@ class TomSelectConfig(BaseConfig):
                     f"css_framework must be one of {sorted(allowed_frameworks)}, got {self.css_framework!r}"
                 )
 
-    def _normalize_filter_input(self, value: FilterByInput) -> list[FilterSpec]:
+    def _normalize_filter_input(self, value: FilterByInput) -> list[FilterSpec]:  # noqa: C901
         """Normalize filter_by or exclude_by input to a list of FilterSpec objects."""
         # Empty tuple
         if isinstance(value, tuple) and len(value) == 0:
             return []
 
-        # Single FilterSpec (handle module reload case)
+        # Single FilterSpec
+        if isinstance(value, FilterSpec):
+            return [value]
+
+        # Single FilterSpec (handle module reload case where class identity differs)
         if self._is_filterspec(value):
             # Convert to ensure it's the current FilterSpec class
-            return [FilterSpec(source=value.source, lookup=value.lookup, source_type=value.source_type)]
+            v = value  # duck-typed as FilterSpec
+            return [FilterSpec(source=v.source, lookup=v.lookup, source_type=v.source_type)]  # type: ignore[union-attr]
 
         # Legacy 2-tuple
         if isinstance(value, tuple) and len(value) == 2:
@@ -579,10 +580,7 @@ class TomSelectConfig(BaseConfig):
 
         for value, expected_type, field_name in plugin_checks:
             if value is not None and not isinstance(value, expected_type):
-                errors.append(
-                    f"{field_name} must be {expected_type.__name__} or None, "
-                    f"got {type(value).__name__}"
-                )
+                errors.append(f"{field_name} must be {expected_type.__name__} or None, got {type(value).__name__}")
 
         if errors:
             error_msg = "Invalid TomSelectConfig: " + "; ".join(errors)
@@ -592,7 +590,10 @@ class TomSelectConfig(BaseConfig):
         return True
 
 
-def get_plugin_config(plugin_class: type[BaseConfig], plugin_key: str, defaults: BaseConfig) -> BaseConfig:
+_PC = TypeVar("_PC", bound=BaseConfig)
+
+
+def get_plugin_config(plugin_class: type[_PC], plugin_key: str, defaults: _PC | None) -> _PC | None:
     """Retrieve a plugin configuration from the project settings.
 
     The plugin config might be defined as a dict or as an instance of the config class.

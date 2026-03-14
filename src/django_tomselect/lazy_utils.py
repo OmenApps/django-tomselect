@@ -54,7 +54,7 @@ class LazyView:
             # Resolve the URL to get the view
             logger.debug("Resolving URL: %s", url)
             resolved = resolve(url)
-            view_class = resolved.func.view_class
+            view_class = resolved.func.view_class  # type: ignore[attr-defined]
             logger.debug("View class resolved: %s", view_class)
 
             # Create view instance

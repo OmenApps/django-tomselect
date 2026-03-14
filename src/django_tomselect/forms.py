@@ -7,7 +7,7 @@ __all__ = [
     "TomSelectModelMultipleChoiceField",
 ]
 
-from typing import Any, ClassVar
+from typing import Any
 
 from django import forms
 from django.core.exceptions import FieldError, ValidationError
@@ -40,8 +40,8 @@ class BaseTomSelectMixin:
     settings, managing widget attributes, and proper widget initialization.
     """
 
-    field_base_class: ClassVar[type[forms.Field]] = forms.Field
-    widget_class: ClassVar[type[Widget] | None] = None  # To be defined by subclasses
+    field_base_class: type[forms.Field] = forms.Field
+    widget_class: type[Widget] | None = None  # To be defined by subclasses
     config: TomSelectConfig
     widget: Widget
 
@@ -106,8 +106,8 @@ class BaseTomSelectModelMixin:
     widget attributes, and proper widget initialization with model querysets.
     """
 
-    field_base_class: ClassVar[type[forms.Field]] = forms.Field
-    widget_class: ClassVar[type[Widget] | None] = None  # To be defined by subclasses
+    field_base_class: type[forms.Field] = forms.Field
+    widget_class: type[Widget] | None = None  # To be defined by subclasses
     config: TomSelectConfig
     widget: Widget
     queryset: QuerySet
@@ -184,7 +184,7 @@ class BaseTomSelectModelMixin:
             queryset = EmptyModel.objects.none()
 
         try:
-            super().__init__(queryset, *args, **kwargs)
+            super().__init__(queryset, *args, **kwargs)  # type: ignore[call-arg]
         except (TypeError, ValueError, AttributeError) as e:
             logger.error("Error in parent initialization of %s: %s", self.__class__.__name__, e, exc_info=True)
             raise
@@ -206,7 +206,7 @@ class BaseTomSelectModelMixin:
         """
         try:
             # Update queryset from widget before cleaning
-            widget_queryset = self.widget.get_queryset()
+            widget_queryset = getattr(self.widget, "get_queryset", lambda: None)()
             if widget_queryset is not None and hasattr(widget_queryset, "model"):
                 # Only update if it's not EmptyModel
                 if widget_queryset.model != EmptyModel:
@@ -231,7 +231,7 @@ class BaseTomSelectModelMixin:
             # Clean the value before passing to validation
             cleaned_value = self._clean_value(value)
 
-            return super().clean(cleaned_value)
+            return super().clean(cleaned_value)  # type: ignore[misc]
         except ValidationError:
             raise
         except (AttributeError, TypeError, FieldError) as e:
@@ -268,8 +268,8 @@ class TomSelectChoiceField(BaseTomSelectMixin, forms.ChoiceField):
     is among the allowed choices.
     """
 
-    field_base_class: ClassVar[type[forms.ChoiceField]] = forms.ChoiceField
-    widget_class: ClassVar[type[TomSelectIterablesWidget]] = TomSelectIterablesWidget
+    field_base_class = forms.ChoiceField  # type: ignore[assignment]
+    widget_class = TomSelectIterablesWidget  # type: ignore[assignment]
 
     def clean(self, value: Any) -> Any:
         """Validate that the selected value is among the allowed choices.
@@ -291,7 +291,7 @@ class TomSelectChoiceField(BaseTomSelectMixin, forms.ChoiceField):
 
         try:
             str_value = str(value)
-            autocomplete_view = self.widget.get_autocomplete_view()
+            autocomplete_view = getattr(self.widget, "get_autocomplete_view", lambda: None)()
             if not autocomplete_view:
                 logger.error("%s: Could not determine autocomplete view", self.__class__.__name__)
                 raise ValidationError("Could not determine allowed choices")
@@ -327,10 +327,10 @@ class TomSelectMultipleChoiceField(BaseTomSelectMixin, forms.MultipleChoiceField
     are among the allowed choices.
     """
 
-    field_base_class: ClassVar[type[forms.MultipleChoiceField]] = forms.MultipleChoiceField
-    widget_class: ClassVar[type[TomSelectIterablesMultipleWidget]] = TomSelectIterablesMultipleWidget
+    field_base_class = forms.MultipleChoiceField  # type: ignore[assignment]
+    widget_class = TomSelectIterablesMultipleWidget  # type: ignore[assignment]
 
-    def clean(self, value: Any) -> list[Any]:
+    def clean(self, value: Any) -> list[Any]:  # noqa: C901
         """Validate that all selected values are allowed.
 
         Retrieves the autocomplete view and checks that all submitted values
@@ -356,7 +356,7 @@ class TomSelectMultipleChoiceField(BaseTomSelectMixin, forms.MultipleChoiceField
                 value = [value]
 
             str_values = [str(v) for v in value]
-            autocomplete_view = self.widget.get_autocomplete_view()
+            autocomplete_view = getattr(self.widget, "get_autocomplete_view", lambda: None)()
             if not autocomplete_view:
                 logger.error("%s: Could not determine autocomplete view", self.__class__.__name__)
                 raise ValidationError("Could not determine allowed choices")
@@ -393,8 +393,8 @@ class TomSelectModelChoiceField(BaseTomSelectModelMixin, forms.ModelChoiceField)
     ModelChoiceField validation with TomSelect UI enhancements.
     """
 
-    field_base_class: ClassVar[type[forms.ModelChoiceField]] = forms.ModelChoiceField
-    widget_class: ClassVar[type[TomSelectModelWidget]] = TomSelectModelWidget
+    field_base_class = forms.ModelChoiceField  # type: ignore[assignment]
+    widget_class = TomSelectModelWidget  # type: ignore[assignment]
 
 
 class TomSelectModelMultipleChoiceField(BaseTomSelectModelMixin, forms.ModelMultipleChoiceField):
@@ -405,5 +405,5 @@ class TomSelectModelMultipleChoiceField(BaseTomSelectModelMixin, forms.ModelMult
     ModelMultipleChoiceField validation with TomSelect UI enhancements.
     """
 
-    field_base_class: ClassVar[type[forms.ModelMultipleChoiceField]] = forms.ModelMultipleChoiceField
-    widget_class: ClassVar[type[TomSelectModelMultipleWidget]] = TomSelectModelMultipleWidget
+    field_base_class = forms.ModelMultipleChoiceField  # type: ignore[assignment]
+    widget_class = TomSelectModelMultipleWidget  # type: ignore[assignment]

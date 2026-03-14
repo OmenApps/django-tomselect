@@ -195,10 +195,10 @@ def tomselect_media(css_framework: str | None = None, use_minified: bool | None 
             css_framework,
             use_minified,
         )
-        return mark_safe(result)  # nosec B308 B703
+        return mark_safe(result)  # type: ignore[return-value]  # nosec B308 B703
     except (AttributeError, TypeError, ValueError) as e:
         logger.error("Error in tomselect_media: %s", e, exc_info=True)
-        return mark_safe("<!-- Error loading TomSelect media -->")  # nosec B308 B703
+        return mark_safe("<!-- Error loading TomSelect media -->")  # type: ignore[return-value]  # nosec B308 B703
 
 
 @register.simple_tag
@@ -228,10 +228,10 @@ def tomselect_media_css(css_framework: str | None = None, use_minified: bool | N
             css_framework,
             use_minified,
         )
-        return mark_safe(css_html)  # nosec B308 B703
+        return mark_safe(css_html)  # type: ignore[return-value]  # nosec B308 B703
     except (AttributeError, TypeError, ValueError) as e:
         logger.error("Error in tomselect_media_css: %s", e, exc_info=True)
-        return mark_safe("<!-- Error loading TomSelect CSS -->")  # nosec B308 B703
+        return mark_safe("<!-- Error loading TomSelect CSS -->")  # type: ignore[return-value]  # nosec B308 B703
 
 
 @register.simple_tag
@@ -256,7 +256,7 @@ def tomselect_media_js(use_minified: bool | None = None) -> str:
         js_html = render_js_scripts(widget.media._js)
 
         logger.debug("Generated tomselect_media_js with use_minified: %s", use_minified)
-        return mark_safe(js_html)  # nosec B308 B703
+        return mark_safe(js_html)  # type: ignore[return-value]  # nosec B308 B703
     except (AttributeError, TypeError, ValueError) as e:
         logger.error("Error in tomselect_media_js: %s", e, exc_info=True)
-        return mark_safe("<!-- Error loading TomSelect JS -->")  # nosec B308 B703
+        return mark_safe("<!-- Error loading TomSelect JS -->")  # type: ignore[return-value]  # nosec B308 B703

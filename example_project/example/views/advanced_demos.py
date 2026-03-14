@@ -127,7 +127,7 @@ def article_update_view(request: HttpRequest, pk: int) -> HttpResponse:
     return TemplateResponse(request, template, context)
 
 
-def article_bulk_action_view(request):
+def article_bulk_action_view(request):  # noqa: C901
     """View for bulk article management."""
     template = "example/advanced_demos/bulk_action.html"
     context = {}

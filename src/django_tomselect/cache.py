@@ -132,7 +132,7 @@ class PermissionCache:
         else:
             return "tomselect_perm:global_version"
 
-    def _atomic_increment(self, key: str) -> bool:
+    def _atomic_increment(self, key: str) -> bool:  # noqa: C901
         """Attempt to atomically increment a cache value.
 
         Tries to use atomic increment operations available in the cache backend,
@@ -147,12 +147,12 @@ class PermissionCache:
         try:
             if isinstance(self.cache, RedisCache):
                 # Redis supports atomic increments natively
-                self.cache.client.incr(key)
+                self.cache.client.incr(key)  # type: ignore[attr-defined]
                 logger.debug("Atomic increment with Redis successful for key: %s", key)
                 return True
             elif isinstance(self.cache, BaseMemcachedCache):
                 # Memcached supports atomic increments natively
-                self.cache.incr(key, delta=1, default=1)
+                self.cache.incr(key, delta=1, default=1)  # type: ignore[call-arg]
                 logger.debug("Atomic increment with Memcached successful for key: %s", key)
                 return True
             elif hasattr(self.cache, "incr"):
@@ -216,15 +216,17 @@ class PermissionCache:
                     "Permission cache hit for user=%s, model=%s, action=%s: %s", user_id, model_name, action, result
                 )
             else:
-                logger.debug(
-                    "Permission cache miss for user=%s, model=%s, action=%s", user_id, model_name, action
-                )
+                logger.debug("Permission cache miss for user=%s, model=%s, action=%s", user_id, model_name, action)
 
             return result
         except (AttributeError, TypeError, OSError) as e:
             logger.warning(
                 "Permission cache get failed for user=%s, model=%s, action=%s: %s",
-                user_id, model_name, action, e, exc_info=True
+                user_id,
+                model_name,
+                action,
+                e,
+                exc_info=True,
             )
             return None
 
@@ -261,7 +263,11 @@ class PermissionCache:
         except (AttributeError, TypeError, OSError) as e:
             logger.warning(
                 "Permission cache set failed for user=%s, model=%s, action=%s: %s",
-                user_id, model_name, action, e, exc_info=True
+                user_id,
+                model_name,
+                action,
+                e,
+                exc_info=True,
             )
 
     def invalidate_user(self, user_id: int) -> None:

@@ -6,7 +6,7 @@ __all__ = [
     "DefaultProxyRequest",
 ]
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django_tomselect.constants import SEARCH_VAR
 
@@ -17,13 +17,15 @@ if TYPE_CHECKING:
 class DefaultProxyRequest:  # pylint: disable=R0903
     """Used as a stand-in for a real request when obtaining the initial QuerySet for the widget."""
 
-    def __init__(self, *args, model: Model = None, user=None, **kwargs):  # pylint: disable=W0613
+    def __init__(  # pylint: disable=W0613
+        self, *args: Any, model: type[Model] | None = None, user: Any = None, **kwargs: Any
+    ) -> None:
         """Initialize the DefaultProxyRequest."""
         self.model = model
-        self.POST = {}  # pylint: disable=C0103
-        self.GET = {
+        self.POST: dict[str, Any] = {}  # pylint: disable=C0103
+        self.GET: dict[str, str] = {
             SEARCH_VAR: "",
-            "model": self.model._meta.label_lower if self.model else "",
+            "model": self.model._meta.label_lower if self.model else "",  # type: ignore[union-attr]
         }  # pylint: disable=C0103
         self.method = "GET"
         self.user = user
