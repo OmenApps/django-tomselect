@@ -464,6 +464,21 @@ This will replace the original code block in the `tomselect_setup.html` template
                     }
                 },
 
+                // Setup SPA navigation cleanup listeners
+                setupSpaCleanup: function() {
+                    const self = this;
+                    const cleanupHandler = function() { self.cleanup(); };
+
+                    // Standard browser navigation
+                    window.addEventListener('pagehide', cleanupHandler);
+
+                    // Turbo (Hotwire) navigation
+                    document.addEventListener('turbo:before-visit', cleanupHandler);
+
+                    // Turbolinks (legacy) navigation
+                    document.addEventListener('turbolinks:before-visit', cleanupHandler);
+                },
+
                 // Setup all global event handlers (called once)
                 setupHandlers: function() {
                     if (this.initialized) return;
@@ -471,6 +486,7 @@ This will replace the original code block in the `tomselect_setup.html` template
                     // Setup observers and event handlers
                     this.setupObserver();
                     this.setupHtmxHandlers();
+                    this.setupSpaCleanup();
 
                     this.initialized = true;
                 }
