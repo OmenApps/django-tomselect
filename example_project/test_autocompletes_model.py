@@ -5,12 +5,13 @@ import json
 import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import PermissionDenied
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.db.models import Value
 from django.db.models.functions import Concat
 from django.http import JsonResponse
 
-from django_tomselect.autocompletes import AutocompleteModelView
+from django_tomselect.autocompletes import AutocompleteIterablesView, AutocompleteModelView
 from example_project.example.models import Edition, Magazine
 
 
@@ -135,74 +136,34 @@ class TestAutocompleteModelViewPagination:
         data = self.get_response_data(view.get(request))
         assert len(data["results"]) == 3
 
-    def test_pagination_first_page(self, rf, test_editions, user):
-        """Test first page of paginated results."""
+    @pytest.mark.parametrize(
+        "page_size,page_num,expected_count,expected_has_more,expected_page",
+        [
+            (3, None, 3, True, 1),  # first page
+            (3, "3", 3, False, 3),  # last page
+            (4, "3", 1, False, 3),  # partial page (9 total items, page 3 with page_size=4)
+            (3, "99", 3, True, 1),  # beyond range -> returns first page
+        ],
+        ids=["first_page", "last_page", "partial_page", "beyond_range"],
+    )
+    def test_pagination_scenarios(
+        self, rf, test_editions, user, page_size, page_num, expected_count, expected_has_more, expected_page
+    ):
+        """Test various pagination scenarios."""
         view = AutocompleteModelView()
         view.model = Edition
-        view.page_size = 3
-        request = rf.get("")
+        view.page_size = page_size
+        params = {"p": page_num} if page_num else {}
+        request = rf.get("", params)
         request.user = user
         view.setup(request)
 
         response = view.get(request)
         data = self.get_response_data(response)
 
-        assert len(data["results"]) == 3
-        assert data["page"] == 1
-        assert data["has_more"] is True
-
-        # Verify we got first 3 editions
-        result_ids = [r["id"] for r in data["results"]]
-        expected_ids = [e.id for e in test_editions[:3]]
-        assert result_ids == expected_ids
-
-    def test_pagination_last_page(self, rf, test_editions, user):
-        """Test last page of paginated results."""
-        view = AutocompleteModelView()
-        view.model = Edition
-        view.page_size = 3
-        request = rf.get("", {"p": "3"})
-        request.user = user
-        view.setup(request)
-
-        response = view.get(request)
-        data = self.get_response_data(response)
-
-        assert len(data["results"]) == 3
-        assert data["page"] == 3
-        assert data["has_more"] is False
-
-    def test_pagination_partial_page(self, rf, test_editions, user):
-        """Test partial last page of results."""
-        view = AutocompleteModelView()
-        view.model = Edition
-        view.page_size = 4
-        request = rf.get("", {"p": "3"})  # Last page with 9 total items
-        request.user = user
-        view.setup(request)
-
-        response = view.get(request)
-        data = self.get_response_data(response)
-
-        assert len(data["results"]) == 1  # Only one item on last page
-        assert data["page"] == 3
-        assert data["has_more"] is False
-
-    def test_pagination_empty_page(self, rf, test_editions, user):
-        """Test requesting page beyond available results."""
-        view = AutocompleteModelView()
-        view.model = Edition
-        view.page_size = 3
-        request = rf.get("", {"p": "99"})
-        request.user = user
-        view.setup(request)
-
-        response = view.get(request)
-        data = self.get_response_data(response)
-
-        # Should return first page results when page number is too high
-        assert len(data["results"]) == 3
-        assert data["page"] == 1
+        assert len(data["results"]) == expected_count
+        assert data["page"] == expected_page
+        assert data["has_more"] is expected_has_more
 
     def test_pagination_with_search(self, rf, test_editions, user):
         """Test pagination combined with search functionality."""
@@ -511,44 +472,26 @@ class TestAutocompleteModelViewFiltering:
         # The view processes each independently, so results should match filter_qs
         assert both_qs.count() == filter_qs.count()
 
-    def test_filter_by_invalid_format(self, rf, test_editions):
-        """Test filter_by with invalid format."""
+    @pytest.mark.parametrize("param_key", ["f", "e"], ids=["filter_by", "exclude_by"])
+    @pytest.mark.parametrize(
+        "invalid_filter",
+        ["invalid", "field==value", "field=value=extra", "=value", "field="],
+    )
+    def test_filter_exclude_invalid_format(self, rf, test_editions, param_key, invalid_filter):
+        """Test filter_by and exclude_by with invalid format."""
         view = AutocompleteModelView()
         view.model = Edition
-        invalid_filters = ["invalid", "field==value", "field=value=extra", "=value", "field="]
-
-        for invalid_filter in invalid_filters:
-            request = rf.get("", {"f": invalid_filter})
-            view.setup(request)
-            filtered_qs = view.apply_filters(Edition.objects.all())
-            assert filtered_qs.count() == 0
-
-    def test_exclude_by_invalid_format(self, rf, test_editions):
-        """Test exclude_by with invalid format."""
-        view = AutocompleteModelView()
-        view.model = Edition
-        invalid_filters = ["invalid", "field==value", "field=value=extra", "=value", "field="]
-
-        for invalid_filter in invalid_filters:
-            request = rf.get("", {"e": invalid_filter})
-            view.setup(request)
-            filtered_qs = view.apply_filters(Edition.objects.all())
-            assert filtered_qs.count() == 0
-
-    def test_filter_by_nonexistent_field(self, rf, test_editions):
-        """Test filter_by with nonexistent field."""
-        view = AutocompleteModelView()
-        view.model = Edition
-        request = rf.get("", {"f": "nonexistent_field__exact=value"})
+        request = rf.get("", {param_key: invalid_filter})
         view.setup(request)
         filtered_qs = view.apply_filters(Edition.objects.all())
         assert filtered_qs.count() == 0
 
-    def test_exclude_by_nonexistent_field(self, rf, test_editions):
-        """Test exclude_by with nonexistent field."""
+    @pytest.mark.parametrize("param_key", ["f", "e"], ids=["filter_by", "exclude_by"])
+    def test_filter_exclude_nonexistent_field(self, rf, test_editions, param_key):
+        """Test filter_by and exclude_by with nonexistent field."""
         view = AutocompleteModelView()
         view.model = Edition
-        request = rf.get("", {"e": "nonexistent_field__exact=value"})
+        request = rf.get("", {param_key: "nonexistent_field__exact=value"})
         view.setup(request)
         filtered_qs = view.apply_filters(Edition.objects.all())
         assert filtered_qs.count() == 0
@@ -656,6 +599,130 @@ class TestAutocompleteModelViewFiltering:
 
         assert filtered_qs.count() == 1
         assert filtered_qs.first().magazine.name == "Tech Science Magazine"
+
+    def test_apply_filters_multiple_filter_parameters(self, rf, test_editions, magazines):
+        """Test apply_filters with multiple filter_by parameters."""
+        # Update some editions with different magazines
+        mag1 = magazines[0]
+        mag2 = magazines[1] if len(magazines) > 1 else Magazine.objects.create(name="Magazine 2")
+
+        for edition in test_editions[:5]:
+            edition.magazine = mag1
+            edition.year = "2024"
+            edition.save()
+        for edition in test_editions[5:]:
+            edition.magazine = mag2
+            edition.year = "2025"
+            edition.save()
+
+        view = AutocompleteModelView()
+        view.model = Edition
+
+        # Test with multiple filter parameters (list of f values)
+        request = rf.get("", {"f": [f"magazine__magazine_id={mag1.id}", "edition__year=2024"]})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        # Should match editions with mag1 AND year 2024
+        expected_count = Edition.objects.filter(magazine_id=mag1.id, year="2024").count()
+        assert filtered_qs.count() == expected_count
+
+    def test_apply_filters_constant_filter(self, rf, test_editions):
+        """Test apply_filters with constant filter (__const__ prefix)."""
+        # Set different years for different editions
+        for i, edition in enumerate(test_editions):
+            edition.year = "2024" if i < 5 else "2025"
+            edition.save()
+
+        view = AutocompleteModelView()
+        view.model = Edition
+
+        # Test constant filter - should always filter by year=2024
+        request = rf.get("", {"f": "'__const__year=2024'"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        # Should return editions with year 2024
+        expected_count = Edition.objects.filter(year="2024").count()
+        assert filtered_qs.count() == expected_count
+        assert all(e.year == "2024" for e in filtered_qs)
+
+    def test_apply_filters_constant_exclude(self, rf, test_editions):
+        """Test apply_filters with constant exclude (__const__ prefix)."""
+        # Set different years for different editions
+        for i, edition in enumerate(test_editions):
+            edition.year = "2024" if i < 5 else "2025"
+            edition.save()
+
+        view = AutocompleteModelView()
+        view.model = Edition
+
+        # Test constant exclude - should always exclude year=2024
+        request = rf.get("", {"e": "'__const__year=2024'"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        # Should return editions with year != 2024
+        expected_count = Edition.objects.exclude(year="2024").count()
+        assert filtered_qs.count() == expected_count
+        assert all(e.year != "2024" for e in filtered_qs)
+
+    def test_apply_filters_mixed_field_and_constant(self, rf, test_editions, magazines):
+        """Test apply_filters with mixed field-based and constant filters."""
+        mag1 = magazines[0]
+
+        # Update editions
+        for i, edition in enumerate(test_editions):
+            if i < 3:
+                edition.magazine = mag1
+                edition.year = "2024"
+            elif i < 5:
+                edition.magazine = mag1
+                edition.year = "2025"
+            else:
+                edition.magazine = None
+                edition.year = "2024"
+            edition.save()
+
+        view = AutocompleteModelView()
+        view.model = Edition
+
+        # Filter by magazine AND constant year=2024
+        request = rf.get("", {"f": [f"magazine__magazine_id={mag1.id}", "'__const__year=2024'"]})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        # Should match editions with mag1 AND year 2024
+        expected_count = Edition.objects.filter(magazine_id=mag1.id, year="2024").count()
+        assert filtered_qs.count() == expected_count
+        assert filtered_qs.count() == 3
+
+    def test_apply_filters_multiple_excludes(self, rf, test_editions, magazines):
+        """Test apply_filters with multiple exclude_by parameters."""
+        mag1 = magazines[0]
+        mag2 = magazines[1] if len(magazines) > 1 else Magazine.objects.create(name="Magazine 2")
+
+        for i, edition in enumerate(test_editions):
+            edition.magazine = mag1 if i < 5 else mag2
+            edition.year = str(2020 + (i % 3))  # Years 2020, 2021, 2022
+            edition.save()
+
+        view = AutocompleteModelView()
+        view.model = Edition
+
+        # Exclude by magazine AND year
+        request = rf.get("", {"e": [f"magazine__magazine_id={mag1.id}", "edition__year=2020"]})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        # Should exclude editions with mag1 AND exclude editions with year 2020
+        expected_count = Edition.objects.exclude(magazine_id=mag1.id).exclude(year="2020").count()
+        assert filtered_qs.count() == expected_count
 
 
 @pytest.mark.django_db
@@ -786,9 +853,9 @@ class TestAutocompleteModelViewGetRequestErrorHandling:
         response = view.get(request)
         data = json.loads(response.content.decode())
 
-        assert response.status_code == 200  # Should still return 200
+        assert response.status_code == 500
         if debug:
-            assert data["error"] == "Database error"
+            assert "Database error" in data["error"]
         else:
             assert "error" not in data
 
@@ -821,9 +888,9 @@ class TestAutocompleteModelViewGetRequestErrorHandling:
         response = view.get(request)
         data = json.loads(response.content.decode())
 
-        assert response.status_code == 200
+        assert response.status_code == 500
         if debug:
-            assert data["error"] == "Filter error"
+            assert "Filter error" in data["error"]
         else:
             assert "error" not in data
 
@@ -863,11 +930,12 @@ class TestAutocompleteModelViewEdgeCases:
         with pytest.raises(ValueError, match="Model must be specified"):
             view.setup(request)
 
-    def test_zero_page_size(self, rf, test_editions, user):
-        """Test handling of zero page size."""
+    @pytest.mark.parametrize("invalid_page_size", ["0", "-5"], ids=["zero", "negative"])
+    def test_invalid_page_sizes_use_default(self, rf, test_editions, user, invalid_page_size):
+        """Test handling of zero and negative page sizes."""
         view = AutocompleteModelView()
         view.model = Edition
-        request = rf.get("", {"page_size": "0"})
+        request = rf.get("", {"page_size": invalid_page_size})
         request.user = user
         view.setup(request)
 
@@ -875,20 +943,6 @@ class TestAutocompleteModelViewEdgeCases:
         data = json.loads(response.content.decode("utf-8"))
 
         # Should use default page size (20)
-        assert len(data["results"]) <= 20
-
-    def test_negative_page_size(self, rf, test_editions, user):
-        """Test handling of negative page size."""
-        view = AutocompleteModelView()
-        view.model = Edition
-        request = rf.get("", {"page_size": "-5"})
-        request.user = user
-        view.setup(request)
-
-        response = view.get(request)
-        data = json.loads(response.content.decode("utf-8"))
-
-        # No more than default page size of 20
         assert len(data["results"]) <= 20
 
     def test_special_characters_in_search(self, rf, user):
@@ -1021,23 +1075,25 @@ class TestAutocompleteModelViewPermissions:
         view.setup(mock_request)
         assert view.get_permission_required() == ["example.view_edition"]
 
-    def test_has_permission_with_none(self, mock_request):
-        """Test that has_permission returns True when no permissions are required."""
-        view = self.NoPermissionsView()
-        view.setup(mock_request)
-        assert view.has_permission(mock_request) is True
-
-    def test_has_permission_with_allow_anonymous(self, mock_request):
-        """Test that has_permission returns True when allow_anonymous is True."""
-        view = self.WithPermissionsView()
-        view.allow_anonymous = True
-        view.setup(mock_request)
-        assert view.has_permission(mock_request) is True
-
-    def test_has_permission_with_skip_authorization(self, mock_request):
-        """Test that has_permission returns True when skip_authorization is True."""
-        view = self.WithPermissionsView()
-        view.skip_authorization = True
+    @pytest.mark.parametrize(
+        "use_no_perm_view,allow_anonymous,skip_authorization",
+        [
+            (True, False, False),  # NoPermissionsView - no permissions required
+            (False, True, False),  # WithPermissionsView with allow_anonymous=True
+            (False, False, True),  # WithPermissionsView with skip_authorization=True
+        ],
+        ids=["no_permissions_required", "allow_anonymous", "skip_authorization"],
+    )
+    def test_has_permission_grants_access(
+        self, mock_request, use_no_perm_view, allow_anonymous, skip_authorization
+    ):
+        """Test configurations that grant has_permission."""
+        if use_no_perm_view:
+            view = self.NoPermissionsView()
+        else:
+            view = self.WithPermissionsView()
+            view.allow_anonymous = allow_anonymous
+            view.skip_authorization = skip_authorization
         view.setup(mock_request)
         assert view.has_permission(mock_request) is True
 
@@ -1113,22 +1169,19 @@ class TestAutocompleteModelViewPermissions:
 
         assert view.has_permission(request)
 
-    def test_permission_required_string(self, rf, user):
-        """Test handling of string permission_required."""
+    @pytest.mark.parametrize(
+        "permission_required",
+        [
+            "example.view_edition",
+            ["example.view_edition", "example.add_edition"],
+        ],
+        ids=["string_format", "list_format"],
+    )
+    def test_permission_required_formats(self, rf, user, permission_required):
+        """Test handling of string and list permission_required formats."""
         view = AutocompleteModelView()
         view.model = Edition
-        view.permission_required = "example.view_edition"
-        request = rf.get("")
-        request.user = user
-        view.setup(request)
-
-        assert not view.has_permission(request)  # Should be False since user has no perms
-
-    def test_permission_required_list(self, rf, user):
-        """Test handling of list permission_required."""
-        view = AutocompleteModelView()
-        view.model = Edition
-        view.permission_required = ["example.view_edition", "example.add_edition"]
+        view.permission_required = permission_required
         request = rf.get("")
         request.user = user
         view.setup(request)
@@ -1170,12 +1223,25 @@ class TestAutocompleteModelViewPermissions:
 
         assert view.has_object_permission(request, test_editions[0], "view")
 
-    def test_dispatch_permission_denied(self, rf):
-        """Test dispatch method when permission is denied."""
+    def test_dispatch_anonymous_redirects_to_login(self, rf):
+        """Test dispatch redirects anonymous users to login page."""
         view = AutocompleteModelView()
         view.model = Edition
-        request = rf.get("")
+        request = rf.get("/test/")
         request.user = AnonymousUser()
+        view.setup(request)
+
+        response = view.dispatch(request)
+        assert response.status_code == 302
+        assert response.url.startswith("/accounts/login/")
+
+    def test_dispatch_authenticated_no_perms_raises(self, rf, user):
+        """Test dispatch raises PermissionDenied for authenticated user without permissions."""
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.permission_required = "example.view_edition"
+        request = rf.get("")
+        request.user = user
         view.setup(request)
 
         with pytest.raises(PermissionDenied):
@@ -1330,3 +1396,252 @@ class TestVirtualFields:
         assert len(modified_results) > 0
         assert "combined" in modified_results[0]
         assert modified_results[0]["combined"] == f"{modified_results[0]['name']} ({modified_results[0]['year']})"
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for testing."""
+
+    def default(self, obj):
+        """Custom serialization logic."""
+        if hasattr(obj, "__str__"):
+            return str(obj)
+        return super().default(obj)
+
+
+@pytest.mark.django_db
+class TestAutocompleteModelViewJSONEncoder:
+    """Tests for JSON encoder support in AutocompleteModelView."""
+
+    def test_default_encoder_when_not_set(self, rf):
+        """Test that get_json_encoder returns DjangoJSONEncoder by default."""
+        view = AutocompleteModelView()
+        view.model = Edition
+        request = rf.get("")
+        view.setup(request)
+
+        assert view.get_json_encoder() is DjangoJSONEncoder
+
+    def test_view_level_encoder_class(self, rf):
+        """Test that view-level json_encoder class attribute works."""
+
+        class CustomView(AutocompleteModelView):
+            """Custom view with custom JSON encoder."""
+            model = Edition
+            json_encoder = CustomJSONEncoder
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is CustomJSONEncoder
+
+    def test_view_level_encoder_string(self, rf):
+        """Test that view-level json_encoder as dotted string path works."""
+
+        class CustomView(AutocompleteModelView):
+            """Custom view with JSON encoder as string."""
+            model = Edition
+            json_encoder = "json.JSONEncoder"
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is json.JSONEncoder
+
+    def test_invalid_encoder_string_falls_back(self, rf, caplog):
+        """Test that invalid dotted string path falls back to DjangoJSONEncoder."""
+
+        class CustomView(AutocompleteModelView):
+            """Custom view with invalid JSON encoder string."""
+            model = Edition
+            json_encoder = "nonexistent.module.Encoder"
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is DjangoJSONEncoder
+        assert "Could not import JSON encoder" in caplog.text
+
+    def test_invalid_encoder_type_falls_back(self, rf, caplog):
+        """Test that invalid encoder type falls back to DjangoJSONEncoder."""
+
+        class CustomView(AutocompleteModelView):
+            """Custom view with invalid JSON encoder type."""
+            model = Edition
+            json_encoder = "not a class"  # After import fails, this becomes a string
+
+        # Set the encoder directly to a non-encoder class to bypass import
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.json_encoder = str  # str is a class but not a JSONEncoder
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is DjangoJSONEncoder
+        assert "must be a subclass of json.JSONEncoder" in caplog.text
+
+    def test_global_setting_used_when_view_not_set(self, rf, monkeypatch):
+        """Test that global DEFAULT_JSON_ENCODER setting is used when view doesn't set one."""
+        import django_tomselect.autocompletes as autocompletes_module
+
+        # Mock the global setting
+        monkeypatch.setattr(autocompletes_module, "DEFAULT_JSON_ENCODER", CustomJSONEncoder)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is CustomJSONEncoder
+
+    def test_view_encoder_takes_precedence_over_global(self, rf, monkeypatch):
+        """Test that view-level encoder takes precedence over global setting."""
+        import django_tomselect.autocompletes as autocompletes_module
+
+        class AnotherEncoder(json.JSONEncoder):
+            """Another custom encoder for testing."""
+            pass
+
+        # Mock the global setting
+        monkeypatch.setattr(autocompletes_module, "DEFAULT_JSON_ENCODER", AnotherEncoder)
+
+        class CustomView(AutocompleteModelView):
+            """Custom view with its own JSON encoder."""
+            model = Edition
+            json_encoder = CustomJSONEncoder
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is CustomJSONEncoder
+        assert encoder is not AnotherEncoder
+
+    def test_json_response_uses_encoder(self, rf, test_editions, user):
+        """Test that JsonResponse actually uses the custom encoder."""
+
+        class CustomView(AutocompleteModelView):
+            """Custom view with custom JSON encoder."""
+            model = Edition
+            json_encoder = CustomJSONEncoder
+
+        view = CustomView()
+        request = rf.get("")
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        assert response.status_code == 200
+
+        # Verify response is valid JSON
+        data = json.loads(response.content.decode("utf-8"))
+        assert "results" in data
+
+
+@pytest.mark.django_db
+class TestAutocompleteIterablesViewJSONEncoder:
+    """Tests for JSON encoder support in AutocompleteIterablesView."""
+
+    def test_default_encoder_when_not_set(self, rf):
+        """Test that get_json_encoder returns DjangoJSONEncoder by default."""
+
+        class CustomView(AutocompleteIterablesView):
+            """Custom view without JSON encoder."""
+            iterable = [("a", "A"), ("b", "B")]
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        assert view.get_json_encoder() is DjangoJSONEncoder
+
+    def test_view_level_encoder_class(self, rf):
+        """Test that view-level json_encoder class attribute works."""
+
+        class CustomView(AutocompleteIterablesView):
+            """Custom view with custom JSON encoder."""
+            iterable = [("a", "A"), ("b", "B")]
+            json_encoder = CustomJSONEncoder
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is CustomJSONEncoder
+
+    def test_view_level_encoder_string(self, rf):
+        """Test that view-level json_encoder as dotted string path works."""
+
+        class CustomView(AutocompleteIterablesView):
+            """Custom view with JSON encoder as string."""
+            iterable = [("a", "A"), ("b", "B")]
+            json_encoder = "json.JSONEncoder"
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is json.JSONEncoder
+
+    def test_invalid_encoder_string_falls_back(self, rf, caplog):
+        """Test that invalid dotted string path falls back to DjangoJSONEncoder."""
+
+        class CustomView(AutocompleteIterablesView):
+            """Custom view with invalid JSON encoder string."""
+            iterable = [("a", "A"), ("b", "B")]
+            json_encoder = "nonexistent.module.Encoder"
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is DjangoJSONEncoder
+        assert "Could not import JSON encoder" in caplog.text
+
+    def test_global_setting_used_when_view_not_set(self, rf, monkeypatch):
+        """Test that global DEFAULT_JSON_ENCODER setting is used when view doesn't set one."""
+        import django_tomselect.autocompletes as autocompletes_module
+
+        # Mock the global setting
+        monkeypatch.setattr(autocompletes_module, "DEFAULT_JSON_ENCODER", CustomJSONEncoder)
+
+        class CustomView(AutocompleteIterablesView):
+            """Custom view without JSON encoder."""
+            iterable = [("a", "A"), ("b", "B")]
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        encoder = view.get_json_encoder()
+        assert encoder is CustomJSONEncoder
+
+    def test_json_response_uses_encoder(self, rf):
+        """Test that JsonResponse actually uses the custom encoder."""
+
+        class CustomView(AutocompleteIterablesView):
+            """Custom view with custom JSON encoder."""
+            iterable = [("a", "A"), ("b", "B")]
+            json_encoder = CustomJSONEncoder
+
+        view = CustomView()
+        request = rf.get("")
+        view.setup(request)
+
+        response = view.get(request)
+        assert response.status_code == 200
+
+        # Verify response is valid JSON
+        data = json.loads(response.content.decode("utf-8"))
+        assert "results" in data

@@ -6,10 +6,14 @@ import pytest
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
+import json
+
 import django_tomselect.app_settings as app_settings
 from django_tomselect.app_settings import (
     DEFAULT_CSS_FRAMEWORK,
     AllowedCSSFrameworks,
+    Const,
+    FilterSpec,
     PluginCheckboxOptions,
     PluginClearButton,
     PluginDropdownFooter,
@@ -21,6 +25,7 @@ from django_tomselect.app_settings import (
     currently_in_production_mode,
     get_plugin_config,
     merge_configs,
+    validate_json_encoder_class,
     validate_proxy_request_class,
 )
 from django_tomselect.request import DefaultProxyRequest
@@ -884,3 +889,289 @@ class TestPluginRemoveButton:
         assert config.title == "Custom Remove"
         assert config.label == "X"
         assert config.class_name == "custom-remove"
+
+
+class TestJSONEncoderClass:
+    """Test the JSON encoder class configuration."""
+
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self, settings):
+        """Setup and teardown for each test."""
+        # Store original settings
+        self.original_tomselect = getattr(settings, "TOMSELECT", {})
+
+        yield
+
+        # Restore original settings
+        settings.TOMSELECT = self.original_tomselect
+        # Reload app_settings module to reset state
+        importlib.reload(app_settings)
+
+    def test_default_json_encoder_none(self):
+        """Test that DEFAULT_JSON_ENCODER is None when not configured."""
+        encoder_class = validate_json_encoder_class()
+        # When not configured, should return None
+        assert encoder_class is None
+
+    def test_valid_json_encoder_class(self, settings):
+        """Test handling of valid JSON encoder class."""
+
+        class ValidEncoder(json.JSONEncoder):
+            """Valid JSON encoder class."""
+
+        settings.TOMSELECT = {"DEFAULT_JSON_ENCODER": ValidEncoder}
+        importlib.reload(app_settings)
+
+        encoder_class = validate_json_encoder_class()
+        assert issubclass(encoder_class, json.JSONEncoder)
+        assert encoder_class is ValidEncoder
+
+    def test_valid_json_encoder_string(self, settings):
+        """Test handling of valid JSON encoder class as string."""
+        settings.TOMSELECT = {"DEFAULT_JSON_ENCODER": "json.JSONEncoder"}
+        importlib.reload(app_settings)
+
+        encoder_class = validate_json_encoder_class()
+        assert encoder_class is json.JSONEncoder
+
+    def test_invalid_json_encoder_string(self, settings):
+        """Test handling of invalid JSON encoder class string."""
+        settings.TOMSELECT = {"DEFAULT_JSON_ENCODER": "invalid.module.path"}
+        with pytest.raises(ImportError) as exc_info:
+            importlib.reload(app_settings)
+            # validate_json_encoder_class gets called during import
+        assert "Failed to import DEFAULT_JSON_ENCODER" in str(exc_info.value)
+
+    def test_invalid_json_encoder_type(self, settings):
+        """Test handling of invalid JSON encoder class type."""
+
+        class InvalidEncoder:
+            """Invalid encoder class (not a JSONEncoder subclass)."""
+
+        settings.TOMSELECT = {"DEFAULT_JSON_ENCODER": InvalidEncoder}
+        with pytest.raises(TypeError) as exc_info:
+            importlib.reload(app_settings)
+            # validate_json_encoder_class gets called during import
+        assert "must be a subclass of json.JSONEncoder" in str(exc_info.value)
+
+
+def _is_filterspec_instance(obj):
+    """Helper to check if an object is a FilterSpec, resilient to module reloading."""
+    return type(obj).__name__ == "FilterSpec" and hasattr(obj, "source") and hasattr(obj, "lookup")
+
+
+class TestFilterSpec:
+    """Tests for the FilterSpec dataclass and Const helper."""
+
+    def test_filterspec_creation(self):
+        """Test creating FilterSpec with default source_type."""
+        spec = FilterSpec(source="category", lookup="category_id")
+        assert spec.source == "category"
+        assert spec.lookup == "category_id"
+        assert spec.source_type == "field"
+
+    def test_filterspec_with_const_source_type(self):
+        """Test creating FilterSpec with const source_type."""
+        spec = FilterSpec(source="published", lookup="status", source_type="const")
+        assert spec.source == "published"
+        assert spec.lookup == "status"
+        assert spec.source_type == "const"
+
+    def test_filterspec_from_tuple(self):
+        """Test creating FilterSpec from a 2-tuple."""
+        spec = FilterSpec.from_tuple(("category", "category_id"))
+        assert spec.source == "category"
+        assert spec.lookup == "category_id"
+        assert spec.source_type == "field"
+
+    def test_const_helper(self):
+        """Test the Const helper function."""
+        spec = Const("published", "status")
+        assert _is_filterspec_instance(spec)
+        assert spec.source == "published"
+        assert spec.lookup == "status"
+        assert spec.source_type == "const"
+
+    def test_const_converts_to_string(self):
+        """Test that Const converts numeric values to strings."""
+        spec = Const(123, "category_id")
+        assert spec.source == "123"
+        assert spec.lookup == "category_id"
+        assert spec.source_type == "const"
+
+    def test_filterspec_frozen(self):
+        """Test that FilterSpec is frozen (immutable)."""
+        spec = FilterSpec(source="category", lookup="category_id")
+        with pytest.raises(AttributeError):
+            spec.source = "new_value"
+
+
+class TestMultipleFiltersValidation:
+    """Tests for TomSelectConfig filter_by/exclude_by validation with new formats."""
+
+    def test_empty_tuple_still_works(self):
+        """Test that empty tuple still works for no filtering."""
+        config = TomSelectConfig(filter_by=(), exclude_by=())
+        assert config.filter_by == ()
+        assert config.exclude_by == ()
+
+    def test_legacy_2_tuple_still_works(self):
+        """Test that legacy 2-tuple format still works."""
+        config = TomSelectConfig(
+            filter_by=("category", "category_id"),
+            exclude_by=("author", "author_id"),
+        )
+        assert config.filter_by == ("category", "category_id")
+        assert config.exclude_by == ("author", "author_id")
+
+    def test_single_filterspec(self):
+        """Test using a single FilterSpec for filter_by."""
+        spec = FilterSpec(source="category", lookup="category_id")
+        config = TomSelectConfig(filter_by=spec)
+        assert config.filter_by == spec
+
+    def test_list_of_tuples(self):
+        """Test using a list of 2-tuples for multiple filters."""
+        config = TomSelectConfig(
+            filter_by=[
+                ("category", "category_id"),
+                ("brand", "brand_id"),
+            ]
+        )
+        assert len(config.filter_by) == 2
+        assert config.filter_by[0] == ("category", "category_id")
+        assert config.filter_by[1] == ("brand", "brand_id")
+
+    def test_list_of_filterspecs(self):
+        """Test using a list of FilterSpec objects."""
+        specs = [
+            FilterSpec(source="category", lookup="category_id"),
+            FilterSpec(source="brand", lookup="brand_id"),
+        ]
+        config = TomSelectConfig(filter_by=specs)
+        assert len(config.filter_by) == 2
+
+    def test_mixed_list_of_tuples_and_filterspecs(self):
+        """Test using a mixed list of tuples and FilterSpecs."""
+        config = TomSelectConfig(
+            filter_by=[
+                ("category", "category_id"),
+                Const("published", "status"),
+            ]
+        )
+        assert len(config.filter_by) == 2
+
+    def test_invalid_tuple_length_raises_error(self):
+        """Test that invalid tuple length raises ValidationError."""
+        with pytest.raises(ValidationError):
+            TomSelectConfig(filter_by=("single",))
+
+        with pytest.raises(ValidationError):
+            TomSelectConfig(filter_by=("one", "two", "three"))
+
+    def test_invalid_list_item_raises_error(self):
+        """Test that invalid items in list raise ValidationError."""
+        with pytest.raises(ValidationError):
+            TomSelectConfig(filter_by=["not_a_tuple_or_spec"])
+
+        with pytest.raises(ValidationError):
+            TomSelectConfig(filter_by=[("valid", "tuple"), "invalid"])
+
+    def test_identical_filter_and_exclude_raises_error(self):
+        """Test that identical filter and exclude conditions raise error."""
+        with pytest.raises(ValidationError):
+            TomSelectConfig(
+                filter_by=("field", "lookup"),
+                exclude_by=("field", "lookup"),
+            )
+
+    def test_identical_filterspecs_in_lists_raises_error(self):
+        """Test that identical FilterSpecs in filter_by and exclude_by raise error."""
+        spec = FilterSpec(source="field", lookup="lookup")
+        with pytest.raises(ValidationError):
+            TomSelectConfig(
+                filter_by=[spec],
+                exclude_by=[spec],
+            )
+
+    def test_different_filters_and_excludes_allowed(self):
+        """Test that different filter and exclude conditions are allowed."""
+        config = TomSelectConfig(
+            filter_by=[
+                ("category", "category_id"),
+                Const("published", "status"),
+            ],
+            exclude_by=[("author", "author_id")],
+        )
+        assert len(config.filter_by) == 2
+        assert len(config.exclude_by) == 1
+
+
+class TestFilterNormalization:
+    """Tests for TomSelectConfig filter normalization methods."""
+
+    def test_normalize_empty_tuple(self):
+        """Test normalizing empty tuple returns empty list."""
+        config = TomSelectConfig(filter_by=())
+        assert config.get_normalized_filters() == []
+
+    def test_normalize_legacy_2_tuple(self):
+        """Test normalizing legacy 2-tuple returns list with one FilterSpec."""
+        config = TomSelectConfig(filter_by=("category", "category_id"))
+        filters = config.get_normalized_filters()
+        assert len(filters) == 1
+        assert _is_filterspec_instance(filters[0])
+        assert filters[0].source == "category"
+        assert filters[0].lookup == "category_id"
+        assert filters[0].source_type == "field"
+
+    def test_normalize_single_filterspec(self):
+        """Test normalizing single FilterSpec returns list with one FilterSpec."""
+        spec = FilterSpec(source="category", lookup="category_id")
+        config = TomSelectConfig(filter_by=spec)
+        filters = config.get_normalized_filters()
+        assert len(filters) == 1
+        # Check by values instead of identity (resilient to module reload)
+        assert filters[0].source == spec.source
+        assert filters[0].lookup == spec.lookup
+        assert filters[0].source_type == spec.source_type
+
+    def test_normalize_list_of_tuples(self):
+        """Test normalizing list of tuples returns list of FilterSpecs."""
+        config = TomSelectConfig(
+            filter_by=[
+                ("category", "category_id"),
+                ("brand", "brand_id"),
+            ]
+        )
+        filters = config.get_normalized_filters()
+        assert len(filters) == 2
+        assert all(_is_filterspec_instance(f) for f in filters)
+        assert filters[0].source == "category"
+        assert filters[1].source == "brand"
+
+    def test_normalize_mixed_list(self):
+        """Test normalizing mixed list of tuples and FilterSpecs."""
+        config = TomSelectConfig(
+            filter_by=[
+                ("category", "category_id"),
+                Const("published", "status"),
+            ]
+        )
+        filters = config.get_normalized_filters()
+        assert len(filters) == 2
+        assert filters[0].source_type == "field"
+        assert filters[1].source_type == "const"
+
+    def test_normalize_excludes(self):
+        """Test normalizing exclude_by works the same way."""
+        config = TomSelectConfig(
+            exclude_by=[
+                ("author", "author_id"),
+                Const("archived", "status"),
+            ]
+        )
+        excludes = config.get_normalized_excludes()
+        assert len(excludes) == 2
+        assert excludes[0].source == "author"
+        assert excludes[1].source == "archived"

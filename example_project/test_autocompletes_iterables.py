@@ -242,6 +242,10 @@ class TestAutocompleteIterablesView:
         assert len(data["results"]) == 2
         assert data["has_more"] is True
         assert data["page"] == 1
+        # total_pages should be present for virtual_scroll plugin compatibility
+        total_choices = len(ArticleStatus.choices)
+        expected_total_pages = (total_choices + 1) // 2
+        assert data["total_pages"] == expected_total_pages
 
     def test_pagination_last_page(self, rf):
         """Test pagination last page."""
@@ -258,13 +262,18 @@ class TestAutocompleteIterablesView:
 
         assert data["has_more"] is False
         assert data["page"] == last_page
+        assert data["total_pages"] == last_page
 
-    @pytest.mark.parametrize("invalid_page", ["-1", "0", "invalid"])
+    @pytest.mark.parametrize(
+        "invalid_page",
+        ["-1", "0", "abc", "", "invalid", "1.5"],
+        ids=["negative", "zero", "alpha", "empty", "invalid_word", "float"],
+    )
     def test_pagination_invalid_pages(self, rf, invalid_page):
         """Test pagination with invalid page numbers."""
         view = AutocompleteIterablesView()
         view.iterable = ArticleStatus
-        request = rf.get("", {"p": invalid_page})
+        request = rf.get("", {"p": invalid_page} if invalid_page else {})
         view.setup(request)
 
         response = view.get(request)
@@ -352,17 +361,17 @@ class TestAutocompleteIterablesView:
         assert any("inactive" in item["value"] for item in filtered)
 
     @pytest.mark.parametrize(
-        "page_size,page_num,expected_size,has_more",
+        "page_size,page_num,expected_size,has_more,expected_total_pages",
         [
-            (2, 1, 2, True),  # First page
-            (2, 2, 2, True),  # Middle page
-            (2, 0, 2, True),  # Invalid page (zero) - should return first page
-            (2, -1, 2, True),  # Invalid page (negative) - should return first page
-            (5, 1, 5, True),  # Larger page size
-            (100, 1, 55, False),  # Page size larger than total items (ArticleStatus has 55 choices)
+            (2, 1, 2, True, 28),  # First page (55 items / 2 per page = 28 pages)
+            (2, 2, 2, True, 28),  # Middle page
+            (2, 0, 2, True, 28),  # Invalid page (zero) - should return first page
+            (2, -1, 2, True, 28),  # Invalid page (negative) - should return first page
+            (5, 1, 5, True, 11),  # Larger page size (55 items / 5 per page = 11 pages)
+            (100, 1, 55, False, 1),  # Page size larger than total items (ArticleStatus has 55 choices)
         ],
     )
-    def test_paginate_iterable(self, rf, page_size, page_num, expected_size, has_more):
+    def test_paginate_iterable(self, rf, page_size, page_num, expected_size, has_more, expected_total_pages):
         """Test pagination with various page sizes and numbers."""
         view = AutocompleteIterablesView()
         view.iterable = ArticleStatus
@@ -375,6 +384,8 @@ class TestAutocompleteIterablesView:
 
         assert len(data["results"]) == min(expected_size, len(ArticleStatus.choices))
         assert data["has_more"] == has_more
+        # total_pages is required for virtual_scroll plugin to work correctly
+        assert data["total_pages"] == expected_total_pages
         if has_more:
             assert data["next_page"] == data["page"] + 1
 
@@ -399,25 +410,6 @@ class TestAutocompleteIterablesView:
         assert len(data["results"]) == 0
         assert not data["has_more"]
         assert data["page"] == last_valid_page + 1  # Keeps the requested page number
-
-    def test_invalid_page_handling(self, rf):
-        """Test handling of invalid page numbers and edge cases."""
-        view = AutocompleteIterablesView()
-        view.iterable = ArticleStatus
-        view.page_size = 10
-
-        invalid_pages = ["abc", "", None, "0", "-1"]
-        for invalid_page in invalid_pages:
-            request = rf.get("", {"p": invalid_page} if invalid_page is not None else {})
-            view.setup(request)
-
-            items = view.get_iterable()
-            data = view.paginate_iterable(items)
-
-            # Should return first page results for invalid page numbers
-            assert len(data["results"]) == min(10, len(ArticleStatus.choices))
-            assert data["page"] == 1
-            assert data["has_more"] == (len(ArticleStatus.choices) > 10)
 
     def test_get_without_iterable(self, rf):
         """Test GET request when no iterable is set."""
@@ -546,27 +538,6 @@ class TestAutocompleteIterablesViewEdgeCases:
         assert all("words" in item["label"] for item in items)
         assert all(isinstance(eval(item["value"]), tuple) for item in items)
 
-    @pytest.mark.parametrize(
-        "page_input,expected_page",
-        [
-            ("0", 1),  # Zero should become 1
-            ("-1", 1),  # Negative should become 1
-            ("abc", 1),  # Non-numeric should become 1
-            ("1.5", 1),  # Float should become 1
-            ("", 1),  # Empty string should become 1
-        ],
-    )
-    def test_invalid_page_handling(self, rf, page_input, expected_page):
-        """Test handling of various invalid page inputs."""
-        view = AutocompleteIterablesView()
-        view.iterable = ArticlePriority
-        request = rf.get("", {"p": page_input} if page_input else {})
-        view.setup(request)
-
-        response = view.get(request)
-        data = json.loads(response.content.decode())
-        assert data["page"] == expected_page
-
 
 @pytest.mark.django_db
 class TestAutocompleteIterablesViewErrorHandling:
@@ -574,7 +545,7 @@ class TestAutocompleteIterablesViewErrorHandling:
 
     @pytest.mark.parametrize("debug", [True, False])
     def test_get_with_iterables_error(self, rf, monkeypatch, debug):
-        """If get_iterable() raises, we still return 200 and only include 'error' when DEBUG."""
+        """If get_iterable() raises, we return 500 and only include 'error' when DEBUG."""
 
         class ErrorIterablesView(AutocompleteIterablesView):
             def get_iterable(self):
@@ -592,13 +563,155 @@ class TestAutocompleteIterablesViewErrorHandling:
         response = view.get(request)
         data = json.loads(response.content.decode())
 
-        assert response.status_code == 200
+        assert response.status_code == 500
         # always empty results/page/has_more
         assert data["results"] == []
         assert data["page"] == 1
         assert data["has_more"] is False
 
         if debug:
-            assert data["error"] == "Iterable boom"
+            assert "Iterable boom" in data["error"]
         else:
             assert "error" not in data
+
+
+@pytest.mark.django_db
+class TestAutocompleteIterablesViewVirtualScrollCompatibility:
+    """Tests for virtual_scroll plugin compatibility.
+
+    The Tom Select virtual_scroll plugin requires `total_pages` in the JSON response
+    to properly determine when to load more results. Without this field, the plugin's
+    auto-loading logic fails because JavaScript evaluates `page < undefined` as false.
+
+    These tests ensure AutocompleteIterablesView returns the same pagination structure
+    as AutocompleteModelView for consistent virtual_scroll behavior.
+    """
+
+    def test_total_pages_present_in_response(self, rf):
+        """Test that total_pages is included in the pagination response."""
+        view = AutocompleteIterablesView()
+        view.iterable = ArticleStatus
+        view.page_size = 10
+        request = rf.get("")
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+
+        assert "total_pages" in data, "total_pages must be present for virtual_scroll plugin"
+        assert isinstance(data["total_pages"], int)
+
+    def test_total_pages_calculation_multiple_pages(self, rf):
+        """Test total_pages calculation when items span multiple pages."""
+        view = AutocompleteIterablesView()
+        view.iterable = ArticleStatus  # 55 items
+        view.page_size = 10
+        request = rf.get("")
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+
+        # 55 items / 10 per page = 6 pages (ceiling division)
+        expected_total_pages = 6
+        assert data["total_pages"] == expected_total_pages
+
+    def test_total_pages_calculation_single_page(self, rf):
+        """Test total_pages is 1 when all items fit on one page."""
+        view = AutocompleteIterablesView()
+        view.iterable = ArticlePriority
+        total_items = len(ArticlePriority.choices)
+        view.page_size = total_items + 10  # Ensure all fit on one page
+        request = rf.get("")
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+
+        assert data["total_pages"] == 1
+        assert data["has_more"] is False
+
+    def test_total_pages_calculation_exact_fit(self, rf):
+        """Test total_pages when items exactly fill pages."""
+        view = AutocompleteIterablesView()
+        view.iterable = ArticlePriority
+        total_items = len(ArticlePriority.choices)
+        view.page_size = total_items // 2  # Should result in exactly 2 pages if even
+        request = rf.get("")
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+
+        expected_pages = (total_items + view.page_size - 1) // view.page_size
+        assert data["total_pages"] == expected_pages
+
+    def test_total_pages_empty_iterable(self, rf):
+        """Test total_pages is 1 for empty iterable (avoid division by zero)."""
+        view = AutocompleteIterablesView()
+        view.iterable = []
+        view.page_size = 10
+        request = rf.get("")
+        view.setup(request)
+
+        items = view.get_iterable()
+        data = view.paginate_iterable(items)
+
+        assert data["total_pages"] == 1
+        assert data["results"] == []
+        assert data["has_more"] is False
+
+    def test_pagination_response_structure_matches_model_view(self, rf):
+        """Test that response structure matches AutocompleteModelView for consistency.
+
+        Both views should return: results, page, has_more, next_page, total_pages
+        """
+        view = AutocompleteIterablesView()
+        view.iterable = ArticleStatus
+        view.page_size = 20
+        request = rf.get("")
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+
+        # These fields are required for virtual_scroll plugin
+        required_fields = ["results", "page", "has_more", "next_page", "total_pages"]
+        for field in required_fields:
+            assert field in data, f"Missing required field: {field}"
+
+    def test_virtual_scroll_can_determine_more_pages(self, rf):
+        """Test that virtual_scroll logic can correctly determine if more pages exist.
+
+        This simulates the JavaScript condition: json.page < json.total_pages
+        """
+        view = AutocompleteIterablesView()
+        view.iterable = ArticleStatus  # 55 items
+        view.page_size = 20
+        request = rf.get("", {"p": "1"})
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+
+        # Page 1 of 3: should indicate more pages available
+        assert data["page"] < data["total_pages"], "virtual_scroll should detect more pages"
+        assert data["has_more"] is True
+        assert data["next_page"] == 2
+
+    def test_virtual_scroll_detects_last_page(self, rf):
+        """Test that virtual_scroll logic correctly identifies the last page."""
+        view = AutocompleteIterablesView()
+        view.iterable = ArticleStatus  # 55 items
+        view.page_size = 20
+        total_pages = 3  # ceil(55/20) = 3
+        request = rf.get("", {"p": str(total_pages)})
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+
+        # Last page: page == total_pages
+        assert data["page"] == data["total_pages"], "Should be on the last page"
+        assert data["has_more"] is False
+        assert data["next_page"] is None

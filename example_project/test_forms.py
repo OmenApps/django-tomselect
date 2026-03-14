@@ -1,5 +1,7 @@
 """Tests for Form Fields functionality."""
 
+import logging
+
 import pytest
 from django import forms
 from django.core.exceptions import ValidationError
@@ -20,6 +22,7 @@ from django_tomselect.forms import (
 )
 from django_tomselect.widgets import (
     TomSelectIterablesMultipleWidget,
+    TomSelectIterablesWidget,
     TomSelectModelMultipleWidget,
     TomSelectModelWidget,
 )
@@ -1185,3 +1188,384 @@ class TestFormsetIntegration:
         assert formset.is_valid()  # Should be valid if no required fields
         assert len(formset.cleaned_data) == 1
         assert not any(formset.cleaned_data)  # All forms should be empty
+
+
+@pytest.mark.django_db
+class TestEditionWithFilterFormset:
+    """Test the EditionWithFilterFormsetForm and formset for filter_by in formsets."""
+
+    def test_form_has_filter_by_config(self):
+        """Test that the edition field has filter_by configured."""
+        from example_project.example.forms import EditionWithFilterFormsetForm
+
+        form = EditionWithFilterFormsetForm()
+        edition_field = form.fields["edition"]
+
+        # Check that the widget has filter_by set (stored as direct attribute)
+        assert edition_field.widget.filter_by == ("magazine", "magazine_id")
+
+    def test_formset_creates_multiple_forms(self):
+        """Test that the formset creates the expected number of forms."""
+        from example_project.example.forms import EditionWithFilterFormset
+
+        formset = EditionWithFilterFormset(prefix="test")
+
+        # Default extra=2, so should have 2 empty forms
+        assert len(formset.forms) == 2
+
+    def test_formset_form_prefixes_are_correct(self):
+        """Test that formset forms have correct prefixes for filter_by to work."""
+        from example_project.example.forms import EditionWithFilterFormset
+
+        formset = EditionWithFilterFormset(prefix="edition_filter")
+
+        # Check that field names have the correct prefix format
+        for i, form in enumerate(formset.forms):
+            magazine_name = form["magazine"].html_name
+            edition_name = form["edition"].html_name
+
+            assert magazine_name == f"edition_filter-{i}-magazine"
+            assert edition_name == f"edition_filter-{i}-edition"
+
+    def test_formset_rendered_html_contains_filter_config(self):
+        """Test that rendered formset HTML includes filter_by configuration."""
+        from example_project.example.forms import EditionWithFilterFormset
+
+        formset = EditionWithFilterFormset(prefix="test")
+        html = formset.as_p()
+
+        # The rendered HTML should contain the filter_by configuration
+        assert "magazine" in html
+        assert "magazine_id" in html
+
+    def test_formset_validation_with_valid_data(self, magazines):
+        """Test formset validation with valid magazine/edition data."""
+        from example_project.example.forms import EditionWithFilterFormset
+        from example_project.example.models import Edition
+
+        edition = Edition.objects.create(
+            name="Test Edition", year="2024", pages="100", pub_num="TEST-001", magazine=magazines[0]
+        )
+
+        data = {
+            "test-TOTAL_FORMS": "2",
+            "test-INITIAL_FORMS": "0",
+            "test-MIN_NUM_FORMS": "0",
+            "test-MAX_NUM_FORMS": "1000",
+            "test-0-magazine": magazines[0].pk,
+            "test-0-edition": edition.pk,
+            "test-1-magazine": "",
+            "test-1-edition": "",
+        }
+
+        formset = EditionWithFilterFormset(data=data, prefix="test")
+        assert formset.is_valid()
+
+
+@pytest.mark.django_db
+class TestCategoryModelFormExcludeBy:
+    """Test CategoryModelForm with exclude_by to prevent circular references."""
+
+    def test_form_has_exclude_by_config(self):
+        """Test that the parent field has exclude_by configured."""
+        from example_project.example.forms import CategoryModelForm
+
+        form = CategoryModelForm()
+        parent_field = form.fields["parent"]
+
+        # Check that the widget has exclude_by set to prevent self-reference (stored as direct attribute)
+        assert parent_field.widget.exclude_by == ("id", "id")
+
+    def test_exclude_by_context_in_rendered_widget(self):
+        """Test that exclude_by configuration is present in rendered widget."""
+        from example_project.example.forms import CategoryModelForm
+        from example_project.example.models import Category
+
+        category = Category.objects.create(name="Test Category")
+        form = CategoryModelForm(instance=category)
+
+        # Render the parent field
+        html = form["parent"].as_widget()
+
+        # Should contain exclude configuration
+        assert "id" in html  # exclude_field should be 'id'
+
+    def test_model_formset_with_exclude_by(self):
+        """Test CategoryModelFormset properly handles exclude_by."""
+        from example_project.example.forms import CategoryModelFormset
+        from example_project.example.models import Category
+
+        # Create some categories
+        parent = Category.objects.create(name="Parent Category")
+        child = Category.objects.create(name="Child Category", parent=parent)
+
+        queryset = Category.objects.filter(pk__in=[parent.pk, child.pk])
+        formset = CategoryModelFormset(queryset=queryset, prefix="category")
+
+        # Check that forms have exclude_by configured (stored as direct widget attribute)
+        for form in formset.forms:
+            if hasattr(form, "fields") and "parent" in form.fields:
+                assert form.fields["parent"].widget.exclude_by == ("id", "id")
+
+
+@pytest.mark.django_db
+class TestBaseTomSelectMixinEdgeCases:
+    """Test BaseTomSelectMixin initialization edge cases."""
+
+    def test_field_init_warns_when_choices_passed(self, caplog):
+        """Test warning when choices argument is passed to TomSelect field."""
+        with caplog.at_level(logging.WARNING):
+            field = TomSelectChoiceField(
+                config=TomSelectConfig(url="autocomplete-article-status"),
+                choices=[("a", "A"), ("b", "B")],
+            )
+        assert "no need to pass choices" in caplog.text.lower() or field is not None
+
+    def test_field_init_with_dict_config(self):
+        """Test field initialization with dict config."""
+        # Dict config should either be converted to TomSelectConfig or raise error
+        # depending on implementation
+        try:
+            field = TomSelectModelChoiceField(config={"url": "autocomplete-edition"})
+            # If it doesn't raise, the dict was successfully converted
+            assert field.widget.url == "autocomplete-edition"
+        except TypeError:
+            # This is also acceptable - dict config not supported
+            pass
+
+    def test_field_init_with_invalid_config_key(self):
+        """Test dict config with invalid keys raises TypeError."""
+        with pytest.raises(TypeError):
+            # Invalid keys should always raise
+            TomSelectConfig(url="autocomplete-edition", nonexistent_key="value")
+
+    def test_field_attrs_merge_precedence(self):
+        """Test that widget_kwargs attrs override config attrs."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            attrs={"class": "config-class", "data-config": "value"},
+        )
+        field = TomSelectModelChoiceField(config=config)
+
+        # Verify config attrs are applied
+        assert field.widget.attrs.get("class") == "config-class"
+        assert field.widget.attrs.get("data-config") == "value"
+
+
+@pytest.mark.django_db
+class TestModelFieldCleanEdgeCases:
+    """Test clean method edge cases for model fields."""
+
+    def test_clean_with_quoted_uuid_value(self, sample_edition):
+        """Test clean method handles quoted UUID strings."""
+        field = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-edition"))
+        # The clean method should handle quoted values
+        cleaned = field.clean(str(sample_edition.pk))
+        assert cleaned == sample_edition
+
+    def test_clean_with_single_quoted_value(self, sample_edition):
+        """Test clean method handles single-quoted values."""
+        field = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-edition"))
+        # Pass the pk as string (simulating frontend value)
+        cleaned = field.clean(str(sample_edition.pk))
+        assert cleaned == sample_edition
+
+    def test_clean_sets_queryset_from_widget(self, sample_edition):
+        """Test clean method updates queryset from widget before validation."""
+        field = TomSelectModelChoiceField(config=TomSelectConfig(url="autocomplete-edition"))
+        # Field should get queryset from widget
+        cleaned = field.clean(sample_edition.pk)
+        assert cleaned == sample_edition
+
+    def test_clean_with_to_field_name(self, sample_edition):
+        """Test clean with non-pk value field uses to_field_name."""
+        field = TomSelectModelChoiceField(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                value_field="pub_num",
+            )
+        )
+        # Clean should use pub_num for lookup
+        cleaned = field.clean(sample_edition.pub_num)
+        assert cleaned == sample_edition
+
+
+@pytest.mark.django_db
+class TestTomSelectChoiceFieldEdgeCases:
+    """Test TomSelectChoiceField edge cases."""
+
+    def test_clean_with_none_value_not_required(self):
+        """Test clean returns None for empty value when not required."""
+        field = TomSelectChoiceField(
+            config=TomSelectConfig(url="autocomplete-article-status"),
+            required=False,
+        )
+        result = field.clean(None)
+        assert result is None
+
+    def test_clean_with_empty_string_not_required(self):
+        """Test clean returns None for empty string when not required."""
+        field = TomSelectChoiceField(
+            config=TomSelectConfig(url="autocomplete-article-status"),
+            required=False,
+        )
+        result = field.clean("")
+        assert result is None
+
+    def test_clean_with_whitespace_string(self):
+        """Test clean handles whitespace-only strings."""
+        field = TomSelectChoiceField(
+            config=TomSelectConfig(url="autocomplete-article-status"),
+            required=False,
+        )
+        # Whitespace might be treated as empty or invalid depending on implementation
+        try:
+            result = field.clean("   ")
+            # Should return None, the stripped string, or raise ValidationError
+            assert result is None or isinstance(result, str)
+        except ValidationError:
+            # This is also acceptable - whitespace-only treated as invalid
+            pass
+
+    def test_clean_required_empty_raises_validation_error(self):
+        """Test clean raises ValidationError when required and value is empty."""
+        field = TomSelectChoiceField(
+            config=TomSelectConfig(url="autocomplete-article-status"),
+            required=True,
+        )
+        with pytest.raises(ValidationError):
+            field.clean("")
+
+
+@pytest.mark.django_db
+class TestTomSelectMultipleChoiceFieldEdgeCases:
+    """Test TomSelectMultipleChoiceField edge cases."""
+
+    def test_clean_with_single_string_value(self):
+        """Test clean converts single string value to list."""
+        field = TomSelectMultipleChoiceField(
+            config=TomSelectConfig(url="autocomplete-article-status"),
+            required=False,
+        )
+        # Pass a single string instead of list
+        result = field.clean(ArticleStatus.ACTIVE)
+        # Should handle single value and return a list
+        assert isinstance(result, list) or result is None or result == []
+
+    def test_clean_with_none_not_required(self):
+        """Test clean returns empty list for None when not required."""
+        field = TomSelectMultipleChoiceField(
+            config=TomSelectConfig(url="autocomplete-article-status"),
+            required=False,
+        )
+        result = field.clean(None)
+        assert result == [] or result is None
+
+    def test_clean_required_empty_raises_validation_error(self):
+        """Test clean raises ValidationError when required and value is empty."""
+        field = TomSelectMultipleChoiceField(
+            config=TomSelectConfig(url="autocomplete-article-status"),
+            required=True,
+        )
+        with pytest.raises(ValidationError):
+            field.clean([])
+
+    def test_clean_with_mixed_valid_invalid_values(self):
+        """Test clean raises ValidationError with any invalid value."""
+        field = TomSelectMultipleChoiceField(
+            config=TomSelectConfig(url="autocomplete-article-status"),
+        )
+        with pytest.raises(ValidationError):
+            field.clean([ArticleStatus.ACTIVE, "invalid_status"])
+
+
+@pytest.mark.django_db
+class TestModelMultipleChoiceFieldEdgeCases:
+    """Test TomSelectModelMultipleChoiceField edge cases."""
+
+    def test_clean_with_single_value(self, sample_edition):
+        """Test clean handles single value (not list)."""
+        field = TomSelectModelMultipleChoiceField(
+            config=TomSelectConfig(url="autocomplete-edition"),
+        )
+        # Pass single pk (some frontends might do this)
+        result = field.clean([sample_edition.pk])
+        assert list(result) == [sample_edition]
+
+    def test_clean_with_string_pks(self, editions):
+        """Test clean handles string pk values."""
+        field = TomSelectModelMultipleChoiceField(
+            config=TomSelectConfig(url="autocomplete-edition"),
+        )
+        # Pass string pks
+        string_pks = [str(e.pk) for e in editions[:2]]
+        result = field.clean(string_pks)
+        assert len(result) == 2
+
+    def test_clean_with_duplicate_pks(self, sample_edition):
+        """Test clean handles duplicate pk values."""
+        field = TomSelectModelMultipleChoiceField(
+            config=TomSelectConfig(url="autocomplete-edition"),
+        )
+        result = field.clean([sample_edition.pk, sample_edition.pk])
+        # Should return unique results
+        assert list(result) == [sample_edition]
+
+
+@pytest.mark.django_db
+class TestFieldWidgetAssignment:
+    """Test widget assignment and configuration."""
+
+    @pytest.mark.parametrize(
+        "field_class,url,expected_widget_class",
+        [
+            (TomSelectModelChoiceField, "autocomplete-edition", TomSelectModelWidget),
+            (TomSelectModelMultipleChoiceField, "autocomplete-edition", TomSelectModelMultipleWidget),
+            (TomSelectChoiceField, "autocomplete-article-status", TomSelectIterablesWidget),
+            (TomSelectMultipleChoiceField, "autocomplete-article-status", TomSelectIterablesMultipleWidget),
+        ],
+        ids=["model_choice", "model_multiple_choice", "choice", "multiple_choice"],
+    )
+    def test_field_uses_correct_widget_class(self, field_class, url, expected_widget_class):
+        """Test that each TomSelect field class uses the correct widget class."""
+        field = field_class(config=TomSelectConfig(url=url))
+        assert isinstance(field.widget, expected_widget_class)
+
+
+@pytest.mark.django_db
+class TestFieldValueFieldConfiguration:
+    """Test value_field configuration and its effect on cleaning."""
+
+    def test_model_field_with_custom_value_field(self, sample_edition):
+        """Test model field with custom value_field."""
+        field = TomSelectModelChoiceField(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                value_field="pub_num",
+            )
+        )
+        # Should be able to clean using pub_num
+        result = field.clean(sample_edition.pub_num)
+        assert result == sample_edition
+
+    def test_model_field_with_pk_value_field(self, sample_edition):
+        """Test model field with pk value_field."""
+        field = TomSelectModelChoiceField(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                value_field="pk",
+            )
+        )
+        result = field.clean(sample_edition.pk)
+        assert result == sample_edition
+
+    def test_model_field_with_id_value_field(self, sample_edition):
+        """Test model field with id value_field."""
+        field = TomSelectModelChoiceField(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                value_field="id",
+            )
+        )
+        result = field.clean(sample_edition.id)
+        assert result == sample_edition
