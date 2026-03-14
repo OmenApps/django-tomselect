@@ -674,6 +674,17 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         """
         # Get values for specified fields
         fields = self.get_value_fields()
+
+        # Re-include virtual_fields that are actually queryset annotations
+        # (e.g. fields added via hook_queryset). These are valid for .values()
+        # even though they aren't concrete model columns.
+        virtual_fields = getattr(self, "virtual_fields", [])
+        if virtual_fields and hasattr(results, "query"):
+            annotations = getattr(results.query, "annotations", {})
+            for vf in virtual_fields:
+                if vf in annotations and vf not in fields:
+                    fields.append(vf)
+
         values = list(results.values(*fields))
 
         # Pre-compute model-level permissions once before the loop

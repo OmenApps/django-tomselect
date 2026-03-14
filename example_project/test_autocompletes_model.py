@@ -1397,6 +1397,142 @@ class TestVirtualFields:
         assert "combined" in modified_results[0]
         assert modified_results[0]["combined"] == f"{modified_results[0]['name']} ({modified_results[0]['year']})"
 
+    def test_annotation_fields_included_in_values(self, rf, db):
+        """Test that queryset annotations in value_fields are included in .values() even when auto-detected as virtual.
+
+        Fields that aren't concrete model columns but ARE queryset annotations (added via hook_queryset)
+        should be included in the .values() call so they appear in the results.
+        """
+        from django.db.models import Count, F
+        from django.db.models.functions import Concat
+
+        from example_project.example.models import Category
+
+        parent = Category.objects.create(name="Science")
+        child = Category.objects.create(name="Physics", parent=parent)
+
+        class AnnotatedAutocompleteView(AutocompleteModelView):
+            model = Category
+            value_fields = ["id", "name", "parent_id", "parent_name"]
+            skip_authorization = True
+
+            def hook_queryset(self, queryset):
+                return queryset.annotate(parent_name=F("parent__name"))
+
+        view = AnnotatedAutocompleteView()
+        request = rf.get("")
+        view.setup(request)
+
+        # parent_name should be auto-detected as non-concrete and moved to virtual_fields
+        assert "parent_name" in view.virtual_fields
+
+        # But prepare_results should still include it because it's a queryset annotation
+        queryset = view.get_queryset()
+        results = view.prepare_results(queryset)
+
+        child_result = next(r for r in results if r["id"] == child.pk)
+        assert child_result["parent_name"] == "Science"
+
+        parent_result = next(r for r in results if r["id"] == parent.pk)
+        assert parent_result["parent_name"] is None
+
+    def test_annotation_fields_full_prepare_results_pipeline(self, rf, db):
+        """Test the full pipeline with annotations through hook_prepare_results.
+
+        Simulates the CategoryAutocompleteView pattern: annotations added in hook_queryset,
+        listed in value_fields, and accessed in hook_prepare_results.
+        """
+        from django.db.models import Count, F
+        from django.db.models.functions import Concat
+
+        from example_project.example.models import Category
+
+        parent = Category.objects.create(name="Technology")
+        child = Category.objects.create(name="Software", parent=parent)
+
+        class CategoryLikeAutocompleteView(AutocompleteModelView):
+            model = Category
+            value_fields = ["id", "name", "parent_id", "parent_name"]
+            skip_authorization = True
+
+            def hook_queryset(self, queryset):
+                return queryset.annotate(parent_name=F("parent__name"))
+
+            def hook_prepare_results(self, results):
+                for item in results:
+                    # This would raise KeyError before the fix if parent_name was excluded
+                    if item["parent_name"]:
+                        item["formatted_name"] = f"{item['parent_name']} → {item['name']}"
+                    else:
+                        item["formatted_name"] = item["name"]
+                return results
+
+        view = CategoryLikeAutocompleteView()
+        request = rf.get("")
+        view.setup(request)
+
+        queryset = view.get_queryset()
+        results = view.prepare_results(queryset)
+
+        child_result = next(r for r in results if r["id"] == child.pk)
+        assert child_result["formatted_name"] == "Technology → Software"
+        assert child_result["parent_name"] == "Technology"
+
+        parent_result = next(r for r in results if r["id"] == parent.pk)
+        assert parent_result["formatted_name"] == "Technology"
+
+    def test_true_virtual_fields_still_excluded(self, rf, test_editions):
+        """Test that fields that are neither concrete nor annotations are still excluded from .values()."""
+
+        class ViewWithTrueVirtual(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "name", "computed_label"]
+            virtual_fields = ["computed_label"]
+            skip_authorization = True
+
+            def hook_prepare_results(self, results):
+                for result in results:
+                    result["computed_label"] = f"Label: {result['name']}"
+                return results
+
+        view = ViewWithTrueVirtual()
+        request = rf.get("")
+        view.setup(request)
+
+        # computed_label is not an annotation, so it should stay excluded from .values()
+        fields = view.get_value_fields()
+        assert "computed_label" not in fields
+
+        # But prepare_results should still work (hook adds it manually)
+        queryset = view.get_queryset()
+        results = view.prepare_results(queryset)
+        assert results[0]["computed_label"].startswith("Label: ")
+
+    def test_category_autocomplete_view_returns_results(self, rf, db):
+        """Integration test: the actual CategoryAutocompleteView returns results without errors."""
+        from example_project.example.autocompletes import CategoryAutocompleteView
+        from example_project.example.models import Category
+
+        parent = Category.objects.create(name="Science")
+        Category.objects.create(name="Physics", parent=parent)
+        Category.objects.create(name="Chemistry", parent=parent)
+
+        view = CategoryAutocompleteView()
+        request = rf.get("", {"q": ""})
+        view.setup(request)
+
+        queryset = view.get_queryset()
+        results = view.prepare_results(queryset)
+
+        assert len(results) == 3
+        # Verify hook_prepare_results ran successfully (it adds formatted_name)
+        assert all("formatted_name" in r for r in results)
+        # Verify annotation fields are present
+        assert all("parent_name" in r for r in results)
+        assert all("full_path" in r for r in results)
+        assert all("direct_articles" in r for r in results)
+        assert all("total_articles" in r for r in results)
+
 
 class CustomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder for testing."""
