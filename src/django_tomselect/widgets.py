@@ -311,6 +311,22 @@ class TomSelectWidgetMixin(_MixinBase):
             "page_param": PAGE_VAR,
         }
 
+    def get_csp_nonce(self) -> str | None:
+        """Get CSP nonce from the current request, if available.
+
+        Supports django-csp (request.csp_nonce) and any middleware that sets
+        request._csp_nonce or request.csp_nonce.
+        """
+        request = self.get_current_request()
+        if not request:
+            return None
+        # django-csp >= 4.0 uses request.csp_nonce
+        nonce = getattr(request, "csp_nonce", None)
+        if not nonce:
+            # Some setups use _csp_nonce
+            nonce = getattr(request, "_csp_nonce", None)
+        return nonce
+
     def _get_css_paths(self) -> list[str]:
         """Get CSS paths based on framework."""
         # Framework-specific paths
@@ -731,7 +747,8 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 "value": value,
                 **self.get_autocomplete_context(),
                 **self.get_url_param_constants(),
-            }
+            },
+            "csp_nonce": self.get_csp_nonce(),
         }
 
         # Add filter/exclude configuration - pass normalized lists
@@ -1127,7 +1144,8 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                 "value": value,
                 **self.get_autocomplete_context(),
                 **self.get_url_param_constants(),
-            }
+            },
+            "csp_nonce": self.get_csp_nonce(),
         }
 
         if value is not None:

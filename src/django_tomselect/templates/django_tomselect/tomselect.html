@@ -42,7 +42,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 {% block tomselect_global_setup %}
 {% endblock tomselect_global_setup %}
 
-<script>
+<script{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
     {% block tomselect_init %}
         (function() {
             const elementId = '{% if "id" in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id|escapejs }}{% else %}{{ widget.name|escapejs }}{% endif %}';
