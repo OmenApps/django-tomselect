@@ -255,7 +255,7 @@ class ContactAutocomplete(AutocompleteModelView):
     json_encoder = 'myapp.encoders.PhoneNumberEncoder'
 ```
 
-See [Configuration documentation](config.md#custom-json-encoder) for details on setting a global default encoder.
+See {ref}`Configuration documentation <custom-json-encoder>` for details on setting a global default encoder.
 
 ## Iterables Autocomplete Views
 

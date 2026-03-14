@@ -427,6 +427,7 @@ When using multiple filters, the autocomplete URL will include multiple `f` (fil
 - Constant filters: `?f='__const__lookup=value'`
 - Multiple: `?f='...'&f='...'&f='...'`
 
+(creating-new-items)=
 ### Creating New Items
 
 Django TomSelect provides two different mechanisms for creating new items:
@@ -562,7 +563,7 @@ urlpatterns = [
 
 ### Logging
 
-By default, logging is enabled. To disable logging or configure per-module log levels, see the [Logging section in Utilities](utilities.md#logging).
+By default, logging is enabled. To disable logging or configure per-module log levels, see the {ref}`Logging section in Utilities <logging>`.
 
 Quick disable:
 
@@ -596,6 +597,7 @@ TOMSELECT = {
 }
 ```
 
+(custom-json-encoder)=
 ### Custom JSON Encoder
 
 If your models contain fields with non-serializable types (e.g.: using `PhoneNumber` from django-phonenumber-field, custom objects, etc), you can specify a custom JSON encoder to handle serialization in autocomplete responses.

@@ -70,6 +70,7 @@ class MyAutocompleteView(AutocompleteModelView):
         return super().has_permission(request, action)
 ```
 
+(logging)=
 ## Logging
 
 The logging system provides a controllable wrapper around Python's standard logging module, with per-module loggers for fine-grained control.

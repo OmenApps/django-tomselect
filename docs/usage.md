@@ -414,7 +414,7 @@ Basic settings for the widget are typically passed as keyword arguments directly
 - **Search Behavior**: `minimum_query_length` to determine when to trigger searches.
 - **Display Settings**: `placeholder` text, whether to `open_on_focus`, and `highlight` matching terms.
 - **Loading and Performance**: `load_throttle` to control how frequently searches occur, and `max_options` to limit how many results appear.
-- **Creation and HTMX**: `create` to allow new item creation, and `create_with_htmx` to handle server-driven creation workflows. See [Creating New Items](api/config.md#creating-new-items) for detailed documentation.
+- **Creation and HTMX**: `create` to allow new item creation, and `create_with_htmx` to handle server-driven creation workflows. See {ref}`Creating New Items <creating-new-items>` for detailed documentation.
 
 **Example:**
 
