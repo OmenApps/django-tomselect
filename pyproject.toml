@@ -117,6 +117,7 @@ log_cli_level = "INFO"
 DJANGO_SETTINGS_MODULE = "example_project.settings"
 python_files = ["*test_*.py", "*_test.py", "example_project/*.py"]
 log_cli = true
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 src = ["src"]
