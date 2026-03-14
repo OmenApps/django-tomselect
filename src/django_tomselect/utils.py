@@ -32,7 +32,18 @@ DOMAIN_PATTERN = r"^[a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,}"
 MAX_RECURSION_DEPTH = 10
 
 # Types that are inherently JSON-safe and should not be escaped/stringified
-_SAFE_TYPES = (int, float, bool, type(None), Decimal, uuid.UUID, datetime.datetime, datetime.date, datetime.time, datetime.timedelta)
+_SAFE_TYPES = (
+    int,
+    float,
+    bool,
+    type(None),
+    Decimal,
+    uuid.UUID,
+    datetime.datetime,
+    datetime.date,
+    datetime.time,
+    datetime.timedelta,
+)
 
 
 def safe_reverse(viewname: str, args: list | None = None, kwargs: dict | None = None) -> str:
@@ -157,6 +168,41 @@ def safe_url(url: str | None) -> str | None:
         return None
 
 
+def _sanitize_url_value(key: str, value: str) -> str:
+    """Sanitize a URL field value."""
+    sanitized_url = safe_url(value)
+    if sanitized_url is not None:
+        return sanitized_url
+    logger.warning("Unsafe URL found and nullified in key: %s", key)
+    return ""
+
+
+def _sanitize_list(items: list, escape_keys: bool, depth: int) -> list:
+    """Sanitize all items in a list."""
+    sanitized_list = []
+    for item in items:
+        if isinstance(item, dict):
+            sanitized_list.append(sanitize_dict(item, escape_keys, depth + 1))
+        elif isinstance(item, _SAFE_TYPES):
+            sanitized_list.append(item)
+        else:
+            sanitized_list.append(safe_escape(item))
+    return sanitized_list
+
+
+def _sanitize_value(key: str, value: Any, escape_keys: bool, depth: int) -> Any:
+    """Route a single value to the appropriate sanitizer by type."""
+    if isinstance(value, dict):
+        return sanitize_dict(value, escape_keys, depth + 1)
+    if isinstance(value, list):
+        return _sanitize_list(value, escape_keys, depth)
+    if isinstance(value, _SAFE_TYPES):
+        return value
+    if key.endswith("_url") and isinstance(value, str):
+        return _sanitize_url_value(key, value)
+    return safe_escape(value)
+
+
 def sanitize_dict(data: dict, escape_keys: bool = False, depth: int = 0) -> dict:
     """Sanitize all values in a dictionary to prevent XSS.
 
@@ -182,40 +228,13 @@ def sanitize_dict(data: dict, escape_keys: bool = False, depth: int = 0) -> dict
     result = {}
     try:
         for key, value in data.items():
-            # Ensure key is a valid string
             if not isinstance(key, str):
                 key = str(key)
 
             safe_key = safe_escape(key) if escape_keys else key
-
-            if isinstance(value, dict):
-                result[safe_key] = sanitize_dict(value, escape_keys, depth + 1)
-            elif isinstance(value, list):
-                sanitized_list = []
-                for item in value:
-                    if isinstance(item, dict):
-                        sanitized_list.append(sanitize_dict(item, escape_keys, depth + 1))
-                    elif isinstance(item, _SAFE_TYPES):
-                        sanitized_list.append(item)
-                    else:
-                        sanitized_list.append(safe_escape(item))
-                result[safe_key] = sanitized_list
-            elif isinstance(value, _SAFE_TYPES):
-                result[safe_key] = value
-            elif key.endswith("_url") and isinstance(value, str):
-                # Special handling for URL fields
-                sanitized_url = safe_url(value)
-                if sanitized_url is not None:
-                    result[safe_key] = sanitized_url
-                else:
-                    # If URL sanitization fails, store an empty string as a safe fallback
-                    result[safe_key] = ""
-                    logger.warning("Unsafe URL found and nullified in key: %s", key)
-            else:
-                result[safe_key] = safe_escape(value)
+            result[safe_key] = _sanitize_value(key, value, escape_keys, depth)
     except Exception as e:
         logger.error("Error sanitizing dictionary: %s", e)
-        # Return whatever was successfully processed
         if not result:
             return {}
 
