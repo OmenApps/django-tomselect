@@ -52,18 +52,46 @@ class TomSelectWidgetMixin(_MixinBase):
 
     template_name: str = "django_tomselect/tomselect.html"
 
-    def __init__(self, config: TomSelectConfig | dict[str, Any] | None = None, **kwargs: Any) -> None:
-        """Initialize shared TomSelect configuration."""
-        # Merge user provided config with global defaults
+    @staticmethod
+    def _resolve_widget_config(config: TomSelectConfig | dict[str, Any] | None) -> TomSelectConfig:
+        """Resolve config input to a merged TomSelectConfig for the widget.
+
+        Args:
+            config: The config input — None, TomSelectConfig, or dict.
+
+        Returns:
+            A fully merged TomSelectConfig.
+
+        Raises:
+            TypeError: If config is not a recognized type.
+        """
         base_config: TomSelectConfig = GLOBAL_DEFAULT_CONFIG
         if config is None:
-            final_config = base_config
-        elif isinstance(config, TomSelectConfig):
-            final_config = merge_configs(base_config, config)
-        elif isinstance(config, dict):
-            final_config = merge_configs(base_config, TomSelectConfig(**config))
-        else:
-            raise TypeError(f"config must be a TomSelectConfig or a dictionary, not {type(config)}")
+            return base_config
+        if isinstance(config, TomSelectConfig):
+            return merge_configs(base_config, config)
+        if isinstance(config, dict):
+            return merge_configs(base_config, TomSelectConfig(**config))
+        raise TypeError(f"config must be a TomSelectConfig or a dictionary, not {type(config)}")
+
+    @staticmethod
+    def _process_render_attrs(attrs: dict[str, Any]) -> None:
+        """Extract render option/item templates from an attrs dict, in place.
+
+        Pops the 'render' key if present and converts to data_template_option
+        and data_template_item keys.
+        """
+        if "render" in attrs:
+            render_data = attrs.pop("render")
+            if isinstance(render_data, dict):
+                if "option" in render_data:
+                    attrs["data_template_option"] = render_data["option"]
+                if "item" in render_data:
+                    attrs["data_template_item"] = render_data["item"]
+
+    def __init__(self, config: TomSelectConfig | dict[str, Any] | None = None, **kwargs: Any) -> None:
+        """Initialize shared TomSelect configuration."""
+        final_config = self._resolve_widget_config(config)
 
         # URL and field config
         self.url: str = final_config.url
@@ -105,15 +133,7 @@ class TomSelectWidgetMixin(_MixinBase):
         # Explicitly set self.attrs from config.attrs to ensure attributes are properly passed to the widget
         if hasattr(final_config, "attrs") and final_config.attrs:
             self.attrs: dict[str, Any] = final_config.attrs.copy()
-
-            # Handle 'render' attribute if present
-            if "render" in self.attrs:
-                render_data = self.attrs.pop("render")
-                if isinstance(render_data, dict):
-                    if "option" in render_data:
-                        self.attrs["data_template_option"] = render_data["option"]
-                    if "item" in render_data:
-                        self.attrs["data_template_item"] = render_data["item"]
+            self._process_render_attrs(self.attrs)
 
         # Allow kwargs to override any config values
         for key, value in kwargs.items():
@@ -179,6 +199,14 @@ class TomSelectWidgetMixin(_MixinBase):
 
         logger.debug("Plugins in use: %s", ", ".join(plugins.keys() if plugins else ["None"]))
         return plugins
+
+    def get_model(self) -> "type[Model] | None":
+        """Get the model class. Overridden in subclasses."""
+        return None
+
+    def get_autocomplete_view(self) -> Any:
+        """Get the autocomplete view. Overridden in subclasses."""
+        return None
 
     def get_lazy_view(self) -> LazyView | None:
         """Get lazy-loaded view for the TomSelect widget."""
@@ -250,13 +278,7 @@ class TomSelectWidgetMixin(_MixinBase):
             attrs["data-template-item"] = json.dumps(attrs["data-template-item"])
 
         # Handle 'render' attribute if present in the input attributes
-        if "render" in attrs:
-            render_data = attrs.pop("render")
-            if isinstance(render_data, dict):
-                if "option" in render_data:
-                    attrs["data_template_option"] = render_data["option"]
-                if "item" in render_data:
-                    attrs["data_template_item"] = render_data["item"]
+        self._process_render_attrs(attrs)
 
         logger.debug("Returning final attrs: %s and extra_attrs: %s", attrs, extra_attrs)
         return {**attrs, **(extra_attrs or {})}
@@ -330,13 +352,18 @@ class TomSelectWidgetMixin(_MixinBase):
     def _get_css_paths(self) -> list[str]:
         """Get CSS paths based on framework."""
         # Framework-specific paths
-        if self.css_framework.lower() == AllowedCSSFrameworks.BOOTSTRAP4.value:
+        framework = (
+            self.css_framework.value
+            if isinstance(self.css_framework, AllowedCSSFrameworks)
+            else str(self.css_framework)
+        )
+        if framework.lower() == AllowedCSSFrameworks.BOOTSTRAP4.value:
             css = (
                 "django_tomselect/vendor/tom-select/css/tom-select.bootstrap4.min.css"
                 if self.use_minified
                 else "django_tomselect/vendor/tom-select/css/tom-select.bootstrap4.css"
             )
-        elif self.css_framework.lower() == AllowedCSSFrameworks.BOOTSTRAP5.value:
+        elif framework.lower() == AllowedCSSFrameworks.BOOTSTRAP5.value:
             css = (
                 "django_tomselect/vendor/tom-select/css/tom-select.bootstrap5.min.css"
                 if self.use_minified
@@ -600,116 +627,119 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         return context
 
+    @staticmethod
+    def _safely_decode_html(value: str) -> str:
+        """Iteratively unescape HTML entities with a ReDoS-safe iteration limit.
+
+        Args:
+            value: The HTML-encoded string.
+
+        Returns:
+            The fully decoded string.
+        """
+        decoded_value = value
+        max_decode_iterations = 10
+        prev_value = ""
+        iteration_count = 0
+        while prev_value != decoded_value and "&" in decoded_value and iteration_count < max_decode_iterations:
+            prev_value = decoded_value
+            decoded_value = html.unescape(decoded_value)
+            iteration_count += 1
+
+        if iteration_count >= max_decode_iterations:
+            logger.warning(
+                "HTML decoding reached maximum iterations (%d), possible malicious input", max_decode_iterations
+            )
+
+        if decoded_value != value:
+            logger.debug("Decoded value after %d iterations: %s", iteration_count, decoded_value)
+
+        return decoded_value
+
+    @staticmethod
+    def _extract_field_values(decoded_value: str, value_field: str, label_field: str) -> dict[str, str]:
+        """Extract field values from a decoded dict-like string using regex patterns.
+
+        Args:
+            decoded_value: The decoded string to extract values from.
+            value_field: The configured value field name.
+            label_field: The configured label field name.
+
+        Returns:
+            Dictionary mapping field names to extracted string values.
+        """
+        extracted_values: dict[str, str] = {}
+        for field_name in [value_field, "id", "pk", "pkid", "name", label_field]:
+            if field_name in extracted_values:
+                continue
+
+            patterns = [
+                rf"['\"]({field_name})['\"]\s*:\s*['\"]([^'\"]+)['\"]",
+                rf"['\"]({field_name})['\"]\s*:\s*(\d+)",
+                rf"['\"]({field_name})['\"]\s*:\s*UUID\(['\"]([^'\"]+)['\"]",
+            ]
+
+            for pattern in patterns:
+                match = re.search(pattern, decoded_value)
+                if match:
+                    matched_value = match.group(2).strip()
+                    logger.debug("Extracted %s: %s", field_name, matched_value)
+                    extracted_values[field_name] = matched_value
+                    break
+        return extracted_values
+
+    def _resolve_model_instance(self, extracted_values: dict[str, str], value_field: str) -> Any:
+        """Look up a model instance from extracted field values, with fallback to the dict.
+
+        Args:
+            extracted_values: Dictionary of extracted field values.
+            value_field: The configured value field name.
+
+        Returns:
+            A model instance if found, the extracted_values dict as fallback, or None.
+        """
+        lookup_field = value_field
+        lookup_value = extracted_values.get(value_field)
+
+        if not lookup_value:
+            for field in ["id", "pk", "pkid"]:
+                if field in extracted_values:
+                    lookup_field = field
+                    lookup_value = extracted_values[field]
+                    break
+
+        if not lookup_value:
+            return extracted_values
+
+        qs = self.get_queryset()
+        if qs is None:
+            return extracted_values
+
+        try:
+            instance = qs.filter(**{lookup_field: lookup_value}).first()
+            return instance if instance else extracted_values
+        except Exception as e:
+            logger.debug("Error looking up with extracted values: %s", e)
+            return extracted_values
+
     def _process_string_value(self, value: Any, value_field: str, label_field: str) -> Any:
         """Process string value that may represent a model instance.
 
         This method attempts to get the model instance or its attributes from a string representation, so we do not end
         up with weird strings in the widget's selected options.
-
-        Goal: prevent cases where model instances were ending up in widget's options, like this (formatted example):
-
-            <div role="option" data-value="" class="item" data-ts-item="">
-                {
-                    &amp;#x27;pkid&amp;#x27;: 6749,
-                    &amp;#x27;id&amp;#x27;: UUID(&amp;#x27;019606eb-ad04-71d0-8160-92a9ac3e07d2&amp;#x27;),
-                    &amp;#x27;name&amp;#x27;: &amp;#x27;Levi Tanner&amp;#x27;,
-                    &amp;#x27;mailing_address&amp;#x27;: &amp;#x27;&amp;#x27;,
-                    &amp;#x27;office_phone&amp;#x27;: None,
-                    &amp;#x27;created&amp;#x27;: datetime.datetime(2025, 4, 5, 17, 7, 9, 733087, tzinfo=datetime.timezone.utc),
-                    &amp;#x27;modified&amp;#x27;: datetime.datetime(2025, 4, 5, 17, 7, 9, 733104, tzinfo=datetime.timezone.utc),
-                    &amp;#x27;modified_by_id&amp;#x27;: UUID(&amp;#x27;5abb8547-9715-458e-9463-a33c2b842ed6&amp;#x27;),
-                }
-            </div>
         """
         if not isinstance(value, str) or ("{" not in value and "&" not in value):
             return value
 
-        # Initialize dictionary to store extracted values
-        extracted_values = {}
-
         try:
-            # First, decode any HTML entities in the string - possibly multiple times
-            decoded_value = value
+            decoded_value = self._safely_decode_html(value)
+            extracted_values = self._extract_field_values(decoded_value, value_field, label_field)
 
-            # Handle multiple levels of HTML encoding
-            # Keep decoding until no more HTML entities are found
-            # Limit iterations to prevent potential ReDoS attacks with deeply nested encodings
-            max_decode_iterations = 10
-            prev_value = ""
-            iteration_count = 0
-            while prev_value != decoded_value and "&" in decoded_value and iteration_count < max_decode_iterations:
-                prev_value = decoded_value
-                decoded_value = html.unescape(decoded_value)
-                iteration_count += 1
-
-            if iteration_count >= max_decode_iterations:
-                logger.warning(
-                    "HTML decoding reached maximum iterations (%d), possible malicious input", max_decode_iterations
-                )
-
-            if decoded_value != value:
-                logger.debug("Decoded value after %d iterations: %s", iteration_count, decoded_value)
-
-            # Extract values from the decoded string with different patterns
-            for field_name in [value_field, "id", "pk", "pkid", "name", label_field]:
-                if field_name in extracted_values:
-                    continue
-
-                # Try direct key-value pattern for strings
-                pattern1 = rf"['\"]({field_name})['\"]\s*:\s*['\"]([^'\"]+)['\"]"
-                # Try direct key-value pattern for numbers
-                pattern2 = rf"['\"]({field_name})['\"]\s*:\s*(\d+)"
-                # Try UUID pattern
-                pattern3 = rf"['\"]({field_name})['\"]\s*:\s*UUID\(['\"]([^'\"]+)['\"]"
-
-                for pattern in [pattern1, pattern2, pattern3]:
-                    match = re.search(pattern, decoded_value)
-                    if match:
-                        matched_value = match.group(2).strip()
-                        logger.debug("Extracted %s: %s", field_name, matched_value)
-                        extracted_values[field_name] = matched_value
-                        break
-
-            # If we have enough information to create a selected option, capture it
-            if any(
-                [
-                    extracted_values.get(value_field),
-                    extracted_values.get("id"),
-                    extracted_values.get("pk"),
-                    extracted_values.get("pkid"),
-                ]
-            ):
-                # Try to find the model instance if possible
-                if self.get_queryset() is not None:
-                    try:
-                        lookup_field = value_field
-                        lookup_value = extracted_values.get(value_field)
-
-                        # If we don't have the value_field but have id/pk/pkid, use that
-                        if not lookup_value:
-                            for field in ["id", "pk", "pkid"]:
-                                if field in extracted_values:
-                                    lookup_field = field
-                                    lookup_value = extracted_values[field]
-                                    break
-
-                        if lookup_value:
-                            # Try looking up by the extracted field
-                            lookup = {lookup_field: lookup_value}
-                            instance = self.get_queryset().filter(**lookup).first()
-
-                            if instance:
-                                return instance
-                            else:
-                                # Keep the extracted values
-                                return extracted_values
-                    except Exception as e:
-                        logger.debug(f"Error looking up with extracted values: {e}")
-                        # Keep the extracted values
-                        return extracted_values
-                else:
-                    # No queryset, but we have extracted values
-                    return extracted_values
+            has_identifier = any(
+                extracted_values.get(k) for k in [value_field, "id", "pk", "pkid"]
+            )
+            if has_identifier:
+                return self._resolve_model_instance(extracted_values, value_field)
         except Exception as e:
             logger.error("Error parsing string representation: %s", e)
 

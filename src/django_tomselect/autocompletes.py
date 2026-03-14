@@ -476,6 +476,26 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             )
             return None
 
+    def _apply_filter_list(self, queryset: QuerySet, filter_strings: list, is_exclude: bool = False) -> QuerySet | None:
+        """Apply a list of filter/exclude strings to the queryset.
+
+        Args:
+            queryset: The queryset to filter.
+            filter_strings: List of filter strings to apply.
+            is_exclude: If True, apply as excludes instead of filters.
+
+        Returns:
+            The filtered queryset, or None if any filter returned an empty result.
+        """
+        for filter_str in filter_strings:
+            if not isinstance(filter_str, str):
+                continue
+            result = self._apply_single_filter(queryset, filter_str, is_exclude=is_exclude)
+            if result is None:
+                return None
+            queryset = result
+        return queryset
+
     def apply_filters(self, queryset: QuerySet) -> QuerySet:
         """Apply additional filters to the queryset.
 
@@ -500,21 +520,16 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             return queryset
 
         try:
-            # Apply all filter_by parameters
-            for filter_str in filters_by:
-                result = self._apply_single_filter(queryset, filter_str, is_exclude=False)
-                if result is None:
-                    return queryset.none()
-                queryset = result
+            result = self._apply_filter_list(queryset, filters_by, is_exclude=False)
+            if result is None:
+                return queryset.none()
+            queryset = result
 
-            # Apply all exclude_by parameters
-            for exclude_str in excludes_by:
-                result = self._apply_single_filter(queryset, exclude_str, is_exclude=True)
-                if result is None:
-                    return queryset.none()
-                queryset = result
+            result = self._apply_filter_list(queryset, excludes_by, is_exclude=True)
+            if result is None:
+                return queryset.none()
 
-            return queryset
+            return result
 
         except FieldError as e:
             self._filter_error = f"Invalid lookup field: {e}"
@@ -537,7 +552,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         try:
             q_objects = Q()
             for lookup in self.search_lookups:
-                q_objects |= Q(**{lookup: query})
+                q_objects = q_objects | Q(**{lookup: query})  # type: ignore[misc]
             logger.debug("Applying search query %s", q_objects)
             return queryset.filter(q_objects)
         except FieldError:
@@ -564,7 +579,10 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             ordering = ordering
         else:
             # Fall back to model's default ordering or primary key
-            ordering = self.model._meta.ordering or [self.model._meta.pk.name]
+            if self.model is None:
+                raise ImproperlyConfigured(f"{self.__class__.__name__} requires a 'model' attribute.")
+            pk = self.model._meta.pk  # type: ignore[union-attr]
+            ordering = self.model._meta.ordering or ([pk.name] if pk else ["pk"])  # type: ignore[union-attr]
 
         if not ordering:
             return queryset
@@ -594,22 +612,26 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             page = paginator.page(1)
 
         # Create pagination context with clean URL handling
-        pagination_context = {
-            "results": self.prepare_results(page.object_list),
-            "page": page.number,
-            "has_more": page.has_next(),
+        page_num = int(page.number)
+        has_more = bool(page.has_next())
+        pagination_context: dict[str, Any] = {
+            "results": self.prepare_results(page.object_list),  # type: ignore[arg-type]
+            "page": page_num,
+            "has_more": has_more,
             # Only include next_page if there are more results
-            "next_page": page.number + 1 if page.has_next() else None,
-            "total_pages": paginator.num_pages,
+            "next_page": page_num + 1 if has_more else None,
             "total_pages": int(paginator.num_pages),  # type: ignore[arg-type]
         }
 
-        logger.debug("Paginating queryset with page %s of %s", page.number, paginator.num_pages)
-        return pagination_context
+        logger.debug("Paginating queryset with page %s of %s", page_num, paginator.num_pages)
+        return cast("PaginatedResponse", pagination_context)
 
     def get_value_fields(self) -> list[str]:
         """Get list of fields to include in values() query."""
-        pk_name = self.model._meta.pk.name
+        if self.model is None:
+            raise ImproperlyConfigured(f"{self.__class__.__name__} requires a 'model' attribute.")
+        pk = self.model._meta.pk  # type: ignore[union-attr]
+        pk_name = pk.name if pk else "pk"
         fields = [pk_name]
 
         if self.value_fields:
@@ -626,6 +648,19 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         logger.debug("Getting value fields %s", value_fields)
         return value_fields
 
+    def _add_action_url(self, item: dict[str, Any], url_name: str, url_key: str) -> None:
+        """Resolve one action URL and set it on the item dict.
+
+        Args:
+            item: The result dict to add the URL to.
+            url_name: The URL pattern name to reverse.
+            url_key: The key to set on the item dict (e.g. "detail_url").
+        """
+        try:
+            item[url_key] = safe_url(safe_reverse(url_name, args=[item["id"]]))
+        except NoReverseMatch:
+            logger.warning("Could not reverse %s %s", url_key, url_name)
+
     def prepare_results(self, results: QuerySet) -> list[dict[str, Any]]:
         """Prepare the results for JSON serialization.
 
@@ -641,35 +676,31 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         fields = self.get_value_fields()
         values = list(results.values(*fields))
 
+        # Pre-compute model-level permissions once before the loop
+        can_view = self.has_permission(self.request, "view")
+        can_update = self.has_permission(self.request, "update")
+        can_delete = self.has_permission(self.request, "delete")
+
         # Ensure each result has an 'id' key
-        pk_name = self.model._meta.pk.name
+        if self.model is None:
+            raise ImproperlyConfigured(f"{self.__class__.__name__} requires a 'model' attribute.")
+        pk = self.model._meta.pk  # type: ignore[union-attr]
+        pk_name = pk.name if pk else "pk"
         for i, item in enumerate(values):
-            # Only include URLs if user has relevant permissions
-            item["can_view"] = self.has_permission(self.request, "view")
-            item["can_update"] = self.has_permission(self.request, "update")
-            item["can_delete"] = self.has_permission(self.request, "delete")
+            item["can_view"] = can_view
+            item["can_update"] = can_update
+            item["can_delete"] = can_delete
 
             if "id" not in item and pk_name in item:
                 item["id"] = item[pk_name]
 
             # Add instance-specific URLs conditionally based on permissions
-            if self.detail_url and item["can_view"]:
-                try:
-                    item["detail_url"] = safe_url(safe_reverse(self.detail_url, args=[item["id"]]))
-                except NoReverseMatch:
-                    logger.warning("Could not reverse detail_url %s", self.detail_url)
-
-            if self.update_url and item["can_update"]:
-                try:
-                    item["update_url"] = safe_url(safe_reverse(self.update_url, args=[item["id"]]))
-                except NoReverseMatch:
-                    logger.warning("Could not reverse update_url %s", self.update_url)
-
-            if self.delete_url and item["can_delete"]:
-                try:
-                    item["delete_url"] = safe_url(safe_reverse(self.delete_url, args=[item["id"]]))
-                except NoReverseMatch:
-                    logger.warning("Could not reverse delete_url %s", self.delete_url)
+            if self.detail_url and can_view:
+                self._add_action_url(item, self.detail_url, "detail_url")
+            if self.update_url and can_update:
+                self._add_action_url(item, self.update_url, "update_url")
+            if self.delete_url and can_delete:
+                self._add_action_url(item, self.delete_url, "delete_url")
 
             # Sanitize all values to prevent XSS
             # sanitize_dict returns a new dict, so we must update the list
@@ -774,7 +805,9 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         if self.user is None or not self.user.is_authenticated:
             return False
 
-        opts = self.model._meta
+        if self.model is None:
+            raise ImproperlyConfigured(f"{self.__class__.__name__} requires a 'model' attribute.")
+        opts = self.model._meta  # type: ignore[union-attr]
         codename = f"add_{opts.model_name}"
         return self.user.has_perm(f"{opts.app_label}.{codename}")
 
@@ -792,9 +825,9 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
     def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         """Check permissions before dispatching request."""
-        if self.has_permission(request) or self.allow_anonymous:
-            return super().dispatch(request, *args, **kwargs)
-        raise PermissionDenied("Permission denied. Cannot dispatch request. User does not have required permissions.")
+        if self.has_permission(request):
+            return super().dispatch(request, *args, **kwargs)  # type: ignore[return-value]
+        return self.handle_no_permission(request)
 
     def handle_no_permission(self, request: HttpRequest) -> HttpResponse:
         """Handle cases where permission is denied.
@@ -836,7 +869,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
                 empty_response["error"] = traceback.format_exc()
 
-            return JsonResponse(empty_response, status=200, encoder=self.get_json_encoder())
+            return JsonResponse(empty_response, status=500, encoder=self.get_json_encoder())  # type: ignore[arg-type]
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""
@@ -992,7 +1025,7 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
 
                 empty_response["error"] = traceback.format_exc()
 
-            return JsonResponse(empty_response, status=200, encoder=self.get_json_encoder())
+            return JsonResponse(empty_response, status=500, encoder=self.get_json_encoder())  # type: ignore[arg-type]
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         """Handle POST requests."""

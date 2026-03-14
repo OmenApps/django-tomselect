@@ -45,6 +45,65 @@ class BaseTomSelectMixin:
     config: TomSelectConfig
     widget: Widget
 
+    @staticmethod
+    def _resolve_config(
+        config: TomSelectConfig | dict[str, Any] | None,
+        raise_type_error: bool = False,
+    ) -> TomSelectConfig:
+        """Resolve config input to a merged TomSelectConfig.
+
+        Handles None, dict, and TomSelectConfig inputs, merging with global defaults.
+
+        Args:
+            config: The config input from the field constructor.
+            raise_type_error: If True, re-raise TypeError instead of swallowing it.
+
+        Returns:
+            A fully merged TomSelectConfig.
+
+        Raises:
+            TypeError: If config dict has invalid keys and raise_type_error is True.
+        """
+        if config is not None and not isinstance(config, TomSelectConfig):
+            try:
+                config = TomSelectConfig(**config)
+            except TypeError as e:
+                if raise_type_error:
+                    logger.error("Failed to create TomSelectConfig from dict: %s", e)
+                    raise TypeError(f"Invalid configuration: {e}") from e
+                logger.error("Failed to create TomSelectConfig from dict: %s", e, exc_info=True)
+                config = None
+            except ValueError as e:
+                logger.error("Error creating TomSelectConfig: %s", e, exc_info=True)
+                config = None
+
+        return merge_configs(GLOBAL_DEFAULT_CONFIG, config)
+
+    def _create_widget(self, kwargs: dict[str, Any]) -> None:
+        """Create and configure the widget from config and kwargs.
+
+        Merges attrs from config and kwargs, validates widget_class,
+        and instantiates the widget.
+
+        Args:
+            kwargs: The remaining kwargs dict (attrs will be popped from it).
+
+        Raises:
+            ValueError: If widget_class is not defined on the subclass.
+        """
+        attrs: dict[str, Any] = kwargs.pop("attrs", {}) or {}
+        if self.config.attrs:
+            attrs = {**self.config.attrs, **attrs}
+
+        logger.debug("Final attrs to be passed to widget: %s", attrs)
+
+        if not self.widget_class:
+            logger.error("Widget class not defined for %s", self.__class__.__name__)
+            raise ValueError(f"Widget class not defined for {self.__class__.__name__}")
+
+        self.widget = self.widget_class(config=self.config)  # type: ignore[call-arg]
+        self.widget.attrs = attrs
+
     def __init__(
         self, *args: Any, choices: Any = None, config: TomSelectConfig | dict[str, Any] | None = None, **kwargs: Any
     ) -> None:
@@ -53,44 +112,14 @@ class BaseTomSelectMixin:
             if choices is not None:
                 logger.warning("There is no need to pass choices to a TomSelectField. It will be ignored.")
 
-            # Extract widget-specific arguments for TomSelectConfig
-            widget_kwargs: dict[str, Any] = {
-                k: v for k, v in kwargs.items() if hasattr(TomSelectConfig, k) and not hasattr(self.field_base_class, k)
-            }
-
-            # Pop these arguments out so they don't go into the parent's __init__
-            for k in widget_kwargs:
+            # Extract and pop widget-specific arguments for TomSelectConfig
+            for k in [k for k in kwargs if hasattr(TomSelectConfig, k) and not hasattr(self.field_base_class, k)]:
                 kwargs.pop(k, None)
 
-            # Merge with GLOBAL_DEFAULT_CONFIG
-            base_config: TomSelectConfig = GLOBAL_DEFAULT_CONFIG
-            if config is not None:
-                if not isinstance(config, TomSelectConfig):
-                    try:
-                        config = TomSelectConfig(**config)
-                    except (TypeError, ValueError) as e:
-                        logger.error("Failed to create TomSelectConfig from dict: %s", e, exc_info=True)
-                        config = None
+            self.config = self._resolve_config(config)
+            logger.debug("Final config to be passed to widget: %s", self.config)
 
-            final_config: TomSelectConfig = merge_configs(base_config, config)
-            self.config = final_config
-
-            logger.debug("Final config to be passed to widget: %s", final_config)
-
-            # Get attrs from either the config or kwargs, with kwargs taking precedence
-            attrs: dict[str, Any] = kwargs.pop("attrs", {}) or {}
-            if self.config.attrs:
-                attrs = {**self.config.attrs, **attrs}
-
-            logger.debug("Final attrs to be passed to widget: %s", attrs)
-
-            # Initialize the widget with config and attrs
-            if not self.widget_class:
-                logger.error("Widget class not defined for %s", self.__class__.__name__)
-                raise ValueError(f"Widget class not defined for {self.__class__.__name__}")
-
-            self.widget = self.widget_class(config=self.config)
-            self.widget.attrs = attrs
+            self._create_widget(kwargs)
 
             super().__init__(*args, **kwargs)
         except (TypeError, ValueError, AttributeError) as e:
@@ -126,50 +155,17 @@ class BaseTomSelectModelMixin:
             logger.warning("There is no need to pass a queryset to a TomSelectModelField. It will be ignored.")
         self.instance: Any = kwargs.get("instance")
 
-        # Extract widget-specific arguments for TomSelectConfig
-        widget_kwargs: dict[str, Any] = {
-            k: v for k, v in kwargs.items() if hasattr(TomSelectConfig, k) and not hasattr(self.field_base_class, k)
-        }
-
-        # Pop these arguments out so they don't go into the parent's __init__
-        for k in widget_kwargs:
+        # Extract and pop widget-specific arguments for TomSelectConfig
+        for k in [k for k in kwargs if hasattr(TomSelectConfig, k) and not hasattr(self.field_base_class, k)]:
             kwargs.pop(k, None)
 
-        # Merge with GLOBAL_DEFAULT_CONFIG
-        base_config: TomSelectConfig = GLOBAL_DEFAULT_CONFIG
-        if config is not None:
-            if not isinstance(config, TomSelectConfig):
-                try:
-                    config = TomSelectConfig(**config)
-                except TypeError as e:
-                    logger.error("Failed to create TomSelectConfig from dict: %s", e)
-                    # Re-raise TypeError for invalid config keys to maintain expected behavior
-                    raise TypeError(f"Invalid configuration: {e}") from e
-                except ValueError as e:
-                    logger.error("Error creating TomSelectConfig: %s", e, exc_info=True)
-                    config = None
-
-        final_config: TomSelectConfig = merge_configs(base_config, config)
-        self.config = final_config
-
-        logger.debug("Final config to be passed to widget: %s", final_config)
+        self.config = BaseTomSelectMixin._resolve_config(config, raise_type_error=True)
+        logger.debug("Final config to be passed to widget: %s", self.config)
 
         self._lazy_view = None
 
-        # Get attrs from either the config or kwargs, with kwargs taking precedence
-        attrs: dict[str, Any] = kwargs.pop("attrs", {}) or {}
-        if self.config.attrs:
-            attrs = {**self.config.attrs, **attrs}
-
-        logger.debug("Final attrs to be passed to widget: %s", attrs)
-
-        # Initialize the widget with config and attrs
-        if not self.widget_class:
-            logger.error("Widget class not defined for %s", self.__class__.__name__)
-            raise ValueError(f"Widget class not defined for {self.__class__.__name__}")
-
-        self.widget = self.widget_class(config=self.config)
-        self.widget.attrs = attrs
+        # Create widget with merged attrs
+        BaseTomSelectMixin._create_widget(self, kwargs)
 
         # Set to_field_name based on value_field configuration to aid ModelChoiceField validation
         if hasattr(self.config, "value_field") and self.config.value_field:
