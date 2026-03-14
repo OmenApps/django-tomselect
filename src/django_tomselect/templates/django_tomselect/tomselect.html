@@ -432,7 +432,12 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                                 // Fetch the next page
                                 fetch(nextPageUrl)
-                                    .then(response => response.json())
+                                    .then(response => {
+                                        if (!response.ok) {
+                                            throw new Error(`Server error: ${response.status}`);
+                                        }
+                                        return response.json();
+                                    })
                                     .then(nextJson => checkAndLoadMore(nextJson, originalCallback, collectedResults))
                                     .catch(error => {
                                         console.error("Error loading next page:", error);
@@ -453,6 +458,9 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         fetch(url, { signal: controller.signal })
                             .then(response => {
                                 clearTimeout(timeoutId);
+                                if (!response.ok) {
+                                    throw new Error(`Server error: ${response.status}`);
+                                }
                                 return response.json();
                             })
                             .then(json => {
