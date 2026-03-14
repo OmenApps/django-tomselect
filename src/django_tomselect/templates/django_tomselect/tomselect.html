@@ -127,6 +127,20 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                 // Factory function to create originalFirstUrl using provided prefix so it can be updated when cloning for new formset rows
                 function createFirstUrlFunction(prefix, filterCfg) {
+                    // Cache DOM references for filter/exclude fields with staleness check
+                    const fieldCache = {};
+                    function getCachedField(fieldId) {
+                        const cached = fieldCache[fieldId];
+                        if (cached && document.body.contains(cached)) {
+                            return cached;
+                        }
+                        const el = document.getElementById(fieldId);
+                        if (el) {
+                            fieldCache[fieldId] = el;
+                        }
+                        return el;
+                    }
+
                     return function(query) {
                         var url = filterCfg.autocompleteUrl + '?' + SEARCH_PARAM + '=' + encodeURIComponent(query);
                         if (filterCfg.autocompleteParams) {
@@ -137,7 +151,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         if (filterCfg.filters) {
                             filterCfg.filters.forEach(function(filter) {
                                 if (filter.sourceType === 'field') {
-                                    const filterField = document.getElementById('id_' + prefix + filter.source);
+                                    const filterField = getCachedField('id_' + prefix + filter.source);
                                     const filterValue = filterField ? filterField.value : '';
                                     if (filterValue) {
                                         url = addUrlParam(url, FILTER_PARAM, `'${filter.source}__${filter.lookup}=${filterValue}'`);
@@ -149,7 +163,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             });
                         } else if (filterCfg.dependentField) {
                             // Legacy filter support
-                            const dependentField = document.getElementById('id_' + prefix + filterCfg.dependentField);
+                            const dependentField = getCachedField('id_' + prefix + filterCfg.dependentField);
                             const dependentValue = dependentField ? dependentField.value : '';
                             url = addUrlParam(url, FILTER_PARAM, `'${filterCfg.dependentField}__${filterCfg.dependentFieldLookup}=${dependentValue}'`);
                         }
@@ -158,7 +172,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         if (filterCfg.excludes) {
                             filterCfg.excludes.forEach(function(exclude) {
                                 if (exclude.sourceType === 'field') {
-                                    const excludeField = document.getElementById('id_' + prefix + exclude.source);
+                                    const excludeField = getCachedField('id_' + prefix + exclude.source);
                                     const excludeValue = excludeField ? excludeField.value : '';
                                     if (excludeValue) {
                                         url = addUrlParam(url, EXCLUDE_PARAM, `'${exclude.source}__${exclude.lookup}=${excludeValue}'`);
@@ -170,7 +184,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             });
                         } else if (filterCfg.excludeField) {
                             // Legacy exclude support
-                            const excludeField = document.getElementById('id_' + prefix + filterCfg.excludeField);
+                            const excludeField = getCachedField('id_' + prefix + filterCfg.excludeField);
                             const excludeValue = excludeField ? excludeField.value : '';
                             url = addUrlParam(url, EXCLUDE_PARAM, `'${filterCfg.excludeField}__${filterCfg.excludeFieldLookup}=${excludeValue}'`);
                         }
