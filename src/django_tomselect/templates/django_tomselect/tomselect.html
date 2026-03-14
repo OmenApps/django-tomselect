@@ -56,6 +56,9 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
             // Used for resetting the TomSelect contents when a query is zeroed
             let previousQuery = '';
 
+            // AbortController for canceling superseded fetch requests during rapid typing
+            let currentLoadController = null;
+
             function logCallback(data) {
                 console.log("%c Received callback data:", "color:red;", data);
             }
@@ -368,6 +371,11 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             url = originalFirstUrl(query);
                         }
 
+                        // Abort any previous in-flight request (superseded by this new query)
+                        if (currentLoadController) {
+                            currentLoadController.abort();
+                        }
+
                         var currentPage = 1;
 
                         // Helper function to check if all items are already selected and load more if needed
@@ -438,7 +446,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                         // Main fetch call with timeout to prevent hanging requests
                         const FETCH_TIMEOUT_MS = 30000;  // 30 second timeout
-                        const controller = new AbortController();
+                        currentLoadController = new AbortController();
+                        const controller = currentLoadController;
                         const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
                         fetch(url, { signal: controller.signal })
@@ -473,6 +482,11 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             })
                             .catch(error => {
                                 clearTimeout(timeoutId);
+                                // If this request was superseded by a newer one, silently ignore
+                                if (error.name === 'AbortError' && currentLoadController !== controller) {
+                                    callback([]);
+                                    return;
+                                }
                                 const isTimeout = error.name === 'AbortError';
                                 const errorMessage = isTimeout
                                     ? '{% translate "Request timed out. Please try again." %}'
