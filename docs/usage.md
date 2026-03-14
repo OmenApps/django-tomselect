@@ -1549,3 +1549,47 @@ Checking permissions repeatedly can be costly. `django_tomselect` provides a per
 - **`invalidate_all()`**: Clear all cached permissions globally.
 
 This ensures that changes in user roles or memberships are reflected immediately in the autocomplete results.
+
+### Content Security Policy (CSP) Nonce Support
+
+If your application uses a [Content Security Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) to restrict inline scripts, `django-tomselect` supports CSP nonces. This allows you to avoid setting `'unsafe-inline'` in your `script-src` directive.
+
+#### How It Works
+
+When a CSP nonce is available on the request object, `django-tomselect` automatically adds it to the inline `<script>` tags it renders:
+
+```html
+<script nonce="abc123...">
+    // TomSelect initialization code
+</script>
+```
+
+#### Setup with django-csp
+
+If you use [django-csp](https://django-csp.readthedocs.io/), the nonce is available automatically. Ensure the `django-csp` middleware is installed and configured:
+
+```python
+# settings.py
+MIDDLEWARE = [
+    # ...
+    "csp.middleware.CSPMiddleware",
+    "django_tomselect.middleware.TomSelectMiddleware",
+    # ...
+]
+
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "script-src": ["'self'", "'nonce'"],  # django-csp will replace 'nonce' with the actual nonce
+    },
+}
+```
+
+No additional configuration in `django-tomselect` is needed — the widget reads the nonce from `request.csp_nonce` (or `request._csp_nonce`) and passes it to the template context automatically.
+
+#### Custom CSP Middleware
+
+If you use a custom CSP middleware, ensure it sets `request.csp_nonce` or `request._csp_nonce` to the nonce value. `django-tomselect` will detect and use it.
+
+#### Without CSP
+
+If no CSP nonce is present on the request, the `<script>` tags render without a `nonce` attribute, maintaining full backward compatibility.
