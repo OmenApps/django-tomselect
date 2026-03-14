@@ -869,7 +869,8 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 **base_context["widget"],
                 "attrs": attrs,
                 **self.get_model_url_context(autocomplete_view),
-            }
+            },
+            "csp_nonce": base_context.get("csp_nonce", ""),
         }
 
         # Add permissions context

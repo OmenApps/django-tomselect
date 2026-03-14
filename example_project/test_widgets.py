@@ -146,6 +146,46 @@ class TestTomSelectModelWidget:
         assert "widget" in context
         assert context["widget"]["value"] == sample_edition.pk
 
+    def test_get_context_includes_csp_nonce(self, sample_edition):
+        """Test that csp_nonce is present in context for all code paths.
+
+        Regression test: _build_full_context previously dropped csp_nonce
+        from the base context, causing VariableDoesNotExist exceptions in
+        the template when resolving {% if csp_nonce %}.
+        """
+        from django_tomselect.middleware import _request_local
+
+        class MockRequest:
+            class User:
+                is_authenticated = True
+
+                def has_perms(self, perms):
+                    return True
+
+            user = User()
+            method = "GET"
+            GET = {}
+            _tomselect_global_rendered = True
+
+            def get_full_path(self):
+                return "/test/"
+
+        # Set thread-local request so get_context reaches _build_full_context
+        _request_local.request = MockRequest()
+        try:
+            widget = self.create_widget()
+
+            # With a value — exercises _build_full_context path
+            context = widget.get_context("test", sample_edition.pk, {})
+            assert "csp_nonce" in context
+
+            # Without a value — exercises _build_full_context path (no value)
+            context = widget.get_context("test", None, {})
+            assert "csp_nonce" in context
+        finally:
+            if hasattr(_request_local, "request"):
+                del _request_local.request
+
     def test_get_autocomplete_url(self):
         """Test autocomplete URL generation."""
         widget = self.create_widget()
