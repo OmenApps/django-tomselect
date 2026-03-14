@@ -31,7 +31,9 @@ PACKAGE = "django_tomselect"
 nox.needs_version = ">= 2024.4.15"
 nox.options.sessions = (
     "pre-commit",
+    "js-lint",
     "pip-audit",
+    "npm-audit",
     "tests",
     "xdoctest",
     "docs-build",
@@ -137,6 +139,20 @@ def precommit(session: Session, django: str) -> None:
         activate_virtualenv_in_precommit_hooks(session)
 
 
+@session(name="js-build", python=False)
+def js_build(session: Session) -> None:
+    """Install npm dependencies and build static JavaScript bundles."""
+    session.run("npm", "install", external=True)
+    session.run("npm", "run", "build", external=True)
+    session.run("npm", "run", "buildsmall", external=True)
+
+
+@session(name="js-lint", python=False)
+def js_lint(session: Session) -> None:
+    """Lint JavaScript with StandardJS."""
+    session.run("npm", "run", "lint", *session.posargs, external=True)
+
+
 @session(name="pip-audit", python=PYTHON_STABLE_VERSION)
 @nox.parametrize("django", DJANGO_STABLE_VERSION)
 def pip_audit(session: Session, django: str) -> None:
@@ -144,6 +160,12 @@ def pip_audit(session: Session, django: str) -> None:
     session.install(".[dev]")
     session.install("pip-audit")
     session.run("pip-audit", *session.posargs)
+
+
+@session(name="npm-audit", python=False)
+def npm_audit(session: Session) -> None:
+    """Scan npm dependencies for security vulnerabilities."""
+    session.run("npm", "audit", "--audit-level=high", *session.posargs, external=True)
 
 
 @session(python=PYTHON_VERSIONS)
