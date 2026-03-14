@@ -321,8 +321,6 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         // Allow empty query to load when resetting to initial state
                         if (window[resetVarName] === true && isEmptyQuery) {
                             shouldLoadValue = true;
-                        } else if (this.settings.page && isEmptyQuery) {
-                            shouldLoadValue = true;
                         } else {
                             shouldLoadValue = query.length >= {{ widget.minimum_query_length }};
                         }
