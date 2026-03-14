@@ -434,8 +434,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                     // If window[resetVarName] is true, we need to reset the page and set back to false
                                     if (window[resetVarName] === true) {
                                         window[resetVarName] = false;
-                                        url = url.replace(new RegExp('&' + PAGE_PARAM + '=\\d+', 'g'), '');
-                                        this.setNextUrl(query, url + '&' + PAGE_PARAM + '=1');
+                                        this.clearPagination();
                                     }
 
                                     callback(result);
