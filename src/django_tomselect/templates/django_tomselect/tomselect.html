@@ -375,6 +375,16 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                 return originalCallback(collectedResults);
                             }
 
+                            // Update already-selected options with full autocomplete data
+                            // (initial options only contain value/label; autocomplete
+                            // returns extra columns, virtual fields, etc.)
+                            json.results.forEach(function(item) {
+                                var itemValue = String(item[self.settings.valueField]);
+                                if (self.items.includes(itemValue) && self.options.hasOwnProperty(itemValue)) {
+                                    self.updateOption(itemValue, item);
+                                }
+                            });
+
                             // Filter out already selected items
                             const newResults = json.results.filter(item =>
                                 !self.items.includes(String(item[self.settings.valueField])));
