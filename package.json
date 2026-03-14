@@ -2,9 +2,9 @@
     "devDependencies": {
         "bootstrap": "^5.3.8",
         "bootstrap-legacy": "npm:bootstrap@4.6.2",
-        "esbuild": "^0.25.0",
+        "esbuild": "^0.27.4",
         "standard": "^17.1.2",
-        "tom-select": "^2.4.3"
+        "tom-select": "^2.5.2"
     },
     "scripts": {
         "build": "esbuild client/django-tomselect.js --bundle --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.js",
