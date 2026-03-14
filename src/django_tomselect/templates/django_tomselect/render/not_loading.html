@@ -1,6 +1,13 @@
 {% comment %}
-Renders content when not loading. Currently empty by default.
+Renders content when not loading. When user has typed a partial query that is below minimum_query_length, gives hint about length needed to search.
 {% endcomment %}
+{% load i18n %}
 not_loading: function(data, escape){
-    // no default content
+    {% if widget.minimum_query_length > 0 %}
+    if (data.input && data.input.length > 0) {
+        return '<div class="not-loading" role="status" aria-live="polite">' +
+            '{% blocktranslate with min_chars=widget.minimum_query_length %}Type at least {{ min_chars }} characters to search{% endblocktranslate %}' +
+            '</div>';
+    }
+    {% endif %}
 },
