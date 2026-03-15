@@ -883,8 +883,9 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
             # Include filter error in response if one occurred (helps with debugging)
             if self._filter_error:
-                data["filter_error"] = self._filter_error
-                logger.debug("Including filter error in response: %s", self._filter_error)
+                logger.debug("Filter error occurred: %s", self._filter_error)
+                if settings.DEBUG:
+                    data["filter_error"] = self._filter_error
 
             return JsonResponse(data, encoder=self.get_json_encoder())  # type: ignore[arg-type]
         except Exception:
