@@ -164,6 +164,8 @@ class AutocompleteModelView(JSONEncoderMixin, View):
     model: type[Model] | None = None
     search_lookups: list[str] = []
     ordering: str | list[str] | tuple[str, ...] | None = None
+    allowed_ordering_fields: list[str] | None = None
+    allowed_filter_fields: list[str] | None = None
     page_size: int = 20
     value_fields: list[str] = []
     virtual_fields: list[str] = []
@@ -443,6 +445,18 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                 logger.warning("Invalid %s value (%s)", action, filter_str)
                 return None
 
+            # Validate filter field against allowlist if configured
+            if self.allowed_filter_fields is not None:
+                base_field = lookup_field.split("__")[0]
+                if base_field not in self.allowed_filter_fields:
+                    action = "exclude" if is_exclude else "filter"
+                    self._filter_error = f"Field '{base_field}' not in allowed_{action}_fields"
+                    logger.warning(
+                        "Filter field '%s' not in allowed_filter_fields",
+                        base_field,
+                    )
+                    return None
+
             # Validate that the filter field exists on the model
             if not self._validate_filter_field(lookup_field):
                 action = "exclude" if is_exclude else "filter"
@@ -570,6 +584,16 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         If no ordering specified: Falls back to model default
         """
         ordering = self.ordering_from_request or self.ordering
+
+        # Validate ordering from request against allowlist
+        if self.ordering_from_request and self.allowed_ordering_fields is not None:
+            bare_field = self.ordering_from_request.lstrip("-")
+            if bare_field not in self.allowed_ordering_fields:
+                logger.warning(
+                    "Ordering field '%s' not in allowed_ordering_fields, falling back to default ordering",
+                    self.ordering_from_request,
+                )
+                ordering = self.ordering
 
         # Convert string ordering to list
         if isinstance(ordering, str):
