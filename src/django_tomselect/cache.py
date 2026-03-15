@@ -95,7 +95,7 @@ class PermissionCache:
             base_key = f"{prefix}{namespace}tomselect_perm:{user_id}:{model_name}:{action}"
 
             # Get version for this user's permissions
-            version_key = f"{base_key}:version"
+            version_key = self._get_version_key(user_id)
             version = self.cache.get(version_key, "1")
 
             # Create unique key including version
