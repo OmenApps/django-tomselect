@@ -373,7 +373,7 @@ wheels = [
 
 [[package]]
 name = "django-tomselect"
-version = "2026.1.3"
+version = "2026.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
@@ -418,7 +418,7 @@ requires-dist = [
     { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.9.3" },
     { name = "coverage", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=7.8.2" },
     { name = "darglint", marker = "extra == 'dev'", specifier = ">=1.8.1" },
-    { name = "django", specifier = ">=4.2.27" },
+    { name = "django", specifier = ">=4.2.29" },
     { name = "django-extensions", marker = "extra == 'dev'", specifier = ">=4.1" },
     { name = "django-htmx", marker = "extra == 'dev'", specifier = ">=1.27.0" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=7.2.0" },
