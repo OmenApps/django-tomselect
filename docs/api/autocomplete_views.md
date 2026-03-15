@@ -67,6 +67,10 @@ class BookAutocomplete(AutocompleteModelView):
     # Important: Include any fields you'll use as label_field in the widget
     value_fields = ['id', 'title', 'author__name']
     virtual_fields = ['computed_field']  # Fields that should not be queried from the database
+
+    # Optional: Restrict which fields users can filter/order by via request parameters
+    allowed_filter_fields = ['category', 'author']
+    allowed_ordering_fields = ['title', 'publication_date']
 ```
 
 #### URL Configuration
@@ -122,7 +126,32 @@ class BookAutocomplete(AutocompleteModelView):
 
 #### Key Features
 
-1. **Search Configuration**
+1. **Restricting Filter and Ordering Fields**
+
+By default, users can pass arbitrary field names via `filter_by`, `exclude_by`, and `ordering` request parameters. To restrict which fields are accepted, set `allowed_filter_fields` and `allowed_ordering_fields`:
+
+```python
+class BookAutocomplete(AutocompleteModelView):
+    model = Book
+    search_lookups = ['title__icontains']
+    value_fields = ['id', 'title', 'category__name', 'publication_date']
+
+    # Only allow filtering/excluding by these fields
+    allowed_filter_fields = ['category', 'author', 'status']
+
+    # Only allow ordering by these fields
+    allowed_ordering_fields = ['title', 'publication_date']
+```
+
+When `allowed_filter_fields` is set, any `filter_by` or `exclude_by` parameter referencing a field not in the list is silently rejected (the base field name is checked, so `category__id` is allowed when `category` is in the list). When `allowed_ordering_fields` is set, disallowed ordering fields fall back to the view's default `ordering`.
+
+When these attributes are `None` (the default), all valid model fields are accepted.
+
+```{tip}
+Setting these attributes is recommended for production deployments to prevent users from probing your model structure through filter/ordering parameters.
+```
+
+2. **Search Configuration**
 
 The `search_lookups` attribute defines how searching works:
 
@@ -137,7 +166,7 @@ class AuthorAutocomplete(AutocompleteModelView):
     ]
 ```
 
-2. **Value Fields Configuration**
+3. **Value Fields Configuration**
 
 The `value_fields` attribute determines which fields are included in the autocomplete results. This is critical for the widget's functionality:
 
@@ -165,7 +194,7 @@ config=TomSelectConfig(label_field="name")
 ```
 Then your autocomplete view should include "name" in its `value_fields` list.
 
-3. **Queryset Customization**
+4. **Queryset Customization**
 
 Use `hook_queryset` to optimize or customize the queryset:
 
@@ -182,7 +211,11 @@ def hook_queryset(self, queryset):
                    .filter(is_active=True)
 ```
 
-4. **Permission Handling**
+```{note}
+When the widget's `label_field` points to a relation (e.g., `label_field="author"`), the widget automatically adds `select_related()` for that field to prevent N+1 queries when rendering selected options. You do not need to add it manually in `hook_queryset` for this case.
+```
+
+5. **Permission Handling**
 
 Multiple ways to configure permissions:
 
@@ -204,7 +237,7 @@ class BookAutocomplete(AutocompleteModelView):
         return super().has_permission(request, action)
 ```
 
-5. **Result Preparation**
+6. **Result Preparation**
 
 Customize the data sent to the client:
 
@@ -223,7 +256,7 @@ def hook_prepare_results(self, results):
     return results
 ```
 
-6. **Custom JSON Encoder**
+7. **Custom JSON Encoder**
 
 If your model has fields with non-serializable types (e.g., a `PhoneNumber` from the django-phonenumber-field package), you can specify a custom JSON encoder:
 

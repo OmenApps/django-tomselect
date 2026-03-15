@@ -78,7 +78,8 @@ This is the [recommended approach by Django](https://code.djangoproject.com/tick
 
 `django_tomselect` integrates Tom Select with Django forms. Ensure you meet the following minimum requirements:
 
-- **Django**: Version 4.2 or higher is recommended.
+- **Python**: Version 3.11 or higher is required.
+- **Django**: Version 4.2 or higher is required. Django 4.2, 5.1, 5.2, and 6.0 are officially supported.
 - **Tom Select**: Bundled via static files. You don't need to separately install Tom Select.
 
 ### Static Files
