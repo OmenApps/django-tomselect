@@ -1145,7 +1145,7 @@ class TestCacheInvalidationKeyConsistency:
         # The version key read by _make_cache_key should be the same as _get_version_key(42)
         expected_version_key = permission_cache_instance._get_version_key(42)
         assert expected_version_key in mock_cache.get_keys, (
-            f"_make_cache_key should read version key '{expected_version_key}', "
+            f"_make_cache_key should read version key {expected_version_key!r}, "
             f"but it read: {mock_cache.get_keys}"
         )
 

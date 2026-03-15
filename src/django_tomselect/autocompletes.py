@@ -450,7 +450,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                 base_field = lookup_field.split("__")[0]
                 if base_field not in self.allowed_filter_fields:
                     action = "exclude" if is_exclude else "filter"
-                    self._filter_error = f"Field '{base_field}' not in allowed_{action}_fields"
+                    self._filter_error = f"Field {base_field!r} not in allowed_{action}_fields"
                     logger.warning(
                         "Filter field '%s' not in allowed_filter_fields",
                         base_field,
