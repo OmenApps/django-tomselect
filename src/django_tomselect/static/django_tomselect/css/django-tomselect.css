@@ -94,3 +94,28 @@
     transition: opacity 0.5s;
     cursor: pointer;
 }
+
+/* Minimum 24x24px touch targets (WCAG 2.5.8) */
+.ts-wrapper .item .update {
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plugin-clear_button .clear-button {
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plugin-remove_button .remove {
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
