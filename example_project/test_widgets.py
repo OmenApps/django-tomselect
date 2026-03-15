@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.urls import reverse_lazy
 from django.urls.exceptions import NoReverseMatch
+from django.utils import translation
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as _lazy
 
@@ -1874,6 +1875,133 @@ class TestWidgetTranslations:
         assert "status" in header["extra_values"]
         assert "info" in header["extra_values"]
         assert "details" in header["extra_values"]
+
+    # Per-locale expected strings for the parametrized translation tests below.
+    # Keys map to specific template render slots; values are the translated strings.
+    _LOCALE_STRINGS = {
+        "de": {
+            "loading": "Wird geladen",
+            "loading_more": "Weitere Ergebnisse werden geladen...",
+            "no_more_results": "Keine weiteren Ergebnisse",
+            "no_results": "Keine Ergebnisse gefunden für",
+            "selected": "Ausgewählt",
+            "item_removed": "Eintrag entfernt",
+            "timeout": "Die Anfrage hat das Zeitlimit überschritten. Bitte versuchen Sie es erneut.",
+            "load_failed": "Optionen konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+            "not_loading_prefix": "Geben Sie mindestens",
+            "not_loading_suffix": "Zeichen ein, um zu suchen",
+            "add": "Hinzufügen",
+        },
+        "es": {
+            "loading": "Cargando",
+            "loading_more": "Cargando más resultados...",
+            "no_more_results": "No hay más resultados",
+            "no_results": "No se encontraron resultados para",
+            "selected": "Seleccionado",
+            "item_removed": "Registro eliminado",
+            "timeout": "La solicitud excedió el tiempo límite. Inténtelo de nuevo.",
+            "load_failed": "Error al cargar las opciones. Inténtelo de nuevo.",
+            "not_loading_prefix": "Escriba al menos",
+            "not_loading_suffix": "caracteres para buscar",
+            "add": "Añadir",
+        },
+        "pt": {
+            "loading": "A carregar",
+            "loading_more": "A carregar mais resultados...",
+            "no_more_results": "Sem mais resultados",
+            "no_results": "Sem resultados encontrados para",
+            "selected": "Selecionado",
+            "item_removed": "Registo eliminado",
+            "timeout": "O pedido excedeu o tempo limite. Tente novamente.",
+            "load_failed": "Falha a carregar opções. Tente novamente.",
+            "not_loading_prefix": "Introduza pelo menos",
+            "not_loading_suffix": "caracteres para pesquisar",
+            "add": "Adicionar",
+        },
+        "ru": {
+            "loading": "Загрузка",
+            "loading_more": "Загрузка дополнительных результатов...",
+            "no_more_results": "Больше результатов нет",
+            "no_results": "Результаты не найдены для",
+            "selected": "Выбрано",
+            "item_removed": "Запись удалена",
+            "timeout": "Время ожидания запроса истекло. Попробуйте снова.",
+            "load_failed": "Не удалось загрузить параметры. Попробуйте снова.",
+            "not_loading_prefix": "Введите не менее",
+            "not_loading_suffix": "символов для поиска",
+            "add": "Добавить",
+        },
+    }
+
+    @pytest.mark.parametrize("locale", ["de", "es", "pt", "ru"])
+    def test_locale_render_templates_basic(self, locale):
+        """Verify that each supported locale is applied to the rendered widget output.
+
+        Covers templates rendered unconditionally for any widget:
+        loading.html, loading_more.html, no_more_results.html, no_results.html,
+        and strings in tomselect.html (selected, item-removed, timeout/error messages).
+        """
+        expected = self._LOCALE_STRINGS[locale]
+        widget = TomSelectModelWidget(config=TomSelectConfig(url="autocomplete-edition"))
+        translation.activate(locale)
+        try:
+            out = widget.render("test", None)
+        finally:
+            translation.deactivate()
+
+        assert expected["loading"] in out, f"loading.html: 'Loading' not translated to {locale}"
+        assert expected["loading_more"] in out, f"loading_more.html: 'Loading more results...' not translated to {locale}"
+        assert expected["no_more_results"] in out, f"no_more_results.html: 'No more results' not translated to {locale}"
+        assert expected["no_results"] in out, f"no_results.html: 'No results found for' not translated to {locale}"
+        assert expected["selected"] in out, f"tomselect.html: 'selected' not translated to {locale}"
+        assert expected["item_removed"] in out, f"tomselect.html: 'Item removed' not translated to {locale}"
+        assert expected["timeout"] in out, f"tomselect.html: timeout message not translated to {locale}"
+        assert expected["load_failed"] in out, f"tomselect.html: load failure message not translated to {locale}"
+
+    @pytest.mark.parametrize("locale", ["de", "es", "pt", "ru"])
+    def test_locale_not_loading_template(self, locale):
+        """Verify the not_loading.html minimum-query hint is translated for each locale."""
+        expected = self._LOCALE_STRINGS[locale]
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition", minimum_query_length=2)
+        )
+        translation.activate(locale)
+        try:
+            out = widget.render("test", None)
+        finally:
+            translation.deactivate()
+
+        assert expected["not_loading_prefix"] in out, f"not_loading.html: prefix not translated to {locale}"
+        assert expected["not_loading_suffix"] in out, f"not_loading.html: suffix not translated to {locale}"
+
+    @pytest.mark.parametrize("locale", ["de", "es", "pt", "ru"])
+    def test_locale_option_create_template(self, locale):
+        """Verify the option_create.html 'Add' label is translated for each locale."""
+        expected = self._LOCALE_STRINGS[locale]
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition", create=True)
+        )
+        translation.activate(locale)
+        try:
+            out = widget.render("test", None)
+        finally:
+            translation.deactivate()
+
+        assert expected["add"] in out, f"option_create.html: 'Add' not translated to {locale}"
+
+    def test_english_strings_present_without_active_locale(self):
+        """Verify English strings appear in the rendered output when no locale is active."""
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition", minimum_query_length=2)
+        )
+        out = widget.render("test", None)
+
+        assert "Loading" in out
+        assert "Loading more results..." in out
+        assert "No more results" in out
+        assert "No results found for" in out
+        assert "Type at least" in out
+        assert "characters to search" in out
 
 
 @pytest.mark.django_db
