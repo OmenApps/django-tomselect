@@ -1089,3 +1089,115 @@ class TestCachePermissionDecoratorComplete:
             result = view.check_permission(authenticated_request)
         # Original function should be called
         assert result is True
+
+
+class TestCacheInvalidationKeyConsistency:
+    """Test that _make_cache_key and invalidate_user use the same version key."""
+
+    @pytest.fixture
+    def permission_cache_instance(self):
+        """Create a PermissionCache instance with caching enabled."""
+        pc = PermissionCache()
+        pc.enabled = True
+        pc.timeout = 300
+        return pc
+
+    @override_settings(DEBUG=False)
+    def test_make_cache_key_uses_get_version_key(self, permission_cache_instance):
+        """Verify _make_cache_key reads the same version key that invalidate_user increments.
+
+        This is a regression test for a bug where _make_cache_key constructed
+        its version key inline (base_key + ':version') which didn't match the
+        key from _get_version_key(user_id), causing invalidation to be broken.
+        """
+
+        class TrackingCache:
+            """Mock cache that tracks which keys are accessed."""
+
+            def __init__(self):
+                self.data = {}
+                self.get_keys = []
+                self.delete_keys = []
+
+            def get(self, key, default=None):
+                self.get_keys.append(key)
+                return self.data.get(key, default)
+
+            def set(self, key, value, timeout=None):
+                self.data[key] = value
+
+            def delete(self, key):
+                self.delete_keys.append(key)
+                self.data.pop(key, None)
+
+            def add(self, key, value, timeout):
+                if key not in self.data:
+                    self.data[key] = value
+                    return True
+                return False
+
+        mock_cache = TrackingCache()
+        permission_cache_instance.cache = mock_cache
+
+        # Call _make_cache_key — it should read the version key
+        permission_cache_instance._make_cache_key(42, "author", "view")
+
+        # The version key read by _make_cache_key should be the same as _get_version_key(42)
+        expected_version_key = permission_cache_instance._get_version_key(42)
+        assert expected_version_key in mock_cache.get_keys, (
+            f"_make_cache_key should read version key '{expected_version_key}', "
+            f"but it read: {mock_cache.get_keys}"
+        )
+
+    @override_settings(DEBUG=False)
+    def test_invalidate_user_actually_invalidates(self, permission_cache_instance):
+        """Test that invalidating a user causes a cache miss for their permissions.
+
+        Seeds the version key first so that incr() bumps it to a new value,
+        which makes _make_cache_key produce a different cache key → cache miss.
+        """
+
+        class IncrCache:
+            """Dict-based cache with incr support."""
+
+            def __init__(self):
+                self.data = {}
+
+            def get(self, key, default=None):
+                return self.data.get(key, default)
+
+            def set(self, key, value, timeout=None):
+                self.data[key] = value
+
+            def delete(self, key):
+                self.data.pop(key, None)
+
+            def add(self, key, value, timeout):
+                if key not in self.data:
+                    self.data[key] = value
+                    return True
+                return False
+
+            def incr(self, key, delta=1):
+                if key not in self.data:
+                    raise ValueError("Key doesn't exist")
+                self.data[key] = int(self.data[key]) + delta
+                return self.data[key]
+
+        mock_cache = IncrCache()
+        permission_cache_instance.cache = mock_cache
+
+        # Seed the version key so it exists before caching a permission
+        version_key = permission_cache_instance._get_version_key(1)
+        mock_cache.set(version_key, 1)
+
+        # Cache a permission (uses version=1)
+        permission_cache_instance.set_permission(1, "author", "view", True)
+        assert permission_cache_instance.get_permission(1, "author", "view") is True
+
+        # Invalidate — incr() bumps version from 1 → 2
+        permission_cache_instance.invalidate_user(1)
+
+        # After invalidation, _make_cache_key reads version=2 → different key → miss
+        result = permission_cache_instance.get_permission(1, "author", "view")
+        assert result is None, "Permission should be invalidated (cache miss)"

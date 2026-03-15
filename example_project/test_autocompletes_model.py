@@ -1403,8 +1403,7 @@ class TestVirtualFields:
         Fields that aren't concrete model columns but ARE queryset annotations (added via hook_queryset)
         should be included in the .values() call so they appear in the results.
         """
-        from django.db.models import Count, F
-        from django.db.models.functions import Concat
+        from django.db.models import F
 
         from example_project.example.models import Category
 
@@ -1442,8 +1441,7 @@ class TestVirtualFields:
         Simulates the CategoryAutocompleteView pattern: annotations added in hook_queryset,
         listed in value_fields, and accessed in hook_prepare_results.
         """
-        from django.db.models import Count, F
-        from django.db.models.functions import Concat
+        from django.db.models import F
 
         from example_project.example.models import Category
 
@@ -1781,3 +1779,194 @@ class TestAutocompleteIterablesViewJSONEncoder:
         # Verify response is valid JSON
         data = json.loads(response.content.decode("utf-8"))
         assert "results" in data
+
+
+@pytest.mark.django_db
+class TestAllowedOrderingFields:
+    """Tests for allowed_ordering_fields security feature."""
+
+    def setup_method(self, method):
+        """Set up test data."""
+        Edition.objects.all().delete()
+        for i in range(1, 4):
+            Edition.objects.create(name=f"Edition {i}", year=f"202{i}", pages=str(i * 10), pub_num=f"PUB-{i}")
+
+    def test_allowed_ordering_permits_valid_field(self, rf, user):
+        """Test that ordering by a field in allowed_ordering_fields works."""
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name", "year"]
+        view.allowed_ordering_fields = ["name", "year"]
+        request = rf.get("", {"ordering": "-year"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        years = [r["year"] for r in data["results"]]
+        assert years == sorted(years, reverse=True)
+
+    def test_allowed_ordering_rejects_disallowed_field(self, rf, user):
+        """Test that ordering by a field NOT in allowed_ordering_fields falls back to default."""
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name", "year"]
+        view.ordering = "name"
+        view.allowed_ordering_fields = ["name"]
+        request = rf.get("", {"ordering": "year"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        # Should fall back to default ordering (name), not use the rejected 'year'
+        names = [r["name"] for r in data["results"]]
+        assert names == sorted(names)
+
+    def test_none_allowed_ordering_permits_any_field(self, rf, user):
+        """Test that allowed_ordering_fields=None (default) allows any ordering."""
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name", "year"]
+        # allowed_ordering_fields is None by default
+        request = rf.get("", {"ordering": "-year"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        years = [r["year"] for r in data["results"]]
+        assert years == sorted(years, reverse=True)
+
+    def test_allowed_ordering_strips_descending_prefix(self, rf, user):
+        """Test that the '-' prefix is stripped before checking against the allowlist."""
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name", "year"]
+        view.allowed_ordering_fields = ["year"]
+        request = rf.get("", {"ordering": "-year"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        years = [r["year"] for r in data["results"]]
+        assert years == sorted(years, reverse=True)
+
+
+@pytest.mark.django_db
+class TestAllowedFilterFields:
+    """Tests for allowed_filter_fields security feature."""
+
+    def setup_method(self, method):
+        """Set up test data."""
+        Edition.objects.all().delete()
+        mag = Magazine.objects.create(name="TestMag")
+        for i in range(1, 4):
+            Edition.objects.create(
+                name=f"Edition {i}", year=f"202{i}", pages=str(i * 10), pub_num=f"PUB-{i}", magazine=mag
+            )
+
+    def test_allowed_filter_permits_valid_field(self, rf, user):
+        """Test that filtering by a field in allowed_filter_fields works."""
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name", "year"]
+        view.allowed_filter_fields = ["year"]
+        request = rf.get("", {"f": "year=2021"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        assert all(r["year"] == "2021" for r in data["results"])
+
+    def test_allowed_filter_rejects_disallowed_field(self, rf, user, monkeypatch):
+        """Test that filtering by a field NOT in allowed_filter_fields is rejected."""
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "DEBUG", True)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name", "year"]
+        view.allowed_filter_fields = ["year"]
+        request = rf.get("", {"f": "name__icontains=Edition"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        assert "filter_error" in data
+        assert "not in allowed" in data["filter_error"]
+
+    def test_none_allowed_filter_permits_any_field(self, rf, user):
+        """Test that allowed_filter_fields=None (default) allows any filter."""
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name", "year"]
+        # allowed_filter_fields is None by default
+        request = rf.get("", {"f": "year=2021"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        assert all(r["year"] == "2021" for r in data["results"])
+
+    def test_allowed_filter_checks_base_field_for_lookups(self, rf, user, monkeypatch):
+        """Test that the base field (before __) is extracted and checked against the allowlist."""
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "DEBUG", True)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name"]
+        view.allowed_filter_fields = ["name"]
+        request = rf.get("", {"f": "year__exact=2021"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        assert "filter_error" in data
+
+
+@pytest.mark.django_db
+class TestFilterErrorDebugGating:
+    """Tests for _filter_error gated behind settings.DEBUG."""
+
+    def test_filter_error_shown_in_debug_mode(self, rf, user, monkeypatch):
+        """Test that _filter_error is included in response when DEBUG=True."""
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "DEBUG", True)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name"]
+        request = rf.get("", {"f": "nonexistent_field=value"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        assert "filter_error" in data
+
+    def test_filter_error_hidden_in_production(self, rf, user, monkeypatch):
+        """Test that _filter_error is NOT included in response when DEBUG=False."""
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "DEBUG", False)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.value_fields = ["id", "name"]
+        request = rf.get("", {"f": "nonexistent_field=value"})
+        request.user = user
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        assert "filter_error" not in data

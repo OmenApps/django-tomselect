@@ -3330,3 +3330,140 @@ class TestWidgetFormsetPrefixSupport:
         assert excludes[0]["lookup"] == "category_id"
         assert excludes[1]["source"] == "status"
         assert excludes[1]["lookup"] == "status"
+
+
+@pytest.mark.django_db
+class TestAccessibilityAttributes:
+    """Tests for ARIA and accessibility attributes (Fixes 5-10)."""
+
+    def create_widget(self, config=None):
+        """Helper to create a TomSelectModelWidget."""
+        if config is None:
+            config = TomSelectConfig(url="autocomplete-edition")
+        return TomSelectModelWidget(config=config)
+
+    # Fix 5: aria-describedby
+    def test_build_attrs_auto_sets_aria_describedby(self):
+        """Test that build_attrs auto-sets aria-describedby for help text association."""
+        widget = self.create_widget()
+        attrs = widget.build_attrs({"id": "id_my_field"})
+        assert attrs["aria-describedby"] == "id_my_field_helptext"
+
+    def test_build_attrs_preserves_explicit_aria_describedby(self):
+        """Test that an explicitly set aria-describedby is not overridden."""
+        widget = self.create_widget()
+        attrs = widget.build_attrs({"id": "id_my_field", "aria-describedby": "custom_help"})
+        assert attrs["aria-describedby"] == "custom_help"
+
+    def test_build_attrs_no_aria_describedby_without_id(self):
+        """Test that aria-describedby is not set when widget has no id."""
+        widget = self.create_widget()
+        attrs = widget.build_attrs({})
+        assert "aria-describedby" not in attrs or attrs.get("aria-describedby", "") == ""
+
+    # Fix 6: aria-required
+    def test_render_aria_required_when_required(self):
+        """Test that aria-required='true' is rendered when widget is required."""
+        widget = self.create_widget()
+        widget.is_required = True
+        rendered = widget.render("test_field", None)
+        assert 'aria-required="true"' in rendered
+
+    def test_render_no_aria_required_when_optional(self):
+        """Test that aria-required is NOT rendered when widget is optional."""
+        widget = self.create_widget()
+        widget.is_required = False
+        rendered = widget.render("test_field", None)
+        assert 'aria-required="true"' not in rendered
+
+    # Fix 7: dynamic aria-label
+    def test_context_has_dynamic_aria_label(self):
+        """Test that _create_base_context generates aria_label from field name."""
+        widget = self.create_widget()
+        context = widget.get_context("category_type", None, {})
+        assert context["widget"]["aria_label"] == "Category Type"
+
+    def test_context_aria_label_replaces_hyphens(self):
+        """Test that hyphens in field name are replaced with spaces and title-cased."""
+        widget = self.create_widget()
+        context = widget.get_context("my-field-name", None, {})
+        assert context["widget"]["aria_label"] == "My Field Name"
+
+    def test_render_dynamic_aria_label_in_html(self):
+        """Test that rendered HTML contains the dynamic aria-label."""
+        widget = self.create_widget()
+        rendered = widget.render("category_type", None)
+        assert "Select Category Type" in rendered
+
+    # Fix 8: role="alert" on error div
+    def test_render_error_div_has_alert_role(self):
+        """Test that the error message div has role='alert' and aria-live='assertive'."""
+        widget = self.create_widget()
+        rendered = widget.render("test_field", None)
+        assert 'role="alert"' in rendered
+        assert 'aria-live="assertive"' in rendered
+
+    # Fix 9: live region for selection announcements
+    def test_render_has_sr_status_span(self):
+        """Test that rendered HTML includes the screen reader status span."""
+        widget = self.create_widget()
+        rendered = widget.render("test_field", None)
+        assert 'id="test_field_sr_status"' in rendered
+        assert 'role="status"' in rendered
+        assert 'aria-live="polite"' in rendered
+
+    def test_render_has_on_item_add_callback(self):
+        """Test that rendered HTML includes onItemAdd callback for SR announcements."""
+        widget = self.create_widget()
+        rendered = widget.render("test_field", None)
+        assert "onItemAdd" in rendered
+        assert "test_field_sr_status" in rendered
+
+    def test_render_has_on_item_remove_callback(self):
+        """Test that rendered HTML includes onItemRemove callback for SR announcements."""
+        widget = self.create_widget()
+        rendered = widget.render("test_field", None)
+        assert "onItemRemove" in rendered
+
+    # Fix 10: role="presentation" in tabular mode
+    def test_tabular_dropdown_header_uses_presentation_role(self):
+        """Test that tabular dropdown header uses role='presentation' instead of 'columnheader'."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            plugin_dropdown_header=PluginDropdownHeader(
+                show_value_field=True,
+                extra_columns={"year": "Year"},
+            ),
+        )
+        widget = self.create_widget(config=config)
+        rendered = widget.render("test_field", None)
+        assert 'role="columnheader"' not in rendered
+        assert 'role="presentation"' in rendered
+
+    def test_tabular_option_uses_presentation_role(self):
+        """Test that tabular option columns use role='presentation' instead of 'gridcell'."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            plugin_dropdown_header=PluginDropdownHeader(
+                show_value_field=True,
+                extra_columns={"year": "Year"},
+            ),
+        )
+        widget = self.create_widget(config=config)
+        rendered = widget.render("test_field", None)
+        assert 'role="gridcell"' not in rendered
+
+    def test_tabular_option_no_row_role(self):
+        """Test that tabular option wrapper does not have role='row'."""
+        config = TomSelectConfig(
+            url="autocomplete-edition",
+            plugin_dropdown_header=PluginDropdownHeader(
+                show_value_field=True,
+                extra_columns={"year": "Year"},
+            ),
+        )
+        widget = self.create_widget(config=config)
+        rendered = widget.render("test_field", None)
+        # role="row" should not appear in option template
+        # (it was removed from the tabular option wrapper div)
+        assert 'role="row"' not in rendered
