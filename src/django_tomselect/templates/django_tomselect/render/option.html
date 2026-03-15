@@ -30,17 +30,17 @@ option: function(data, escape) {
         let columns = '';
 
         {% if widget.plugins.dropdown_header.show_value_field %}
-            columns += `<div class="col" role="gridcell">${escape(data[this.settings.valueField])}</div>
-            <div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`;
+            columns += `<div class="col" role="presentation">${escape(data[this.settings.valueField])}</div>
+            <div class="col" role="presentation">${escape(data[this.settings.labelField])}</div>`;
         {% else %}
-            columns += `<div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`;
+            columns += `<div class="col" role="presentation">${escape(data[this.settings.labelField])}</div>`;
         {% endif %}
 
         {% for item in widget.plugins.dropdown_header.extra_values %}
-            columns += `<div class="col" role="gridcell">${escape(data['{{ item|escapejs }}'] || '')}</div>`;
+            columns += `<div class="col" role="presentation">${escape(data['{{ item|escapejs }}'] || '')}</div>`;
         {% endfor %}
 
-        return `<div class="row" role="row">${columns}</div>`;
+        return `<div class="row">${columns}</div>`;
     {% else %}
         const safeValue = escape(decodeIfNeeded(data['{{ widget.label_field|escapejs }}']));
 

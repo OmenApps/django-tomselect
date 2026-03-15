@@ -268,6 +268,12 @@ class TomSelectWidgetMixin(_MixinBase):
         if self.placeholder is not None:
             attrs["placeholder"] = self.placeholder
 
+        # Auto-set aria-describedby for help text association
+        if "aria-describedby" not in attrs:
+            widget_id = attrs.get("id", "")
+            if widget_id:
+                attrs["aria-describedby"] = f"{widget_id}_helptext"
+
         # Mark as TomSelect widget for dynamic initialization
         attrs["data-tomselect"] = "true"
 
@@ -767,6 +773,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                 "max_options": self.max_options,
                 "minimum_query_length": self.minimum_query_length,
                 "name": name,
+                "aria_label": (attrs or {}).get("aria-label", name.replace("_", " ").replace("-", " ").title()),
                 "open_on_focus": self.open_on_focus,
                 "placeholder": self.placeholder,
                 "plugins": self.get_plugin_context(),
@@ -1177,6 +1184,7 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
                 "max_options": self.max_options,
                 "minimum_query_length": self.minimum_query_length,
                 "name": name,
+                "aria_label": (attrs or {}).get("aria-label", name.replace("_", " ").replace("-", " ").title()),
                 "open_on_focus": self.open_on_focus,
                 "placeholder": self.placeholder,
                 "plugins": self.get_plugin_context(),

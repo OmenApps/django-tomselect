@@ -17,7 +17,8 @@ Place a modified version in your project's templates directory:
 <select name="{{ widget.name }}"
         id="{% if 'id' in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}"
         {% include "django/forms/widgets/attrs.html" with widget=widget %}
-        aria-label="{% translate 'Select option' %}"
+        aria-label="{% blocktranslate with field_name=widget.aria_label %}Select {{ field_name }}{% endblocktranslate %}"
+        {% if widget.required %}aria-required="true"{% endif %}
         aria-expanded="false"
         role="combobox">
 </select>

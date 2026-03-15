@@ -42,6 +42,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 {% block tomselect_global_setup %}
 {% endblock tomselect_global_setup %}
 
+<span id="{{widget.name}}_sr_status" class="visually-hidden" role="status" aria-live="polite"></span>
 <script{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
     {% block tomselect_init %}
         (function() {
@@ -337,6 +338,16 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         element.setAttribute('aria-expanded', 'false');
                     },
 
+                    onItemAdd: function(value, item) {
+                        var el = document.getElementById('{{widget.name|escapejs}}_sr_status');
+                        if (el) el.textContent = item.textContent.trim() + ' {% translate "selected" %}';
+                    },
+
+                    onItemRemove: function(value) {
+                        var el = document.getElementById('{{widget.name|escapejs}}_sr_status');
+                        if (el) el.textContent = '{% translate "Item removed" %}';
+                    },
+
                     shouldLoad: function(query){
                         var shouldLoadValue;
                         var isEmptyQuery = !query.trim() || query === undefined;
@@ -506,7 +517,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                 // Show error message to user in the dropdown
                                 if (self.dropdown_content) {
                                     self.dropdown_content.innerHTML = `
-                                        <div class="ts-dropdown-message ts-error-message" style="padding: 10px; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin: 5px;">
+                                        <div class="ts-dropdown-message ts-error-message" role="alert" aria-live="assertive" style="padding: 10px; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin: 5px;">
                                             <span>${errorMessage}</span>
                                         </div>
                                     `;
