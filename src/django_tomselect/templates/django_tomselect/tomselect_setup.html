@@ -324,8 +324,13 @@ This will replace the original code block in the `tomselect_setup.html` template
                                 config = this.findSimilarConfig(select.id);
                             }
 
-                            if (config) {
-                                // Always reinitialize the widget for dynamically loaded content
+                            if (config && !select.tomselect) {
+                                // Only initialize if no live TomSelect instance exists.
+                                // With use_htmx=True the widget's inline script calls
+                                // initialize() synchronously during the HTMX swap, so by
+                                // the time this deferred reinitialize() fires the instance
+                                // is already live. Calling initialize() again would destroy
+                                // and recreate it, causing a visible flash and state loss.
                                 this.initialize(select, config);
                             }
                         });
