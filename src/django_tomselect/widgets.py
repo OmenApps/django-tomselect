@@ -741,9 +741,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             decoded_value = self._safely_decode_html(value)
             extracted_values = self._extract_field_values(decoded_value, value_field, label_field)
 
-            has_identifier = any(
-                extracted_values.get(k) for k in [value_field, "id", "pk", "pkid"]
-            )
+            has_identifier = any(extracted_values.get(k) for k in [value_field, "id", "pk", "pkid"])
             if has_identifier:
                 return self._resolve_model_instance(extracted_values, value_field)
         except Exception as e:
