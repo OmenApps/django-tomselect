@@ -487,10 +487,9 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                         this.setNextUrl(query, self.settings.pagination[query]);
                                     }
 
-                                    // If window[resetVarName] is true, we need to reset the page and set back to false
+                                    // Clear the reset flag after the reset-triggered load rebuilds fresh pagination state
                                     if (window[resetVarName] === true) {
                                         window[resetVarName] = false;
-                                        this.clearPagination();
                                     }
 
                                     callback(result);
