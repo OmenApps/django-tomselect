@@ -1,5 +1,8 @@
 """Pytest fixtures for django_tomselect tests."""
 
+import os
+from contextlib import suppress
+
 import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
@@ -14,6 +17,13 @@ def clear_cache():
     """Clear the settings cache before each test."""
     cache.clear()
     yield
+
+
+def pytest_collection_modifyitems(items):
+    """Automatically mark browser test modules so default test runs can skip them."""
+    for item in items:
+        if item.path.name.startswith("test_browser"):
+            item.add_marker(pytest.mark.playwright)
 
 
 @pytest.fixture
@@ -130,3 +140,41 @@ def mock_request():
             return "/test/"
 
     return MockRequest()
+
+
+@pytest.fixture
+def page(live_server):
+    """Create an isolated Playwright page for each end-to-end test."""
+    playwright_sync_api = pytest.importorskip(
+        "playwright.sync_api",
+        reason="Install Playwright with `uv run --extra dev pytest ...`.",
+    )
+    previous_async_flag = os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE")
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+    playwright = playwright_sync_api.sync_playwright().start()
+
+    try:
+        browser = playwright.chromium.launch(headless=True)
+    except Exception as exc:
+        playwright.stop()
+        pytest.skip(
+            "Playwright Chromium is not installed or could not be launched. "
+            "Run `PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers uv run --extra dev playwright install chromium`. "
+            f"Original error: {exc}"
+        )
+
+    context = browser.new_context(viewport={"width": 1440, "height": 1200})
+    page = context.new_page()
+
+    try:
+        yield page
+    finally:
+        with suppress(Exception):
+            context.close()
+        with suppress(Exception):
+            browser.close()
+        playwright.stop()
+        if previous_async_flag is None:
+            os.environ.pop("DJANGO_ALLOW_ASYNC_UNSAFE", None)
+        else:
+            os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = previous_async_flag

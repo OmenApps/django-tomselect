@@ -66,6 +66,7 @@ dev = [
     "myst-parser>=4.0.1",
     "nox>=2025.11.12",
     "pep8-naming>=0.15.1",
+    "playwright>=1.54.0",
     "pre-commit-hooks>=6.0.0",
     "pre-commit>=4.5.1",
     "Pygments>=2.19.1",
@@ -118,6 +119,9 @@ DJANGO_SETTINGS_MODULE = "example_project.settings"
 python_files = ["*test_*.py", "*_test.py", "example_project/*.py"]
 log_cli = true
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "playwright: browser-level tests that require Playwright and an installed browser",
+]
 
 [tool.ruff]
 src = ["src"]

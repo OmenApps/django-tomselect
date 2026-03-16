@@ -74,6 +74,25 @@ $ nox --session=tests
 Unit tests are located in `example_project/test_*.py`,
 and are written using the [pytest] testing framework.
 
+Browser regression tests use Playwright. Run them with the dedicated Nox session:
+
+```console
+$ uv run nox --session=tests-browser
+```
+
+You can pass extra pytest args and keep the browser test target:
+
+```console
+$ uv run nox --session=tests-browser -- -q
+```
+
+If you want to run the browser subset directly, install Chromium and invoke pytest yourself:
+
+```console
+$ PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers uv run playwright install chromium
+$ PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers uv run pytest example_project/test_browser.py
+```
+
 [pytest]: https://pytest.readthedocs.io/
 
 ## How to submit changes

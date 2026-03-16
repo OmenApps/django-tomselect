@@ -178,11 +178,41 @@ def tests(session: Session, django: str) -> None:
 
     session.install(".[dev]")
     session.install(f"django~={django}.0")
+    posargs = list(session.posargs)
+    has_marker_filter = "-m" in posargs or any(arg.startswith("-m=") for arg in posargs)
+    args = posargs if has_marker_filter else ["-m", "not playwright", *posargs]
     try:
-        session.run("coverage", "run", "-m", "pytest", "-vv", *session.posargs)
+        session.run("coverage", "run", "-m", "pytest", "-vv", *args)
     finally:
         if session.interactive:
             session.notify("coverage", posargs=[])
+
+
+@session(name="tests-browser", python=PYTHON_STABLE_VERSION)
+@nox.parametrize("django", DJANGO_STABLE_VERSION)
+def tests_browser(session: Session, django: str) -> None:
+    """Run the Playwright browser regression tests."""
+    session.install(".[dev]")
+    session.install(f"django~={django}.0")
+
+    browser_cache = Path(".nox", "playwright-browsers")
+    session.env["PLAYWRIGHT_BROWSERS_PATH"] = str(browser_cache.resolve())
+
+    session.run("playwright", "install", "chromium")
+
+    posargs = list(session.posargs)
+    has_marker_filter = "-m" in posargs or any(arg.startswith("-m=") for arg in posargs)
+    has_explicit_target = any(
+        not arg.startswith("-") and (arg.endswith(".py") or "::" in arg or Path(arg.split("::")[0]).exists())
+        for arg in posargs
+    )
+    args = posargs
+    if not has_marker_filter:
+        args = ["-m", "playwright", *args]
+    if not has_explicit_target:
+        args = [*args, "example_project/test_browser.py"]
+
+    session.run("pytest", *args)
 
 
 @session(python=PYTHON_STABLE_VERSION)
