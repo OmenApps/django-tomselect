@@ -103,7 +103,51 @@ def type_query_for_widget(page, select_id, query):
 
 def wait_for_widget(page, select_id):
     """Wait until a specific TomSelect instance is initialized."""
-    page.wait_for_function(f"document.querySelector('{widget_selector(select_id)}')?.tomselect !== undefined")
+    page.wait_for_function(
+        f"document.querySelector({widget_selector(select_id)!r})?.tomselect !== undefined"
+    )
+
+
+def perform_scripted_htmx_swap(page, container_selector, fragment_path):
+    """Swap HTML into a container and execute inline widget scripts like an htmx fragment update."""
+    page.evaluate(
+        """async ([selector, path]) => {
+            const container = document.querySelector(selector);
+            if (!container) {
+                throw new Error(`Swap container not found: ${selector}`);
+            }
+
+            const response = await fetch(path, {
+                headers: { "HX-Request": "true" },
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to load fragment: ${response.status}`);
+            }
+
+            container.innerHTML = await response.text();
+
+            container.querySelectorAll("script").forEach((script) => {
+                if (script.src) {
+                    script.remove();
+                    return;
+                }
+
+                const replacement = document.createElement("script");
+                Array.from(script.attributes).forEach((attribute) => {
+                    replacement.setAttribute(attribute.name, attribute.value);
+                });
+                replacement.textContent = script.textContent;
+                script.replaceWith(replacement);
+            });
+
+            document.dispatchEvent(
+                new CustomEvent("htmx:afterSwap", {
+                    detail: { target: container },
+                })
+            );
+        }""",
+        arg=[container_selector, fragment_path],
+    )
 
 
 def wait_for_dropdown_option(page, select_id, text):
@@ -191,7 +235,7 @@ def scroll_dropdown_to_bottom(page):
 
 def wait_for_tomselect(page):
     """Wait until the TomSelect instance is initialized."""
-    page.wait_for_function(f"document.querySelector('{FIELD_SELECTOR}')?.tomselect !== undefined")
+    page.wait_for_function(f"document.querySelector({FIELD_SELECTOR!r})?.tomselect !== undefined")
 
 
 def wait_for_option_count(page, minimum_count):
@@ -440,6 +484,52 @@ def test_virtual_scroll_still_loads_after_dropdown_reopen(page, live_server, pag
     )
 
     assert option_count >= 21
+
+
+def test_htmx_swap_preserves_instance_state_without_duplicate_reinitialize(page, live_server):
+    """A swapped HTMX widget should keep its live instance and only queue one deferred reinit pass."""
+    page.goto(f"{live_server.url}{reverse('demo-htmx')}")
+
+    perform_scripted_htmx_swap(page, ".card", reverse("demo-htmx-form-fragment"))
+    wait_for_tomselect(page)
+
+    page.evaluate(
+        """() => {
+            const originalReinitialize = window.djangoTomSelect.reinitialize.bind(window.djangoTomSelect);
+
+            window.__djangoTomSelectReinitializeCalls = 0;
+            window.djangoTomSelect.reinitialize = function(container) {
+                const swapContainer = document.querySelector(".card");
+                if (container === swapContainer) {
+                    window.__djangoTomSelectReinitializeCalls += 1;
+                }
+                return originalReinitialize(container);
+            };
+        }"""
+    )
+
+    perform_scripted_htmx_swap(page, ".card", reverse("demo-htmx-form-fragment"))
+    wait_for_tomselect(page)
+
+    page.locator(FIELD_SELECTOR).evaluate(
+        """select => {
+            window.__djangoTomSelectInstanceAfterSwap = select.tomselect;
+            select.tomselect._browserRegressionState = "preserved-across-reinit-window";
+        }"""
+    )
+    page.wait_for_timeout(350)
+
+    result = page.locator(FIELD_SELECTOR).evaluate(
+        """select => ({
+            sameInstance: select.tomselect === window.__djangoTomSelectInstanceAfterSwap,
+            preservedState: select.tomselect?._browserRegressionState ?? null,
+            reinitializeCalls: window.__djangoTomSelectReinitializeCalls ?? 0,
+        })"""
+    )
+
+    assert result["sameInstance"] is True
+    assert result["preservedState"] == "preserved-across-reinit-window"
+    assert result["reinitializeCalls"] == 1
 
 
 def test_filter_by_magazine_limits_edition_results(page, live_server, filtered_editions):

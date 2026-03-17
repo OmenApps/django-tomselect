@@ -35,12 +35,27 @@ This will replace the original code block in the `tomselect_setup.html` template
                 instances: new Map(),
                 initialized: false,  // Track if we've already set up global handlers
                 observer: null,      // Store MutationObserver reference for cleanup
+                htmxSwapContainers: new WeakSet(), // Containers already queued via htmx:afterSwap
                 REINIT_DELAY: 100,   // Delay for reinitialization in ms
                 OBSERVER_DEBOUNCE: 50, // Debounce time for mutation observer
 
                 // Helper function to add a URL parameter
                 addUrlParam: function(url, paramName, paramValue) {
                     return `${url}&${paramName}=${encodeURIComponent(paramValue)}`;
+                },
+
+                // Skip observer-driven reinitialization for containers already queued by htmx:afterSwap.
+                isInsidePendingHtmxSwap: function(node) {
+                    let current = node;
+
+                    while (current && current.nodeType === 1) {
+                        if (this.htmxSwapContainers.has(current)) {
+                            return true;
+                        }
+                        current = current.parentElement;
+                    }
+
+                    return false;
                 },
 
                 // Deep clone config while preserving functions
@@ -309,34 +324,35 @@ This will replace the original code block in the `tomselect_setup.html` template
 
                 // Reinitialize TomSelect on dynamic content
                 reinitialize: function(container) {
-                    const self = this;
-
                     // Increased timeout to ensure DOM is fully rendered
                     setTimeout(() => {
-                        // Find all select elements that need initialization
-                        const selects = container.querySelectorAll('select[data-tomselect]');
-                        selects.forEach(select => {
-                            // Get config from original instance if available
-                            let config = this.configs.get(select.id);
+                        try {
+                            // Find all select elements that need initialization
+                            const selects = container.querySelectorAll('select[data-tomselect]');
+                            selects.forEach(select => {
+                                // Get config from original instance if available
+                                let config = this.configs.get(select.id);
 
-                            // If no stored config, try to get from a similar widget
-                            if (!config) {
-                                config = this.findSimilarConfig(select.id);
-                            }
+                                // If no stored config, try to get from a similar widget
+                                if (!config) {
+                                    config = this.findSimilarConfig(select.id);
+                                }
 
-                            if (config && !select.tomselect) {
-                                // Only initialize if no live TomSelect instance exists.
-                                // With use_htmx=True the widget's inline script calls
-                                // initialize() synchronously during the HTMX swap, so by
-                                // the time this deferred reinitialize() fires the instance
-                                // is already live. Calling initialize() again would destroy
-                                // and recreate it, causing a visible flash and state loss.
-                                this.initialize(select, config);
-                            }
-                        });
+                                if (config && !select.tomselect) {
+                                    // Only initialize if no live TomSelect instance exists.
+                                    // With use_htmx=True the widget's inline script calls
+                                    // initialize() synchronously during the HTMX swap, so by
+                                    // the time this deferred reinitialize() fires the instance
+                                    // is already live.
+                                    this.initialize(select, config);
+                                }
+                            });
 
-                        // Fix any remaining selects that might need the ts-hidden-accessible class
-                        this.fixAccessibilityClasses(container);
+                            // Fix any remaining selects that might need the ts-hidden-accessible class
+                            this.fixAccessibilityClasses(container);
+                        } finally {
+                            this.htmxSwapContainers.delete(container);
+                        }
                     }, this.REINIT_DELAY);
                 },
 
@@ -356,6 +372,10 @@ This will replace the original code block in the `tomselect_setup.html` template
                     mutations.forEach(mutation => {
                         mutation.addedNodes.forEach(node => {
                             if (node.nodeType === 1) { // ELEMENT_NODE
+                                if (this.isInsidePendingHtmxSwap(node)) {
+                                    return;
+                                }
+
                                 // Check if this node contains select elements
                                 if (node.querySelector('select[data-tomselect]')) {
                                     containersToInit.add(node);
@@ -376,6 +396,9 @@ This will replace the original code block in the `tomselect_setup.html` template
                             mutation.target.nodeType === 1 &&
                             mutation.attributeName === 'class') {
                             const target = mutation.target;
+                            if (this.isInsidePendingHtmxSwap(target)) {
+                                return;
+                            }
                             if (target.hasAttribute('classList') &&
                                 target.classList.contains('active') &&
                                 (target.classList.contains('tab-pane') ||
@@ -458,12 +481,8 @@ This will replace the original code block in the `tomselect_setup.html` template
                             if (event && event.detail && event.detail.target) {
                                 // Get the container that was just updated by htmx
                                 const container = event.detail.target;
-
-                                // Wait to ensure all DOM updates are complete
-                                setTimeout(() => {
-                                    // Reinitialize all TomSelect elements in this container
-                                    self.reinitialize(container);
-                                }, self.REINIT_DELAY);
+                                self.htmxSwapContainers.add(container);
+                                self.reinitialize(container);
                             }
                         });
                     }
