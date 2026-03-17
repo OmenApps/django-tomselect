@@ -1,4 +1,4 @@
-# Spanish translations for django-tomselect.
+# Portuguese translations for django-tomselect.
 # Copyright (C) OmenApps
 # This file is distributed under the same license as the django-tomselect package.
 #
@@ -6,34 +6,33 @@ msgid ""
 msgstr ""
 "Project-Id-Version: django-tomselect\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-15 21:59+0000\n"
+"POT-Creation-Date: 2026-03-15 22:02+0000\n"
 "PO-Revision-Date: 2026-03-15 00:00+0000\n"
-"Language-Team: Spanish <es@li.org>\n"
-"Language: es\n"
+"Language-Team: Portuguese <pt@li.org>\n"
+"Language: pt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-
 #: src/django_tomselect/templates/django_tomselect/render/clear_button.html:10
 msgid "Clear selection"
-msgstr "Limpiar selección"
+msgstr "Limpar seleção"
 
 #: src/django_tomselect/templates/django_tomselect/render/dropdown_footer.html:11
 msgid "Go to Create View for these items"
-msgstr "Ir a crear registros"
+msgstr "Ir para criação de registos"
 
 #: src/django_tomselect/templates/django_tomselect/render/dropdown_footer.html:15
 msgid "Go to List View for these items"
-msgstr "Ir a la lista de registros"
+msgstr "Ir para a lista de registos"
 
 #: src/django_tomselect/templates/django_tomselect/render/item.html:37
 msgid "Detail"
-msgstr "Detalles"
+msgstr "Detalhe"
 
 #: src/django_tomselect/templates/django_tomselect/render/item.html:39
 msgid "View Detail"
-msgstr "Ver detalles"
+msgstr "Ver detalhe"
 
 #: src/django_tomselect/templates/django_tomselect/render/item.html:52
 msgid "Delete"
@@ -41,7 +40,7 @@ msgstr "Eliminar"
 
 #: src/django_tomselect/templates/django_tomselect/render/item.html:54
 msgid "Delete item"
-msgstr "Eliminar registro"
+msgstr "Eliminar registo"
 
 #: src/django_tomselect/templates/django_tomselect/render/item.html:67
 msgid "Update"
@@ -49,54 +48,54 @@ msgstr "Editar"
 
 #: src/django_tomselect/templates/django_tomselect/render/item.html:70
 msgid "Update item"
-msgstr "Editar registro"
+msgstr "Editar registo"
 
 #: src/django_tomselect/templates/django_tomselect/render/loading.html:6
 msgid "Loading"
-msgstr "Cargando"
+msgstr "A carregar"
 
 #: src/django_tomselect/templates/django_tomselect/render/loading_more.html:8
 msgid "Loading more results..."
-msgstr "Cargando más resultados..."
+msgstr "A carregar mais resultados..."
 
 #: src/django_tomselect/templates/django_tomselect/render/no_more_results.html:6
 msgid "No more results"
-msgstr "No hay más resultados"
+msgstr "Sem mais resultados"
 
 #: src/django_tomselect/templates/django_tomselect/render/no_results.html:7
 msgid "No results found for"
-msgstr "No se encontraron resultados para"
+msgstr "Sem resultados encontrados para"
 
 #: src/django_tomselect/templates/django_tomselect/render/not_loading.html:9
 #, python-format
 msgid "Type at least %(min_chars)s characters to search"
-msgstr "Escriba al menos %(min_chars)s caracteres para buscar"
+msgstr "Introduza pelo menos %(min_chars)s caracteres para pesquisar"
 
 #: src/django_tomselect/templates/django_tomselect/render/option_create.html:17
 msgid "Create new item"
-msgstr "Crear un nuevo registro"
+msgstr "Criar um novo registo"
 
 #: src/django_tomselect/templates/django_tomselect/render/option_create.html:20
 msgid "Add"
-msgstr "Añadir"
+msgstr "Adicionar"
 
 #: src/django_tomselect/templates/django_tomselect/render/select.html:20
 #, python-format
 msgid "Select %(field_name)s"
-msgstr "Seleccionar %(field_name)s"
+msgstr "Selecionar %(field_name)s"
 
 #: src/django_tomselect/templates/django_tomselect/tomselect.html:343
 msgid "selected"
-msgstr "Seleccionado"
+msgstr "Selecionado"
 
 #: src/django_tomselect/templates/django_tomselect/tomselect.html:348
 msgid "Item removed"
-msgstr "Registro eliminado"
+msgstr "Registo eliminado"
 
 #: src/django_tomselect/templates/django_tomselect/tomselect.html:511
 msgid "Request timed out. Please try again."
-msgstr "La solicitud excedió el tiempo límite. Inténtelo de nuevo."
+msgstr "O pedido excedeu o tempo limite. Tente novamente."
 
 #: src/django_tomselect/templates/django_tomselect/tomselect.html:512
 msgid "Failed to load options. Please try again."
-msgstr "Error al cargar las opciones. Inténtelo de nuevo."
+msgstr "Falha a carregar opções. Tente novamente."
