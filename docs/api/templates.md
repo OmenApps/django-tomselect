@@ -291,6 +291,30 @@ item: function(data, escape) {
 },
 ```
 
+### clear_button.html
+
+Renders the HTML for the clear button added by the `clear_button` plugin. Override this template to customise the button's markup, attributes, or icon.
+
+Template source: [clear_button.html](https://github.com/OmenApps/django-tomselect/blob/71547a01daea6992f5ed18b48d911d01a2d2ab4f/src/django_tomselect/templates/django_tomselect/render/clear_button.html)
+
+```django
+{% comment %}
+Renders the Clear Button plugin's HTML.
+{% endcomment %}
+{% load i18n %}
+{% block code %}
+html: function(data){
+    return `<div class="${escape(data.className)}"
+                title="${escape(data.title)}"
+                role="button"
+                aria-label="${escape(data.title)}"
+                tabindex="0">&times;</div>`;
+},
+title: "{% translate "Clear Selection" %}",
+className: "clear-button",
+{% endblock code %}
+```
+
 ### dropdown_header.html
 
 Configures the dropdown header display.

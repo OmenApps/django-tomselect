@@ -246,7 +246,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             {% if 'clear_button' in widget.plugins.keys %}
                                 clear_button: {
                                     title: '{{ widget.plugins.clear_button.title|escapejs }}',
-                                    className: '{{ widget.plugins.clear_button.class_name|escapejs }}'
+                                    className: '{{ widget.plugins.clear_button.class_name|escapejs }}',
+                                    {% include "django_tomselect/render/clear_button.html" with widget=widget %}
                                 },
                             {% endif %}
 
