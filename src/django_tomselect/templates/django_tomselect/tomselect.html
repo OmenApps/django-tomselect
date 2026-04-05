@@ -219,6 +219,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     maxOptions: {% if widget.max_options %}{{ widget.max_options }}{% else %}null{% endif %},
                     preload: {% if widget.preload == "focus" %}'focus'{% elif widget.preload %}true{% else %}false{% endif %},
                     maxItems: {% if not widget.is_multiple %}1{% else %}{% if widget.max_items %}{{ widget.max_items }}{% else %}null{% endif %}{% endif %},
+                    loadingClass: '{{ widget.loading_class|escapejs }}',
                     showValueField: {% if 'dropdown_header' in widget.plugins.keys and widget.plugins.dropdown_header.show_value_field %}true{% else %}false{% endif %},
                     create: {% if 'create' in widget.keys and widget.create %}true{% else %}false{% endif %},
                     resetVarName: resetVarName,
@@ -246,7 +247,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             {% if 'clear_button' in widget.plugins.keys %}
                                 clear_button: {
                                     title: '{{ widget.plugins.clear_button.title|escapejs }}',
-                                    className: '{{ widget.plugins.clear_button.class_name|escapejs }}'
+                                    className: '{{ widget.plugins.clear_button.class_name|escapejs }}',
+                                    {% include "django_tomselect/render/clear_button.html" with widget=widget %}
                                 },
                             {% endif %}
 
