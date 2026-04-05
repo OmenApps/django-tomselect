@@ -150,6 +150,54 @@ def perform_scripted_htmx_swap(page, container_selector, fragment_path):
     )
 
 
+def perform_scripted_htmx_outerhtml_swap(page, container_selector, fragment_path):
+    """Replace a container via outerHTML and dispatch htmx:afterSwap with the detached original target."""
+    page.evaluate(
+        """async ([selector, path]) => {
+            const container = document.querySelector(selector);
+            if (!container) {
+                throw new Error(`Swap container not found: ${selector}`);
+            }
+
+            if (!container.id) {
+                container.id = "htmx-outerhtml-swap-target";
+            }
+
+            const response = await fetch(path, {
+                headers: { "HX-Request": "true" },
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to load fragment: ${response.status}`);
+            }
+
+            const replacement = container.cloneNode(false);
+            replacement.innerHTML = await response.text();
+            container.replaceWith(replacement);
+
+            replacement.querySelectorAll("script").forEach((script) => {
+                if (script.src) {
+                    script.remove();
+                    return;
+                }
+
+                const replacementScript = document.createElement("script");
+                Array.from(script.attributes).forEach((attribute) => {
+                    replacementScript.setAttribute(attribute.name, attribute.value);
+                });
+                replacementScript.textContent = script.textContent;
+                script.replaceWith(replacementScript);
+            });
+
+            document.dispatchEvent(
+                new CustomEvent("htmx:afterSwap", {
+                    detail: { target: container },
+                })
+            );
+        }""",
+        arg=[container_selector, fragment_path],
+    )
+
+
 def wait_for_dropdown_option(page, select_id, text):
     """Wait until the dropdown for a widget contains an option with the given text."""
     page.wait_for_function(
@@ -530,6 +578,54 @@ def test_htmx_swap_preserves_instance_state_without_duplicate_reinitialize(page,
     assert result["sameInstance"] is True
     assert result["preservedState"] == "preserved-across-reinit-window"
     assert result["reinitializeCalls"] == 1
+
+
+def test_htmx_outerhtml_swap_uses_replacement_container_without_duplicate_reinitialize(page, live_server):
+    """An outerHTML HTMX swap should reinitialize against the live replacement container exactly once."""
+    page.goto(f"{live_server.url}{reverse('demo-htmx')}")
+    page.locator(".card").evaluate("""container => { container.id = "htmx-outerhtml-card"; }""")
+
+    page.evaluate(
+        """() => {
+            const originalReinitialize = window.djangoTomSelect.reinitialize.bind(window.djangoTomSelect);
+
+            window.__djangoTomSelectOuterSwapCalls = [];
+            window.djangoTomSelect.reinitialize = function(container) {
+                if (container?.id === "htmx-outerhtml-card") {
+                    window.__djangoTomSelectOuterSwapCalls.push({
+                        id: container.id,
+                        isConnected: container.isConnected,
+                        hasWidget: Boolean(container.querySelector("#tomselect-custom-id")),
+                    });
+                }
+                return originalReinitialize(container);
+            };
+        }"""
+    )
+
+    perform_scripted_htmx_outerhtml_swap(page, "#htmx-outerhtml-card", reverse("demo-htmx-form-fragment"))
+    wait_for_tomselect(page)
+    page.wait_for_timeout(350)
+
+    result = page.evaluate(
+        """() => ({
+            calls: window.__djangoTomSelectOuterSwapCalls ?? [],
+            containerExists: Boolean(document.querySelector("#htmx-outerhtml-card")),
+            widgetConnected: Boolean(document.querySelector("#tomselect-custom-id")?.isConnected),
+            widgetInitialized: Boolean(document.querySelector("#tomselect-custom-id")?.tomselect),
+        })"""
+    )
+
+    assert result["containerExists"] is True
+    assert result["widgetConnected"] is True
+    assert result["widgetInitialized"] is True
+    assert result["calls"] == [
+        {
+            "id": "htmx-outerhtml-card",
+            "isConnected": True,
+            "hasWidget": True,
+        }
+    ]
 
 
 def test_filter_by_magazine_limits_edition_results(page, live_server, filtered_editions):

@@ -480,7 +480,20 @@ This will replace the original code block in the `tomselect_setup.html` template
                             // Only process if htmx event has proper structure
                             if (event && event.detail && event.detail.target) {
                                 // Get the container that was just updated by htmx
-                                const container = event.detail.target;
+                                let container = event.detail.target;
+
+                                // For outerHTML swaps, event.detail.target is the OLD
+                                // element that was replaced -- now detached from the DOM.
+                                // Fall back to finding the replacement by ID.
+                                if (!container.isConnected) {
+                                    if (container.id) {
+                                        container = document.getElementById(container.id);
+                                    }
+                                    if (!container) {
+                                        container = document.body;
+                                    }
+                                }
+
                                 self.htmxSwapContainers.add(container);
                                 self.reinitialize(container);
                             }
