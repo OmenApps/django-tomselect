@@ -147,6 +147,117 @@ def js_build(session: Session) -> None:
     session.run("npm", "run", "buildsmall", external=True)
 
 
+# ---------------------------------------------------------------------------
+# CSS vendoring helpers
+# ---------------------------------------------------------------------------
+
+#: Bootstrap 5 CSS variable fallbacks (Bootstrap 5.3 defaults).
+#: Order matters: longer names must come before shorter ones that are prefixes
+#: (e.g. --bs-border-color-translucent before --bs-border-color).
+_BS5_FALLBACKS: list[tuple[str, str]] = [
+    ("--bs-border-color-translucent", "rgba(0, 0, 0, 0.175)"),
+    ("--bs-border-color", "#dee2e6"),
+    ("--bs-border-radius-sm", "0.25rem"),
+    ("--bs-border-radius-lg", "0.5rem"),
+    ("--bs-border-radius", "0.375rem"),
+    ("--bs-border-width", "1px"),
+    ("--bs-body-bg", "#fff"),
+    ("--bs-body-color", "#212529"),
+    ("--bs-secondary-bg", "#e9ecef"),
+    ("--bs-secondary-color", "#a7aeb8"),
+    ("--bs-tertiary-bg", "#f8f9fa"),
+    ("--bs-form-invalid-color", "#dc3545"),
+    ("--bs-form-valid-color", "#198754"),
+    ("--bs-box-shadow-inset", "inset 0 1px 2px rgba(0, 0, 0, 0.075)"),
+]
+
+#: Invalid color-mix() calls emitted by upstream tom-select and their fixes.
+_COLOR_MIX_FIXES: list[tuple[str, str]] = [
+    ("color-mix(#fff, #d0d0d0, 85%)", "color-mix(in srgb, #fff 85%, #d0d0d0)"),
+    ("color-mix(#1da7ee, #178ee9, 60%)", "color-mix(in srgb, #1da7ee 60%, #178ee9)"),
+    ("color-mix(#008fd8, #0075cf, 60%)", "color-mix(in srgb, #008fd8 60%, #0075cf)"),
+    ("color-mix(#fefefe, #f2f2f2, 60%)", "color-mix(in srgb, #fefefe 60%, #f2f2f2)"),
+]
+
+
+def _patch_bs5_fallbacks(css: str) -> str:
+    """Add fallback values to ``var(--bs-*)`` calls that lack them."""
+    import re
+
+    for var_name, fallback in _BS5_FALLBACKS:
+        # Match var(--bs-xxx) but NOT var(--bs-xxx, already-has-fallback).
+        # Negative lookahead ensures we skip calls that already include a comma.
+        pattern = re.compile(re.escape(f"var({var_name})"))
+        css = pattern.sub(f"var({var_name}, {fallback})", css)
+    return css
+
+
+def _patch_color_mix(css: str) -> str:
+    """Fix invalid color-mix() syntax (missing 'in srgb' color space)."""
+    for bad, good in _COLOR_MIX_FIXES:
+        css = css.replace(bad, good)
+    # Handle BS5 variant that may already have had var() fallbacks inserted.
+    import re
+
+    css = re.sub(
+        r"color-mix\(var\(--bs-body-bg(?:,\s*[^)]+)?\),\s*#d0d0d0,\s*85%\)",
+        lambda m: m.group().replace("color-mix(", "color-mix(in srgb, ").replace(", #d0d0d0, 85%", " 85%, #d0d0d0"),
+        css,
+    )
+    return css
+
+
+@session(name="css-vendor", python=False)
+def css_vendor(session: Session) -> None:
+    """Copy tom-select CSS from node_modules and patch for standalone use.
+
+    Copies CSS for all three themes (default, bootstrap4, bootstrap5),
+    adds fallback values to Bootstrap 5 CSS variables so the widget
+    renders without Bootstrap loaded, fixes invalid color-mix() syntax,
+    and regenerates minified files.
+    """
+    src = Path("node_modules/tom-select/dist/css")
+    dest = Path("src/django_tomselect/static/django_tomselect/vendor/tom-select/css")
+
+    if not src.exists():
+        session.error("node_modules/tom-select not found — run 'npm install' first")
+
+    themes = ("default", "bootstrap4", "bootstrap5")
+
+    # 1. Copy all files from npm
+    for theme in themes:
+        for suffix in (".css", ".min.css", ".css.map", ".min.css.map"):
+            name = f"tom-select.{theme}{suffix}"
+            session.log(f"Copying {name}")
+            shutil.copy2(src / name, dest / name)
+
+    # 2. Patch unminified CSS files
+    for theme in themes:
+        css_path = dest / f"tom-select.{theme}.css"
+        css = css_path.read_text()
+
+        css = _patch_color_mix(css)
+        if theme == "bootstrap5":
+            css = _patch_bs5_fallbacks(css)
+
+        css_path.write_text(css)
+        session.log(f"Patched tom-select.{theme}.css")
+
+    # 3. Regenerate minified files
+    for theme in themes:
+        css_file = f"tom-select.{theme}.css"
+        min_file = f"tom-select.{theme}.min.css"
+        session.run(
+            "npx", "esbuild",
+            str(dest / css_file),
+            "--minify",
+            f"--outfile={dest / min_file}",
+            "--allow-overwrite",
+            external=True,
+        )
+        session.log(f"Minified {min_file}")
+
+
 @session(name="js-lint", python=False)
 def js_lint(session: Session) -> None:
     """Lint JavaScript with StandardJS."""

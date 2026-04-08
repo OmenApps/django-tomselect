@@ -153,6 +153,9 @@ TOMSELECT = {
 
 You can override this at any point using template tags (e.g., `{% tomselect_media css_framework="bootstrap4" %}`) or by configuring the widget on a per-field basis.
 
+!!! note "Load Bootstrap CSS first"
+    When using `bootstrap5` (or `bootstrap4`), include the Bootstrap stylesheet **before** `{% tomselect_media %}`. The Bootstrap 5 theme relies on CSS custom properties that Bootstrap defines. Fallback values are included so the widget renders without Bootstrap, but loading Bootstrap first ensures the most accurate styling.
+
 ## Quick Start
 
 This section guides you through a simple, end-to-end example of integrating `django_tomselect` into your Django project. By the end, you’ll have a functioning autocomplete-enabled select field that dynamically fetches options from the server as the user types.
