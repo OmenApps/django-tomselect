@@ -339,16 +339,43 @@ class TomSelectConfig(BaseConfig):
 
     This class contains settings specific to a particular TomSelect widget.
 
+    There are two distinct mechanisms for creating new items:
+
+    1. **Dropdown Footer Link** (``show_create``): Adds a "Create New" link in the dropdown
+       footer that navigates to a separate create view. Requires all three of:
+       ``show_create=True``, ``plugin_dropdown_footer=PluginDropdownFooter()``, and
+       ``create_url`` set on the autocomplete view. The link is only shown if the user has
+       the model's ``add`` permission.
+
+    2. **Inline Creation** (``create``): Enables Tom Select's native type-to-create feature.
+       When the user types a value that doesn't match any existing option, an "Add <value>..."
+       option appears in the dropdown. Use ``create_field`` to specify which model field
+       receives the typed value. Optionally set ``create_with_htmx=True`` to POST the new
+       value to the autocomplete view's ``create_url`` via HTMX instead of handling it
+       client-side.
+
+    Both mechanisms can be used together. See the "Creating New Items" section in the docs
+    for complete examples.
+
     Args:
-        url: URL for the autocomplete view.
-        show_list: if True, show the list button.
-        show_create: if True, show the create button.
-        show_detail: if True, show the detail button.
-        show_update: if True, show the update button.
-        show_delete: if True, show the delete button.
-        value_field: field name for the value field.
-        label_field: field name for the label field.
-        create_field: field name for the create field.
+        url: URL name for the autocomplete view.
+        show_list: if True, show the "View All" link in the dropdown footer.
+            Requires ``plugin_dropdown_footer`` and ``list_url`` on the autocomplete view.
+        show_create: if True, show a "Create New" link in the dropdown footer that navigates
+            to the autocomplete view's ``create_url``. Requires ``plugin_dropdown_footer``
+            to be configured and ``create_url`` to be set on the autocomplete view. The link
+            is only visible to users with the model's ``add`` permission.
+        show_detail: if True, show a detail link for each selected option.
+            Requires ``detail_url`` on the autocomplete view.
+        show_update: if True, show an update link for each selected option.
+            Requires ``update_url`` on the autocomplete view.
+        show_delete: if True, show a delete link for each selected option.
+            Requires ``delete_url`` on the autocomplete view.
+        value_field: model field name used as the option value (default: "id").
+        label_field: model field name used as the option display label (default: "name").
+        create_field: model field name to populate when creating a new item via inline
+            creation (``create=True``). For example, ``create_field='name'`` means the typed
+            value will be used as the ``name`` field of the new object.
         filter_by: Filter conditions to apply. Accepts:
             - Empty tuple () for no filtering (default)
             - 2-tuple ("field", "lookup") for legacy single field filter
@@ -358,8 +385,7 @@ class TomSelectConfig(BaseConfig):
 
         exclude_by: Exclude conditions to apply. Same format as filter_by.
         use_htmx: if True, use HTMX for AJAX requests.
-        css_framework: CSS framework to use ("default", "bootstrap4", "bootstrap5").
-        attrs: additional attributes for the widget.
+        attrs: additional HTML attributes for the widget.
 
         close_after_select: if True, close the dropdown after selecting an item.
         hide_placeholder: if True, hide the placeholder when an item is selected.
@@ -372,9 +398,17 @@ class TomSelectConfig(BaseConfig):
         open_on_focus: if True, open the dropdown when the input is focused.
         placeholder: placeholder text for the input field.
         preload: if True, preload the dropdown on focus.
-        create: if True, allow creating new items.
-        create_filter: filter for creating new items.
-        create_with_htmx: if True, use HTMX for creating new items.
+        create: if True, enable Tom Select's inline item creation. When the user types a
+            value that doesn't match any existing option, an "Add <value>..." option appears
+            in the dropdown. This is independent of ``show_create``, which controls the
+            dropdown footer link. Use ``create_field`` to specify which model field receives
+            the typed value.
+        create_filter: regex pattern or function to restrict which typed values can trigger
+            inline creation. Only applies when ``create=True``.
+        create_with_htmx: if True, inline creation (``create=True``) POSTs to the
+            autocomplete view's ``create_url`` via HTMX for server-side validation and
+            object creation. Requires ``create=True`` and ``create_url`` on the autocomplete
+            view. If False, creation is handled client-side by Tom Select.
         minimum_query_length: minimum number of characters to trigger a search.
         css_framework: CSS framework to use ("default", "bootstrap4", "bootstrap5").
         use_minified: if True, use minified JS and CSS files.
@@ -382,7 +416,8 @@ class TomSelectConfig(BaseConfig):
         plugin_checkbox_options: PluginCheckboxOptions instance.
         plugin_clear_button: PluginClearButton instance.
         plugin_dropdown_header: PluginDropdownHeader instance.
-        plugin_dropdown_footer: PluginDropdownFooter instance.
+        plugin_dropdown_footer: PluginDropdownFooter instance. Required for ``show_create``
+            and ``show_list`` to render their respective links in the dropdown.
         plugin_dropdown_input: PluginDropdownInput instance.
         plugin_remove_button: PluginRemoveButton instance.
     """

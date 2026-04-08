@@ -126,8 +126,15 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             To populate virtual fields, override `prepare_results()` or define a
             `prepare_{field_name}` method. Example: ['full_name', 'display_label']
 
-        list_url: URL name for the list view (used for "View All" link)
-        create_url: URL name for the create view (used for "Create New" link)
+        list_url: URL name for the list view. Rendered as a "View All" link in the dropdown
+            footer when ``show_list=True`` and ``PluginDropdownFooter`` are set in the
+            widget's ``TomSelectConfig``.
+        create_url: URL name for the create view. Used in two contexts:
+            1. Rendered as a "Create New" link in the dropdown footer when
+               ``show_create=True`` and ``PluginDropdownFooter`` are set in TomSelectConfig.
+            2. Used as the HTMX POST target for inline creation when ``create=True`` and
+               ``create_with_htmx=True`` are set in TomSelectConfig.
+            Both require this attribute to be set to a valid URL name.
         detail_url: URL name for the detail view (used for item detail links)
         update_url: URL name for the update view (used for item edit links)
         delete_url: URL name for the delete view (used for item delete links)
@@ -181,7 +188,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
     allow_anonymous: bool = False  # Whether to allow unauthenticated users
     skip_authorization: bool = False  # Whether to skip all permission checks
 
-    create_field: str = ""  # The field to create a new object with. Set by the request.
+    create_field: str = ""  # Model field populated with the typed value during inline creation. Set by the request.
 
     # Instance variables
     request: HttpRequest | Any
