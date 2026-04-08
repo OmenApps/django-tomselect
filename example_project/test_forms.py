@@ -812,6 +812,7 @@ class TestFieldConfiguration:
 
         config = TomSelectConfig(url="test-url", value_field="test_value", label_field="test_label")
         field = TomSelectModelChoiceField(config=config)
+        # Debug logging in build_attrs forces evaluation of the lazy URL, raising NoReverseMatch
         with pytest.raises(NoReverseMatch):
             field.widget.build_attrs({})
 

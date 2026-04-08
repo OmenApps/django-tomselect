@@ -1,6 +1,7 @@
 """Tests for django_tomselect AutocompleteModelView functionality."""
 
 import json
+import logging
 
 import pytest
 from django.contrib.auth.models import AnonymousUser
@@ -1597,7 +1598,8 @@ class TestAutocompleteModelViewJSONEncoder:
         request = rf.get("")
         view.setup(request)
 
-        encoder = view.get_json_encoder()
+        with caplog.at_level(logging.ERROR, logger="django_tomselect.autocompletes"):
+            encoder = view.get_json_encoder()
         assert encoder is DjangoJSONEncoder
         assert "Could not import JSON encoder" in caplog.text
 
@@ -1616,7 +1618,8 @@ class TestAutocompleteModelViewJSONEncoder:
         request = rf.get("")
         view.setup(request)
 
-        encoder = view.get_json_encoder()
+        with caplog.at_level(logging.ERROR, logger="django_tomselect.autocompletes"):
+            encoder = view.get_json_encoder()
         assert encoder is DjangoJSONEncoder
         assert "must be a subclass of json.JSONEncoder" in caplog.text
 
@@ -1739,7 +1742,8 @@ class TestAutocompleteIterablesViewJSONEncoder:
         request = rf.get("")
         view.setup(request)
 
-        encoder = view.get_json_encoder()
+        with caplog.at_level(logging.ERROR, logger="django_tomselect.autocompletes"):
+            encoder = view.get_json_encoder()
         assert encoder is DjangoJSONEncoder
         assert "Could not import JSON encoder" in caplog.text
 

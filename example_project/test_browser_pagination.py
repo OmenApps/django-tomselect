@@ -89,16 +89,37 @@ def _matches_edition_response(response, *, query: str, page_number: int) -> bool
     return request_query == query and request_page == page_number
 
 
-def _widget_input(page: Page, select_id: str):
-    """Return the editable input inside the TomSelect widget for the given select id."""
-    wrapper = page.locator("div.ts-wrapper").filter(has=page.locator(f"select#{select_id}"))
+def _ts_wrapper(page: Page, select_id: str):
+    """Return the .ts-wrapper for the given select element.
+
+    TomSelect creates .ts-wrapper as an immediate sibling after the original
+    <select>, not as a parent wrapper around it.
+    """
+    return page.locator(f"select#{select_id} + .ts-wrapper")
+
+
+def _widget_control(page: Page, select_id: str):
+    """Return the clickable control area of the TomSelect widget."""
+    return _ts_wrapper(page, select_id).locator(".ts-control")
+
+
+def _search_input(page: Page, select_id: str):
+    """Return the search input for typing queries.
+
+    When the dropdown_input plugin is active, the search input is a
+    ``.dropdown-input`` inside the dropdown. Otherwise it is the input
+    inside ``.ts-control``.
+    """
+    wrapper = _ts_wrapper(page, select_id)
+    dropdown_input = wrapper.locator(".dropdown-input")
+    if dropdown_input.count() > 0:
+        return dropdown_input
     return wrapper.locator(".ts-control input")
 
 
 def _dropdown_content(page: Page, select_id: str):
     """Return the scrollable dropdown content element for the given select id."""
-    wrapper = page.locator("div.ts-wrapper").filter(has=page.locator(f"select#{select_id}"))
-    return wrapper.locator(".ts-dropdown-content")
+    return _ts_wrapper(page, select_id).locator(".ts-dropdown-content")
 
 
 def _wait_for_edition_response(page: Page, *, query: str, page_number: int, action) -> None:
@@ -140,11 +161,12 @@ def test_virtual_scroll_survives_close_and_reopen(
     page.goto(f"{live_server.url}{reverse('demo-default')}")
     _wait_for_widget_ready(page, select_id)
 
-    widget_input = _widget_input(page, select_id)
+    control = _widget_control(page, select_id)
     dropdown_content = _dropdown_content(page, select_id)
 
-    widget_input.click()
-    _wait_for_edition_response(page, query="Pagination", page_number=1, action=lambda: widget_input.fill("Pagination"))
+    control.click()
+    search = _search_input(page, select_id)
+    _wait_for_edition_response(page, query="Pagination", page_number=1, action=lambda: search.fill("Pagination"))
     _wait_for_edition_response(
         page,
         query="",
@@ -152,7 +174,8 @@ def test_virtual_scroll_survives_close_and_reopen(
         action=lambda: page.get_by_role("heading", name="Default Styling Demo").click(),
     )
 
-    widget_input.click()
+    # Reopen and wait for the preload response before scrolling
+    _wait_for_edition_response(page, query="", page_number=1, action=lambda: control.click())
     _wait_for_edition_response(page, query="", page_number=2, action=lambda: _scroll_to_bottom(dropdown_content))
 
 
@@ -165,10 +188,11 @@ def test_virtual_scroll_survives_reset_to_empty_query(
     page.goto(f"{live_server.url}{reverse('demo-default')}")
     _wait_for_widget_ready(page, "tomselect-custom-id")
 
-    widget_input = _widget_input(page, "tomselect-custom-id")
+    control = _widget_control(page, "tomselect-custom-id")
     dropdown_content = _dropdown_content(page, "tomselect-custom-id")
 
-    widget_input.click()
-    _wait_for_edition_response(page, query="Pagination", page_number=1, action=lambda: widget_input.fill("Pagination"))
-    _wait_for_edition_response(page, query="", page_number=1, action=lambda: widget_input.fill(""))
+    control.click()
+    search = _search_input(page, "tomselect-custom-id")
+    _wait_for_edition_response(page, query="Pagination", page_number=1, action=lambda: search.fill("Pagination"))
+    _wait_for_edition_response(page, query="", page_number=1, action=lambda: search.fill(""))
     _wait_for_edition_response(page, query="", page_number=2, action=lambda: _scroll_to_bottom(dropdown_content))
