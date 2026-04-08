@@ -134,7 +134,9 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                ``show_create=True`` and ``PluginDropdownFooter`` are set in TomSelectConfig.
             2. Used as the HTMX POST target for inline creation when ``create=True`` and
                ``create_with_htmx=True`` are set in TomSelectConfig.
+
             Both require this attribute to be set to a valid URL name.
+
         detail_url: URL name for the detail view (used for item detail links)
         update_url: URL name for the update view (used for item edit links)
         delete_url: URL name for the delete view (used for item delete links)
