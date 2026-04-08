@@ -15,29 +15,28 @@ The example project demonstrates how to use the `django-tomselect` package in a 
 
    ```bash
    git clone https://github.com/OmenApps/django-tomselect.git
-    ```
+   ```
 
 2. Install the required packages:
 
    ```bash
-   uv sync
+   uv sync --extra dev
    ```
 
 ## Running the Example Project
 
+> **Note:** The commands below use `uv run` to execute within the project's virtual environment.
+> If you have activated the virtual environment manually (e.g. `source .venv/bin/activate`), you can omit the `uv run` prefix.
+
 1. Apply the migrations:
 
    ```bash
-   python manage.py migrate
-   # or
    uv run python manage.py migrate
    ```
 
 2. Create the example data:
 
    ```bash
-   python manage.py create_examples
-   # or
    uv run python manage.py create_examples
    ```
 
@@ -46,18 +45,14 @@ This may take a couple of minutes to complete. It creates a large number of obje
 3. Create a superuser:
 
    ```bash
-   python manage.py createsuperuser
-   # or
    uv run python manage.py createsuperuser
    ```
 
 4. Run the Django development server:
 
    ```bash
-    python manage.py runserver 0.0.0.0:8000
-    # or
-    uv run python manage.py runserver 0.0.0.0:8000
-    ```
+   uv run python manage.py runserver 0.0.0.0:8000
+   ```
 
 5. Open the browser and go to `http://localhost:8000/admin` to login (or directly `http://localhost:8000/` to view as AnonymousUser - some links and bttons to list/create/update/delete will not be available).
 

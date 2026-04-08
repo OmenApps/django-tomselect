@@ -44,7 +44,7 @@ You need Python 3.11+ and the following tools:
 Install the package with development requirements:
 
 ```console
-$ uv sync
+$ uv sync --extra dev
 ```
 
 [uv]: https://docs.astral.sh/uv/
