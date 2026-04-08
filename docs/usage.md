@@ -100,9 +100,9 @@ This collects the CSS, JavaScript, and related assets from `django_tomselect` (i
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {{ form.media }}
 </head>
 <body>
-    {{ form.media }}
 </body>
 </html>
 ```
