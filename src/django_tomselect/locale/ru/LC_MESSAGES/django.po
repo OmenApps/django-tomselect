@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: django-tomselect\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-15 22:32+0000\n"
+"POT-Creation-Date: 2026-04-08 20:24+0000\n"
 "PO-Revision-Date: 2026-03-15 00:00+0000\n"
 "Language-Team: Russian <ru@li.org>\n"
 "Language: ru\n"
@@ -16,88 +16,121 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || "
 "(n%100>=11 && n%100<=14)? 2 : 3);\n"
-#: src/django_tomselect/templates/django_tomselect/render/clear_button.html:10
-msgid "Clear selection"
+
+#: app_settings.py:162
+msgid "Clear Selections"
 msgstr "Очистить выбор"
 
-#: src/django_tomselect/templates/django_tomselect/render/dropdown_footer.html:11
+#: app_settings.py:170
+msgid "Autocomplete"
+msgstr "Автодополнение"
+
+#: app_settings.py:174
+msgid "Value"
+msgstr "Значение"
+
+#: app_settings.py:175
+msgid "Label"
+msgstr "Метка"
+
+#: app_settings.py:225
+msgid "Autocomplete Footer"
+msgstr "Нижний колонтитул автодополнения"
+
+#: app_settings.py:227
+msgid "List View"
+msgstr "Список"
+
+#: app_settings.py:229
+msgid "Create New"
+msgstr "Создать"
+
+#: app_settings.py:243
+msgid "Remove this item"
+msgstr "Удалить этот элемент"
+
+#: app_settings.py:454
+msgid "Select a value"
+msgstr "Выберите значение"
+
+#: templates/django_tomselect/render/dropdown_footer.html:11
 msgid "Go to Create View for these items"
 msgstr "Перейти к созданию записей"
 
-#: src/django_tomselect/templates/django_tomselect/render/dropdown_footer.html:15
+#: templates/django_tomselect/render/dropdown_footer.html:15
 msgid "Go to List View for these items"
 msgstr "Перейти к списку записей"
 
-#: src/django_tomselect/templates/django_tomselect/render/item.html:37
+#: templates/django_tomselect/render/item.html:37
 msgid "Detail"
 msgstr "Подробности"
 
-#: src/django_tomselect/templates/django_tomselect/render/item.html:39
+#: templates/django_tomselect/render/item.html:39
 msgid "View Detail"
 msgstr "Просмотреть подробности"
 
-#: src/django_tomselect/templates/django_tomselect/render/item.html:52
+#: templates/django_tomselect/render/item.html:52
 msgid "Delete"
 msgstr "Удалить"
 
-#: src/django_tomselect/templates/django_tomselect/render/item.html:54
+#: templates/django_tomselect/render/item.html:54
 msgid "Delete item"
 msgstr "Удалить запись"
 
-#: src/django_tomselect/templates/django_tomselect/render/item.html:67
+#: templates/django_tomselect/render/item.html:67
 msgid "Update"
 msgstr "Редактировать"
 
-#: src/django_tomselect/templates/django_tomselect/render/item.html:70
+#: templates/django_tomselect/render/item.html:70
 msgid "Update item"
 msgstr "Редактировать запись"
 
-#: src/django_tomselect/templates/django_tomselect/render/loading.html:6
+#: templates/django_tomselect/render/loading.html:6
 msgid "Loading"
 msgstr "Загрузка"
 
-#: src/django_tomselect/templates/django_tomselect/render/loading_more.html:8
+#: templates/django_tomselect/render/loading_more.html:8
 msgid "Loading more results..."
 msgstr "Загрузка дополнительных результатов..."
 
-#: src/django_tomselect/templates/django_tomselect/render/no_more_results.html:6
+#: templates/django_tomselect/render/no_more_results.html:6
 msgid "No more results"
 msgstr "Больше результатов нет"
 
-#: src/django_tomselect/templates/django_tomselect/render/no_results.html:7
+#: templates/django_tomselect/render/no_results.html:7
 msgid "No results found for"
 msgstr "Результаты не найдены для"
 
-#: src/django_tomselect/templates/django_tomselect/render/not_loading.html:9
+#: templates/django_tomselect/render/not_loading.html:9
 #, python-format
 msgid "Type at least %(min_chars)s characters to search"
 msgstr "Введите не менее %(min_chars)s символов для поиска"
 
-#: src/django_tomselect/templates/django_tomselect/render/option_create.html:17
+#: templates/django_tomselect/render/option_create.html:17
 msgid "Create new item"
 msgstr "Создать новую запись"
 
-#: src/django_tomselect/templates/django_tomselect/render/option_create.html:20
+#: templates/django_tomselect/render/option_create.html:20
 msgid "Add"
 msgstr "Добавить"
 
-#: src/django_tomselect/templates/django_tomselect/render/select.html:20
+#: templates/django_tomselect/render/select.html:20
 #, python-format
 msgid "Select %(field_name)s"
 msgstr "Выберите %(field_name)s"
 
-#: src/django_tomselect/templates/django_tomselect/tomselect.html:343
+#: templates/django_tomselect/tomselect.html:345
 msgid "selected"
 msgstr "Выбрано"
 
-#: src/django_tomselect/templates/django_tomselect/tomselect.html:348
+#: templates/django_tomselect/tomselect.html:350
 msgid "Item removed"
 msgstr "Запись удалена"
 
-#: src/django_tomselect/templates/django_tomselect/tomselect.html:511
+#: templates/django_tomselect/tomselect.html:512
 msgid "Request timed out. Please try again."
 msgstr "Время ожидания запроса истекло. Попробуйте снова."
 
-#: src/django_tomselect/templates/django_tomselect/tomselect.html:512
+#: templates/django_tomselect/tomselect.html:513
 msgid "Failed to load options. Please try again."
 msgstr "Не удалось загрузить параметры. Попробуйте снова."

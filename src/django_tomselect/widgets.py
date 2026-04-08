@@ -25,6 +25,7 @@ from django_tomselect.app_settings import (
     GLOBAL_DEFAULT_CONFIG,
     AllowedCSSFrameworks,
     FilterSpec,
+    StrOrPromise,
     TomSelectConfig,
     merge_configs,
 )
@@ -111,7 +112,7 @@ class TomSelectWidgetMixin(_MixinBase):
         self.highlight: bool = final_config.highlight
         self.hide_selected: bool = final_config.hide_selected
         self.open_on_focus: bool = final_config.open_on_focus
-        self.placeholder: str | None = final_config.placeholder
+        self.placeholder: StrOrPromise | None = final_config.placeholder
         self.max_items: int | None = final_config.max_items
         self.max_options: int | None = final_config.max_options
         self.css_framework: str | AllowedCSSFrameworks = final_config.css_framework

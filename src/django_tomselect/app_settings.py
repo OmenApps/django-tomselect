@@ -13,6 +13,8 @@ __all__ = [
     "PluginDropdownFooter",
     "PluginDropdownInput",
     "PluginRemoveButton",
+    # Type alias
+    "StrOrPromise",
     # Configuration utilities
     "GLOBAL_DEFAULT_CONFIG",
     "merge_configs",
@@ -22,11 +24,15 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Literal, TypeVar
+from typing import Literal, TypeAlias, TypeVar
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.utils.functional import Promise
 from django.utils.module_loading import import_string
+from django.utils.translation import gettext_lazy as _
+
+StrOrPromise: TypeAlias = str | Promise
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +159,7 @@ class PluginDropdownInput(BaseConfig):
 class PluginClearButton(BaseConfig):
     """Plugin configuration for the clear_button plugin."""
 
-    title: str = "Clear Selections"
+    title: StrOrPromise = _("Clear Selections")
     class_name: str = "clear-button"
 
 
@@ -161,12 +167,12 @@ class PluginClearButton(BaseConfig):
 class PluginDropdownHeader(BaseConfig):
     """Plugin configuration for the dropdown_header plugin."""
 
-    title: str = "Autocomplete"
+    title: StrOrPromise = _("Autocomplete")
     header_class: str = "container-fluid bg-primary text-bg-primary pt-1 pb-1 mb-2 dropdown-header"
     title_row_class: str = "row"
     label_class: str = "form-label"
-    value_field_label: str = "Value"
-    label_field_label: str = "Label"
+    value_field_label: StrOrPromise = _("Value")
+    label_field_label: StrOrPromise = _("Label")
     label_col_class: str = "col-6"
     show_value_field: bool = False
     extra_columns: dict[str, str] = field(default_factory=dict)
@@ -216,11 +222,11 @@ class PluginDropdownFooter(BaseConfig):
         footer_class: CSS class for the footer container.
     """
 
-    title: str = "Autocomplete Footer"
+    title: StrOrPromise = _("Autocomplete Footer")
     footer_class: str = "container-fluid mt-1 px-2 border-top dropdown-footer"
-    list_view_label: str = "List View"
+    list_view_label: StrOrPromise = _("List View")
     list_view_class: str = "btn btn-primary btn-sm m-2 p-1 float-end float-right"
-    create_view_label: str = "Create New"
+    create_view_label: StrOrPromise = _("Create New")
     create_view_class: str = "btn btn-primary btn-sm m-2 p-1 float-end float-right"
 
 
@@ -234,7 +240,7 @@ class PluginRemoveButton(BaseConfig):
         class_name: CSS class for the remove button.
     """
 
-    title: str = "Remove this item"
+    title: StrOrPromise = _("Remove this item")
     label: str = "&times;"
     class_name: str = "remove"
 
@@ -445,7 +451,7 @@ class TomSelectConfig(BaseConfig):
     max_items: int | None = None
     max_options: int | None = None
     open_on_focus: bool = True
-    placeholder: str | None = "Select a value"
+    placeholder: StrOrPromise | None = _("Select a value")
     preload: Literal["focus"] | bool = "focus"  # Either 'focus' or True/False
     create: bool = False
     create_filter: str | None = None
