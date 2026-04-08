@@ -583,7 +583,8 @@ def test_htmx_swap_preserves_instance_state_without_duplicate_reinitialize(page,
 def test_htmx_outerhtml_swap_uses_replacement_container_without_duplicate_reinitialize(page, live_server):
     """An outerHTML HTMX swap should reinitialize against the live replacement container exactly once."""
     page.goto(f"{live_server.url}{reverse('demo-htmx')}")
-    page.locator(".card").evaluate("""container => { container.id = "htmx-outerhtml-card"; }""")
+    wait_for_tomselect(page)
+    page.locator(".card").first.evaluate("""container => { container.id = "htmx-outerhtml-card"; }""")
 
     page.evaluate(
         """() => {
