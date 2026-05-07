@@ -18,6 +18,11 @@ filter dropdowns into one keyboard-friendly bar.
 - Admin / triage / inbox UIs where power users prefer typing operators while new users
   still get a discoverable dropdown affordance.
 - Bookmark-driven saved views (no new database tables needed - the URL IS the saved view).
+**Visual Examples**
+
+![Screenshot: Article Token-Style Search - token options](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-token-search-1.png)
+![Screenshot: Article Token-Style Search - "Category:" options](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-token-search-2.png)
+![Screenshot: Article Token-Style Search - filtered by multiple tokens](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-token-search-3.png)
 
 ---
 
