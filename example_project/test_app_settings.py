@@ -1005,6 +1005,36 @@ class TestFilterSpec:
         with pytest.raises(AttributeError):
             spec.source = "new_value"
 
+    def test_const_with_list_value(self):
+        """Const should comma-join list values for use with __in lookups."""
+        spec = Const([11, 13], "id__in")
+        assert spec.source == "11,13"
+        assert spec.lookup == "id__in"
+        assert spec.source_type == "const"
+
+    def test_const_with_tuple_value(self):
+        """Const should comma-join tuple values too."""
+        spec = Const((1, 2, 3), "id__in")
+        assert spec.source == "1,2,3"
+        assert spec.source_type == "const"
+
+    def test_const_with_single_element_list(self):
+        """Const with a single-element list still produces a usable spec."""
+        spec = Const([42], "id__in")
+        assert spec.source == "42"
+
+    def test_const_rejects_empty_list(self):
+        """Const should reject empty lists/tuples to avoid silently no-op filters."""
+        with pytest.raises(ValidationError):
+            Const([], "id__in")
+        with pytest.raises(ValidationError):
+            Const((), "id__in")
+
+    def test_const_rejects_items_with_commas(self):
+        """Const should reject list items containing commas (would create ambiguous splits)."""
+        with pytest.raises(ValidationError):
+            Const(["a,b", "c"], "name__in")
+
 
 class TestMultipleFiltersValidation:
     """Tests for TomSelectConfig filter_by/exclude_by validation with new formats."""
@@ -1093,6 +1123,39 @@ class TestMultipleFiltersValidation:
                 filter_by=[spec],
                 exclude_by=[spec],
             )
+
+    def test_tuple_of_filterspecs_accepted(self):
+        """A tuple (rather than list) of FilterSpec objects should be accepted."""
+        config = TomSelectConfig(
+            filter_by=(
+                FilterSpec(source="11", lookup="id", source_type="const"),
+                FilterSpec(source="13", lookup="id", source_type="const"),
+            )
+        )
+        filters = config.get_normalized_filters()
+        assert len(filters) == 2
+        assert filters[0].source == "11"
+        assert filters[1].source == "13"
+
+    def test_three_tuple_of_filterspecs_accepted(self):
+        """A 3-tuple of FilterSpec should be treated as a sequence, not rejected."""
+        config = TomSelectConfig(
+            filter_by=(
+                FilterSpec(source="a", lookup="id"),
+                FilterSpec(source="b", lookup="id"),
+                FilterSpec(source="c", lookup="id"),
+            )
+        )
+        assert len(config.get_normalized_filters()) == 3
+
+    def test_tuple_with_const_for_in_lookup(self):
+        """End-to-end: tuple of Const values produces a filter usable for __in."""
+        config = TomSelectConfig(filter_by=(Const([11, 13], "id__in"),))
+        filters = config.get_normalized_filters()
+        assert len(filters) == 1
+        assert filters[0].source == "11,13"
+        assert filters[0].lookup == "id__in"
+        assert filters[0].source_type == "const"
 
     def test_different_filters_and_excludes_allowed(self):
         """Test that different filter and exclude conditions are allowed."""

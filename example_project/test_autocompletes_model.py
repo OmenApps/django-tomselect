@@ -702,6 +702,53 @@ class TestAutocompleteModelViewFiltering:
         assert filtered_qs.count() == expected_count
         assert filtered_qs.count() == 3
 
+    def test_apply_filters_constant_in_lookup_splits_value(self, rf, test_editions):
+        """Constant filter with __in lookup should comma-split value into a list."""
+        ids = [e.id for e in test_editions[:3]]
+        comma_joined = ",".join(str(i) for i in ids)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        request = rf.get("", {"f": f"'__const__id__in={comma_joined}'"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        assert filtered_qs.count() == 3
+        assert sorted(e.id for e in filtered_qs) == sorted(ids)
+
+    def test_apply_filters_field_in_lookup_splits_value(self, rf, test_editions, magazines):
+        """Field-based filter with __in lookup should also comma-split."""
+        ids = [e.id for e in test_editions[:2]]
+        comma_joined = ",".join(str(i) for i in ids)
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        request = rf.get("", {"f": f"'edition__id__in={comma_joined}'"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        assert filtered_qs.count() == 2
+        assert sorted(e.id for e in filtered_qs) == sorted(ids)
+
+    def test_apply_filters_constant_range_lookup_splits_value(self, rf, test_editions):
+        """Constant filter with __range lookup should comma-split into a 2-tuple-like list."""
+        for i, edition in enumerate(test_editions):
+            edition.year = str(2020 + i)  # 2020, 2021, 2022, ...
+            edition.save()
+
+        view = AutocompleteModelView()
+        view.model = Edition
+        request = rf.get("", {"f": "'__const__year__range=2020,2022'"})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+
+        expected = Edition.objects.filter(year__range=["2020", "2022"])
+        assert filtered_qs.count() == expected.count()
+        assert filtered_qs.count() == 3
+
     def test_apply_filters_multiple_excludes(self, rf, test_editions, magazines):
         """Test apply_filters with multiple exclude_by parameters."""
         mag1 = magazines[0]

@@ -159,6 +159,20 @@ Const('published', 'status')
 FilterSpec(source='published', lookup='status', source_type='const')
 ```
 
+`Const` also accepts a list or tuple of values for use with list-valued lookups
+such as `__in` and `__range`. Items are stringified and comma-joined into a
+single source string; the autocomplete view splits the value back into a list
+before calling `filter()`/`exclude()`. Items must not contain literal commas
+(an empty list is also rejected).
+
+```python
+# Restrict the queryset to specific primary keys
+Const([11, 13], 'id__in')
+
+# Equivalent to qs.filter(year__range=[2020, 2024])
+Const([2020, 2024], 'year__range')
+```
+
 ## Plugin Configurations
 
 ### PluginCheckboxOptions
@@ -394,6 +408,17 @@ This is useful for:
 - Filtering by the current user's organization
 - Enforcing business rules in the UI
 
+For list-valued lookups, pass a list or tuple as the value:
+
+```python
+config = TomSelectConfig(
+    filter_by=[
+        Const([11, 13], 'id__in'),         # Restrict to a specific set of IDs
+        Const([2020, 2024], 'year__range'),  # Restrict year to a range
+    ]
+)
+```
+
 #### FilterSpec Objects
 
 For advanced use cases, you can use `FilterSpec` objects directly:
@@ -414,10 +439,11 @@ config = TomSelectConfig(
 | Format | Example | Description |
 |--------|---------|-------------|
 | Empty tuple | `()` | No filtering (default) |
-| 2-tuple | `('field', 'lookup')` | Single field filter |
+| 2-tuple of strings | `('field', 'lookup')` | Single field filter (legacy form) |
 | FilterSpec | `FilterSpec(...)` | Single spec object |
 | Const | `Const('value', 'lookup')` | Constant value filter |
-| List | `[('f1', 'l1'), Const(...)]` | Multiple filters (AND logic) |
+| Const with list | `Const([11, 13], 'id__in')` | Constant filter for `__in`/`__range` lookups |
+| List or tuple of specs | `[('f1', 'l1'), Const(...)]` or `(spec1, spec2)` | Multiple filters (AND logic) |
 
 #### URL Parameter Format
 

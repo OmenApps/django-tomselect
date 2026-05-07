@@ -419,6 +419,14 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                 return False
         return True
 
+    # Django lookup names whose value is expected to be an iterable.
+    _LIST_VALUED_LOOKUPS = frozenset({"in", "range"})
+
+    def _lookup_expects_list(self, lookup_field: str) -> bool:
+        """Return True if the lookup ends in a list-valued operator (``__in``/``__range``)."""
+        suffix = lookup_field.rsplit("__", 1)[-1].lower()
+        return suffix in self._LIST_VALUED_LOOKUPS
+
     def _parse_filter_string(self, filter_str: str) -> tuple[str, str, bool]:
         """Parse a filter string into lookup field and value.
 
@@ -487,7 +495,15 @@ class AutocompleteModelView(JSONEncoderMixin, View):
                 )
                 return None
 
-            filter_dict = {lookup_field: value}
+            # Lookups whose value is expected to be an iterable (list/tuple) on
+            # the Django side. The URL param carries a comma-separated string,
+            # so split it here before handing it to ``filter()``.
+            if self._lookup_expects_list(lookup_field):
+                filter_value: list[str] | str = [v for v in value.split(",") if v != ""]
+            else:
+                filter_value = value
+
+            filter_dict = {lookup_field: filter_value}
             if is_exclude:
                 logger.debug("Applying exclude_by %s (constant=%s)", filter_dict, is_constant)
                 return queryset.exclude(**filter_dict)

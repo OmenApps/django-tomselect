@@ -158,6 +158,13 @@ When the form loads and the user searches for articles:
   | Only active items | `Const("true", "is_active")` |
   | Specific category | `Const("5", "category_id")` |
   | Current year | `Const("2024", "year")` |
+  | Specific set of IDs (`__in`) | `Const([11, 13], "id__in")` |
+  | Numeric range (`__range`) | `Const([2020, 2024], "year__range")` |
+
+  For list-valued lookups (`__in`, `__range`), pass a list or tuple as the
+  value. Items are comma-joined into the URL parameter and split back into a
+  list server-side before the queryset filter is applied. Items must not
+  themselves contain commas; an empty list is rejected.
 
 - **Security Note**: While constant filters help enforce UI-level rules, always validate on the server side as well. Users could potentially modify the URL parameters.
 

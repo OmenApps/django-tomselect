@@ -898,6 +898,13 @@ Common use cases for constant filters:
 - Only show published content: `Const("published", "status")`
 - Only show active items: `Const("true", "is_active")`
 - Filter by current year: `Const("2024", "year")`
+- Restrict to specific primary keys via `__in`: `Const([11, 13], "id__in")`
+- Restrict to a numeric range via `__range`: `Const([2020, 2024], "year__range")`
+
+`Const` accepts a list or tuple value when the lookup expects an iterable
+(`__in`, `__range`); items are comma-joined for transport and split server-side
+before the queryset filter is applied. Items must not themselves contain
+commas.
 
 See the [Constant Filter-By](example_app/constant_filter_by.md) example for complete demonstration.
 

@@ -76,18 +76,25 @@ class FilterSpec:
         return cls(source=t[0], lookup=t[1], source_type="field")
 
 
-def Const(value: str, lookup: str) -> FilterSpec:  # noqa: N802
+def Const(value, lookup: str) -> FilterSpec:  # noqa: N802
     """Helper to create constant filter specs.
 
     Creates a FilterSpec that always filters by a constant value rather than
     getting the value from another form field.
 
     Args:
-        value: The constant value to filter by.
+        value: The constant value to filter by. Scalars are stringified. A list
+            or tuple is comma-joined into a single source string for use with
+            list-valued lookups such as ``__in`` or ``__range`` - items must
+            not contain literal commas.
         lookup: The Django ORM lookup field.
 
     Returns:
         A FilterSpec with source_type="const".
+
+    Raises:
+        ValidationError: If ``value`` is an empty list/tuple, or if any item in
+            a list/tuple ``value`` contains a literal comma.
 
     Example:
         # Always filter to only published items
@@ -95,11 +102,28 @@ def Const(value: str, lookup: str) -> FilterSpec:  # noqa: N802
 
         # Filter by a specific category ID
         Const("5", "category_id")
+
+        # Filter by multiple IDs via __in
+        Const([11, 13], "id__in")
     """
+    if isinstance(value, (list, tuple)):
+        if len(value) == 0:
+            raise ValidationError("Const list/tuple value cannot be empty")
+        items = [str(item) for item in value]
+        for item in items:
+            if "," in item:
+                raise ValidationError(
+                    f"Const list/tuple items cannot contain commas (got {item!r}). "
+                    "Use multiple Const() entries instead, or pre-encode the value."
+                )
+        return FilterSpec(source=",".join(items), lookup=lookup, source_type="const")
     return FilterSpec(source=str(value), lookup=lookup, source_type="const")
 
 
-# Type alias for filter_by/exclude_by input formats
+# Type alias for filter_by/exclude_by input formats.
+# Note: a 2-tuple of strings is the legacy ``(field, lookup)`` form; any other
+# tuple length, or a tuple/list whose elements are FilterSpec/2-tuples, is
+# treated as a sequence of specs.
 FilterByInput = tuple[()] | tuple[str, str] | FilterSpec | Sequence[tuple[str, str] | FilterSpec]
 
 
@@ -485,14 +509,12 @@ class TomSelectConfig(BaseConfig):
         if self._is_filterspec(value):
             return
 
-        # Legacy 2-tuple is valid
-        if isinstance(value, tuple) and len(value) == 2:
-            if not all(isinstance(v, str) for v in value):
-                raise ValidationError(f"{field_name} 2-tuple must contain only strings")
+        # Legacy 2-tuple of strings (field, lookup)
+        if isinstance(value, tuple) and len(value) == 2 and all(isinstance(v, str) for v in value):
             return
 
-        # List of specs/tuples is valid
-        if isinstance(value, list):
+        # List or tuple of FilterSpec / 2-tuples
+        if isinstance(value, (list, tuple)):
             for i, item in enumerate(value):
                 if self._is_filterspec(item):
                     continue
@@ -506,7 +528,7 @@ class TomSelectConfig(BaseConfig):
         # Invalid format
         raise ValidationError(
             f"{field_name} must be an empty tuple, a 2-tuple (field, lookup), "
-            f"a FilterSpec, or a list of FilterSpec/tuples"
+            f"a FilterSpec, or a list/tuple of FilterSpec/2-tuples"
         )
 
     def validate(self) -> None:  # noqa: C901
@@ -561,14 +583,14 @@ class TomSelectConfig(BaseConfig):
             v = value  # duck-typed as FilterSpec
             return [FilterSpec(source=v.source, lookup=v.lookup, source_type=v.source_type)]  # type: ignore[union-attr]
 
-        # Legacy 2-tuple
+        # Legacy 2-tuple of strings
         if isinstance(value, tuple) and len(value) == 2:
             first, second = value
             if isinstance(first, str) and isinstance(second, str):
                 return [FilterSpec.from_tuple((first, second))]
 
-        # List of specs/tuples
-        if isinstance(value, list):
+        # List or tuple of specs/2-tuples
+        if isinstance(value, (list, tuple)):
             result: list[FilterSpec] = []
             for item in value:
                 if isinstance(item, FilterSpec):
