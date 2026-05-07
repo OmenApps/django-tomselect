@@ -373,10 +373,11 @@ wheels = [
 
 [[package]]
 name = "django-tomselect"
-version = "2026.4.1"
+version = "2026.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
+    { name = "nox" },
 ]
 
 [package.optional-dependencies]
@@ -429,6 +430,7 @@ requires-dist = [
     { name = "furo", marker = "extra == 'dev'", specifier = ">=2024.8.6" },
     { name = "linkify-it-py", marker = "extra == 'dev'", specifier = ">=2.0.3" },
     { name = "myst-parser", marker = "extra == 'dev'", specifier = ">=4.0.1" },
+    { name = "nox", specifier = ">=2025.11.12" },
     { name = "nox", marker = "extra == 'dev'", specifier = ">=2025.11.12" },
     { name = "pep8-naming", marker = "extra == 'dev'", specifier = ">=0.15.1" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7.3" },

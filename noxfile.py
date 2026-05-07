@@ -220,7 +220,7 @@ def css_vendor(session: Session) -> None:
     dest = Path("src/django_tomselect/static/django_tomselect/vendor/tom-select/css")
 
     if not src.exists():
-        session.error("node_modules/tom-select not found — run 'npm install' first")
+        session.error("node_modules/tom-select not found - run 'npm install' first")
 
     themes = ("default", "bootstrap4", "bootstrap5")
 
@@ -248,7 +248,8 @@ def css_vendor(session: Session) -> None:
         css_file = f"tom-select.{theme}.css"
         min_file = f"tom-select.{theme}.min.css"
         session.run(
-            "npx", "esbuild",
+            "npx",
+            "esbuild",
             str(dest / css_file),
             "--minify",
             f"--outfile={dest / min_file}",

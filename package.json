@@ -6,10 +6,12 @@
         "standard": "^17.1.2",
         "tom-select": "^2.5.2"
     },
+    "type": "module",
     "scripts": {
         "build": "esbuild client/django-tomselect.js --bundle --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.js",
         "buildsmall": "esbuild client/django-tomselect.js --bundle --minify --sourcemap --outfile=src/django_tomselect/static/django_tomselect/js/django-tomselect.min.js",
         "lint": "npx standard client/",
+        "test": "node client/plugins/token/parser.test.js",
         "audit": "npm audit --audit-level=high"
     }
 }

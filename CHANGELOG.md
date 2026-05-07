@@ -2,14 +2,18 @@
 
 ## 2026.3.1 (unreleased)
 
+- Add `CompositeAutocompleteView` to wrap multiple `Autocomplete*View` instances behind a single endpoint, dispatching by source name for unified token-style search across heterogeneous datasets
+- Add `TomSelectTokenField` and `TomSelectTokenWidget` for token-based search inputs with a structured query parser (field-scoped tokens, quoted phrases, boolean logic) backed by a new Tom Select token plugin
 - Suppress spurious URL warnings when `show_list` or `show_create` are `False` (#46)
 - Remove docker compose (not needed for this project) and update tooling
 - Standardize README badges
+- Allow `Const(value, lookup)` to accept a list/tuple value (comma-joined into the URL param) so it works with list-valued lookups like `__in` and `__range`; the autocomplete view now splits these values back into a list before applying the filter
+- Accept tuples (not just lists) of `FilterSpec`/2-tuples in `filter_by` and `exclude_by`; previously a 2-tuple of `FilterSpec` was misinterpreted as the legacy `(field, lookup)` form and any other tuple length was rejected outright
 
 ## 2026.1.3
 
 - Update bundled Tom Select static files to latest version
-- Fix JSON serialization fallback — was incorrectly falling back to `json.JSONEncoder` instead of `DjangoJSONEncoder`, which couldn't handle common Django objects
+- Fix JSON serialization fallback - was incorrectly falling back to `json.JSONEncoder` instead of `DjangoJSONEncoder`, which couldn't handle common Django objects
 - Improve logging, sanitization, and handling of non-model fields in `value_fields`
 - Avoid unnecessary escaping of fields that are already JSON-safe when using `DjangoJSONEncoder`
 
@@ -124,7 +128,7 @@
 
 ## 2025.1.2
 
-- Add formset support — reformulate how TomSelect is initialized to work with formsets
+- Add formset support - reformulate how TomSelect is initialized to work with formsets
 - Add examples for a basic formset and a model formset
 - Add formset tests
 - Correct form field setup in docs (queryset attribute is not needed)
@@ -162,7 +166,7 @@
 - Complete refactor of the django_tomselect source with breaking changes
 - Major update to example project with ~15 different examples
 - Overhaul documentation with new images, consolidated pages, and improved content
-- Improvements to static file building — reduced final bundle size by half
+- Improvements to static file building - reduced final bundle size by half
 - Expanded and updated test suite
 
 ## 0.4.3
