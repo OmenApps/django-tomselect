@@ -45,6 +45,7 @@ urlpatterns = [
     # Advanced Examples
     path("three-level-filter-by/", views.market_selection_view, name="three-level-filter-by"),
     path("article-bulk-action/", views.article_bulk_action_view, name="article-bulk-action"),
+    path("article-token-search/", views.article_token_search_view, name="article-token-search"),
     path("article-filtered-table/", views.article_filtered_table, name="article-filtered-table"),
     path("rich-article-select/", views.rich_article_select_demo, name="rich-article-select"),
     path("multiple-filter-by/", views.multiple_filter_by_demo, name="multiple-filter-by"),
@@ -179,5 +180,10 @@ urlpatterns = [
         "autocomplete/pkid-uuid/",
         autocompletes.ModelWithPKIDAndUUIDIdAutocompleteView.as_view(),
         name="autocomplete-pkid-uuid",
+    ),
+    path(
+        "autocomplete/article-token/",
+        autocompletes.ArticleTokenQueryView.as_view(),
+        name="autocomplete-article-token",
     ),
 ]

@@ -272,7 +272,7 @@ class CategoryQuerySet(models.QuerySet):
             parent_name=F("parent__name"),
             full_path=Concat(
                 "parent__name",
-                Value(" → "),
+                Value(" >> "),
                 "name",
             ),
             direct_articles=Count("article"),

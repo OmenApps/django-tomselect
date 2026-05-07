@@ -1,0 +1,167 @@
+{
+  "_doc": "Shared parser fixture corpus for django-tomselect token parser. Consumed by both Python tests (tests/test_query_parser.py) and JS tests (client/plugins/token/parser.test.js). Adding a new edge case is one entry; both parsers must agree.",
+
+  "default_operators": {
+    "author":   {"multi": false},
+    "category": {"multi": true},
+    "magazine": {"multi": false},
+    "status":   {"multi": true},
+    "title":    {"multi": false},
+    "name":     {"multi": false}
+  },
+
+  "default_caps": {
+    "max_raw_length": 4096,
+    "max_tokens": 32,
+    "max_values_per_operator": 16
+  },
+
+  "cases": [
+    {
+      "name": "empty_input",
+      "input": "",
+      "tokens": [], "free_text": [], "errors": []
+    },
+    {
+      "name": "whitespace_only",
+      "input": "   \t  \n  ",
+      "tokens": [], "free_text": [], "errors": []
+    },
+    {
+      "name": "single_free_text_word",
+      "input": "hello",
+      "tokens": [], "free_text": ["hello"], "errors": []
+    },
+    {
+      "name": "two_free_text_words",
+      "input": "hello world",
+      "tokens": [], "free_text": ["hello", "world"], "errors": []
+    },
+    {
+      "name": "single_operator",
+      "input": "author:42",
+      "tokens": [{"key": "author", "values": ["42"], "was_quoted": false}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "operator_with_multi_comma",
+      "input": "status:pending,scheduled",
+      "tokens": [{"key": "status", "values": ["pending", "scheduled"], "was_quoted": false}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "operator_multi_false_keeps_comma_in_value",
+      "input": "title:foo,bar",
+      "tokens": [{"key": "title", "values": ["foo,bar"], "was_quoted": false}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "quoted_phrase_value",
+      "input": "title:\"long form essay\"",
+      "tokens": [{"key": "title", "values": ["long form essay"], "was_quoted": true}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "quoted_phrase_freetext",
+      "input": "\"light horse loop\"",
+      "tokens": [], "free_text": ["light horse loop"], "errors": []
+    },
+    {
+      "name": "mixed_operator_and_freetext",
+      "input": "author:1 hello status:pending",
+      "tokens": [
+        {"key": "author", "values": ["1"], "was_quoted": false},
+        {"key": "status", "values": ["pending"], "was_quoted": false}
+      ],
+      "free_text": ["hello"], "errors": []
+    },
+    {
+      "name": "single_quoted_value",
+      "input": "name:'foo bar'",
+      "tokens": [{"key": "name", "values": ["foo bar"], "was_quoted": true}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "escaped_double_quote_in_double_quote",
+      "input": "name:\"foo \\\"bar\\\"\"",
+      "tokens": [{"key": "name", "values": ["foo \"bar\""], "was_quoted": true}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "escaped_backslash_in_quote",
+      "input": "name:\"a\\\\b\"",
+      "tokens": [{"key": "name", "values": ["a\\b"], "was_quoted": true}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "unterminated_double_quote",
+      "input": "name:\"foo",
+      "tokens": [], "free_text": [], "errors": ["UNTERMINATED_QUOTE"]
+    },
+    {
+      "name": "unterminated_single_quote",
+      "input": "name:'foo",
+      "tokens": [], "free_text": [], "errors": ["UNTERMINATED_QUOTE"]
+    },
+    {
+      "name": "unknown_operator",
+      "input": "nonsense:foo",
+      "tokens": [], "free_text": [], "errors": ["UNKNOWN_OPERATOR"]
+    },
+    {
+      "name": "empty_value_after_colon",
+      "input": "author:",
+      "tokens": [{"key": "author", "values": [""], "was_quoted": false}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "free_text_with_punctuation",
+      "input": "hello, world",
+      "tokens": [], "free_text": ["hello,", "world"], "errors": []
+    },
+    {
+      "name": "operator_with_quoted_multi_value",
+      "input": "category:\"foo bar\",baz",
+      "tokens": [{"key": "category", "values": ["foo bar", "baz"], "was_quoted": true}],
+      "free_text": [], "errors": []
+    },
+    {
+      "name": "uppercase_operator_key_is_unknown",
+      "input": "Author:42",
+      "tokens": [], "free_text": [], "errors": ["UNKNOWN_OPERATOR"]
+    },
+    {
+      "name": "max_tokens_exceeded",
+      "input": "a b c d e",
+      "caps": {"max_tokens": 3},
+      "tokens": [], "free_text": [], "errors": ["MAX_TOKENS_EXCEEDED"]
+    },
+    {
+      "name": "max_values_per_operator_exceeded",
+      "input": "status:a,b,c,d",
+      "caps": {"max_values_per_operator": 2},
+      "tokens": [], "free_text": [], "errors": ["MAX_VALUES_PER_OPERATOR_EXCEEDED"]
+    },
+    {
+      "name": "max_raw_length_exceeded",
+      "input": "abcdefghij",
+      "caps": {"max_raw_length": 5},
+      "tokens": [], "free_text": [], "errors": ["MAX_RAW_LENGTH_EXCEEDED"]
+    },
+    {
+      "name": "multi_with_trailing_empty_member",
+      "input": "status:draft,",
+      "tokens": [], "free_text": [], "errors": ["EMPTY_VALUE"]
+    },
+    {
+      "name": "multi_with_internal_empty_member",
+      "input": "category:1,,2",
+      "tokens": [], "free_text": [], "errors": ["EMPTY_VALUE"]
+    },
+    {
+      "name": "multi_with_leading_empty_member",
+      "input": "status:,draft",
+      "tokens": [], "free_text": [], "errors": ["EMPTY_VALUE"]
+    }
+  ]
+}

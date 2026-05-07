@@ -1,0 +1,120 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+{% load i18n %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .demo-container {
+            max-width: 980px;
+            margin: 20px auto;
+        }
+        .code-example {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        .results-table th {
+            background: #f8f9fa;
+        }
+        .article-row td {
+            vertical-align: middle;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{% translate "Article Token-Style Search" %}</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>{% translate "Filter the article list with a single token-style input. Type an operator key followed by a colon (e.g. <code>author:</code>) and pick a value from the dropdown, or just type free text to search article titles." %}</p>
+            <ul>
+                <li><code>author:</code> &mdash; {% translate "filter by author (max 3 per query)" %}</li>
+                <li><code>category:</code> &mdash; {% translate "comma-separated for multi-OR (e.g. <code>category:1,2,3</code>)" %}</li>
+                <li><code>magazine:</code> &mdash; {% translate "filter by magazine (max 1)" %}</li>
+                <li><code>status:</code> &mdash; {% translate "comma-separated, e.g. <code>status:draft,review</code>" %}</li>
+                <li>{% translate "Quote phrases for free-text title search:" %} <code>"long form essay"</code></li>
+                <li>{% translate "Bookmark the URL - chips rehydrate with labels on reload" %}</li>
+            </ul>
+
+            <h5 class="mt-4">{% translate "Code Example" %}</h5>
+            <pre class="code-example">from django_tomselect.autocompletes import CompositeAutocompleteView, Operator
+from django_tomselect.forms import TomSelectTokenField
+
+class ArticleTokenQueryView(CompositeAutocompleteView):
+    operators = [
+        Operator(key="author",   view=AuthorAutocompleteView,
+                 value_field="id", label_field="name",
+                 filter_lookup="authors__id", max_count=3),
+        Operator(key="category", view=CategoryAutocompleteView,
+                 value_field="id", label_field="name",
+                 filter_lookup="categories__id", multi=True),
+        Operator(key="magazine", view=MagazineAutocompleteView,
+                 value_field="id", label_field="name",
+                 filter_lookup="magazine_id", max_count=1),
+        Operator(key="status",   view=ArticleStatusAutocompleteView,
+                 value_field="value", label_field="label",
+                 filter_lookup="status", multi=True),
+    ]
+    free_text_lookups = ["title__icontains"]
+
+class ArticleTokenSearchForm(forms.Form):
+    q = TomSelectTokenField(
+        composite_view="autocomplete-article-token",
+        required=False,
+    )</pre>
+        </div>
+
+        <form method="get" class="mb-4">
+            <div class="mb-3">
+                {{ form.q.label_tag }}
+                {{ form.q }}
+                {% if form.q.help_text %}<div class="helptext">{{ form.q.help_text }}</div>{% endif %}
+                {% if form.q.errors %}
+                    <div class="text-danger small mt-1">{{ form.q.errors }}</div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">{% translate "Filter" %}</button>
+            <a href="{% url 'article-token-search' %}" class="btn btn-link">{% translate "Reset" %}</a>
+        </form>
+
+        <h5>{% translate "Results" %}</h5>
+        {% if articles %}
+            <table class="table table-sm results-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{% translate "Title" %}</th>
+                        <th>{% translate "Status" %}</th>
+                        <th>{% translate "Magazine" %}</th>
+                        <th>{% translate "Authors" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for article in articles %}
+                        <tr class="article-row">
+                            <td>{{ article.id }}</td>
+                            <td>{{ article.title }}</td>
+                            <td><span class="badge bg-secondary">{{ article.get_status_display }}</span></td>
+                            <td>{{ article.magazine|default:"-" }}</td>
+                            <td>{% for a in article.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="text-muted small">{% blocktranslate count counter=articles|length %}{{ counter }} match{% plural %}{{ counter }} matches{% endblocktranslate %} ({% translate "showing first 50" %})</div>
+        {% else %}
+            <p class="text-muted">{% translate "No articles match the current filter." %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

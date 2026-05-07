@@ -2,13 +2,16 @@
 
 __all__ = [
     "LazyView",
+    "resolve_view_class",
 ]
 
 from typing import Any
 
 from django.contrib.auth.models import AnonymousUser, User
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Model, QuerySet
 from django.urls import NoReverseMatch, Resolver404, resolve
+from django.views import View
 
 from django_tomselect.app_settings import PROXY_REQUEST_CLASS
 from django_tomselect.logging import get_logger
@@ -17,6 +20,49 @@ from django_tomselect.models import EmptyModel
 from django_tomselect.utils import safe_reverse
 
 logger = get_logger(__name__)
+
+
+def resolve_view_class(
+    view_or_url: type[View] | str,
+) -> tuple[type[View], dict[str, Any]]:
+    """Return ``(view_class, view_initkwargs)`` for a class reference or URL name.
+
+    :class:`LazyView` returns a set-up *instance*; for ``as_view()`` dispatch
+    and direct instantiation we need the class plus any init kwargs the URL
+    pattern declared via ``as_view(model=Foo, ...)``. Mirrors :class:`LazyView`
+    by routing through :func:`safe_reverse` so resolution failures surface as
+    :class:`~django.core.exceptions.ImproperlyConfigured`.
+
+    Args:
+        view_or_url: A View class reference or a URL name (``"app:url-name"``).
+
+    Returns:
+        Tuple of ``(view_class, view_initkwargs)``. ``view_initkwargs`` is
+        ``{}`` for class references; for URL names it carries the kwargs
+        declared at ``as_view(...)``.
+
+    Raises:
+        ImproperlyConfigured: If the URL cannot be reversed/resolved or the
+            resolved callback is not a class-based view.
+    """
+    if isinstance(view_or_url, type):
+        return view_or_url, {}
+    try:
+        url = safe_reverse(view_or_url)
+    except NoReverseMatch as exc:
+        raise ImproperlyConfigured(f"resolve_view_class: cannot reverse URL {view_or_url!r}: {exc}") from exc
+    try:
+        match = resolve(url)
+    except Resolver404 as exc:
+        raise ImproperlyConfigured(f"resolve_view_class: cannot resolve URL {view_or_url!r}: {exc}") from exc
+    callback = match.func
+    view_class = getattr(callback, "view_class", None)
+    if view_class is None:
+        raise ImproperlyConfigured(
+            f"resolve_view_class: URL {view_or_url!r} resolves to a non-CBV callback (no view_class attribute)."
+        )
+    view_initkwargs = getattr(callback, "view_initkwargs", {}) or {}
+    return view_class, view_initkwargs
 
 
 class LazyView:

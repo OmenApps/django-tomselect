@@ -1139,7 +1139,7 @@ class TestCacheInvalidationKeyConsistency:
         mock_cache = TrackingCache()
         permission_cache_instance.cache = mock_cache
 
-        # Call _make_cache_key — it should read the version key
+        # Call _make_cache_key - it should read the version key
         permission_cache_instance._make_cache_key(42, "author", "view")
 
         # The version key read by _make_cache_key should be the same as _get_version_key(42)
@@ -1154,7 +1154,7 @@ class TestCacheInvalidationKeyConsistency:
         """Test that invalidating a user causes a cache miss for their permissions.
 
         Seeds the version key first so that incr() bumps it to a new value,
-        which makes _make_cache_key produce a different cache key → cache miss.
+        which makes _make_cache_key produce a different cache key >> cache miss.
         """
 
         class IncrCache:
@@ -1195,9 +1195,9 @@ class TestCacheInvalidationKeyConsistency:
         permission_cache_instance.set_permission(1, "author", "view", True)
         assert permission_cache_instance.get_permission(1, "author", "view") is True
 
-        # Invalidate — incr() bumps version from 1 → 2
+        # Invalidate - incr() bumps version from 1 >> 2
         permission_cache_instance.invalidate_user(1)
 
-        # After invalidation, _make_cache_key reads version=2 → different key → miss
+        # After invalidation, _make_cache_key reads version=2 >> different key >> miss
         result = permission_cache_instance.get_permission(1, "author", "view")
         assert result is None, "Permission should be invalidated (cache miss)"

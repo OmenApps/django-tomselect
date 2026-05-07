@@ -190,7 +190,7 @@ In this snippet:
 
 ### ModelForm Integration
 
-Integrating with a Django `ModelForm` is straightforward—just replace a standard model field with a `TomSelectModelChoiceField`. Suppose you have an `Article` model that references a `Magazine` model via a ForeignKey:
+Integrating with a Django `ModelForm` is straightforward-just replace a standard model field with a `TomSelectModelChoiceField`. Suppose you have an `Article` model that references a `Magazine` model via a ForeignKey:
 
 ```python
 from django import forms
@@ -304,7 +304,7 @@ That’s it! With this setup, you have a working autocomplete-enabled select fie
 
 ### Autocompletes
 
-Autocompletes are server-side views that respond to requests from the Tom Select widget. They provide the data—often filtered or searched by the user’s query—that populates the dropdown. Implementing an autocomplete view is crucial for any dynamic search functionality.
+Autocompletes are server-side views that respond to requests from the Tom Select widget. They provide the data-often filtered or searched by the user’s query-that populates the dropdown. Implementing an autocomplete view is crucial for any dynamic search functionality.
 
 #### `AutocompleteModelView`
 
@@ -701,7 +701,7 @@ class AuthorAutocompleteView(AutocompleteModelView):
         return queryset.filter(q_objects).distinct()
 ```
 
-By default, `search_lookups` are used directly. If you need more advanced logic—such as searching multiple related fields, adding custom filters, or combining conditions—override the `search()` method.
+By default, `search_lookups` are used directly. If you need more advanced logic-such as searching multiple related fields, adding custom filters, or combining conditions-override the `search()` method.
 
 ### Example View Implementation
 
@@ -1132,7 +1132,7 @@ item: function(data, escape) {
 
 ### Plugin Configuration
 
-`django_tomselect` supports various plugins—such as clear buttons, dropdown headers/footers, remove buttons, and more—that enhance the functionality and appearance of your dropdowns. You can configure these plugins through `TomSelectConfig`:
+`django_tomselect` supports various plugins-such as clear buttons, dropdown headers/footers, remove buttons, and more-that enhance the functionality and appearance of your dropdowns. You can configure these plugins through `TomSelectConfig`:
 
 ```python
 from django import forms
@@ -1322,7 +1322,7 @@ When loading this form, the `magazine` and `authors` fields will be pre-filled w
 
 ### Dynamic Form Fields
 
-A powerful feature of `django_tomselect` is the ability to dynamically update form fields based on other fields’ values—also known as dependent or chained fields. For example, you might want the `edition` field to show only editions from the currently selected `magazine`.
+A powerful feature of `django_tomselect` is the ability to dynamically update form fields based on other fields’ values-also known as dependent or chained fields. For example, you might want the `edition` field to show only editions from the currently selected `magazine`.
 
 ```python
 class DynamicArticleForm(forms.ModelForm):
@@ -1588,7 +1588,7 @@ CONTENT_SECURITY_POLICY = {
 }
 ```
 
-No additional configuration in `django-tomselect` is needed — the widget reads the nonce from `request.csp_nonce` (or `request._csp_nonce`) and passes it to the template context automatically.
+No additional configuration in `django-tomselect` is needed - the widget reads the nonce from `request.csp_nonce` (or `request._csp_nonce`) and passes it to the template context automatically.
 
 #### Custom CSP Middleware
 

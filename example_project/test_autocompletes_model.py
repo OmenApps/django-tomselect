@@ -1461,7 +1461,7 @@ class TestVirtualFields:
                 for item in results:
                     # This would raise KeyError before the fix if parent_name was excluded
                     if item["parent_name"]:
-                        item["formatted_name"] = f"{item['parent_name']} → {item['name']}"
+                        item["formatted_name"] = f"{item['parent_name']} >> {item['name']}"
                     else:
                         item["formatted_name"] = item["name"]
                 return results
@@ -1474,7 +1474,7 @@ class TestVirtualFields:
         results = view.prepare_results(queryset)
 
         child_result = next(r for r in results if r["id"] == child.pk)
-        assert child_result["formatted_name"] == "Technology → Software"
+        assert child_result["formatted_name"] == "Technology >> Software"
         assert child_result["parent_name"] == "Technology"
 
         parent_result = next(r for r in results if r["id"] == parent.pk)
@@ -1974,3 +1974,85 @@ class TestFilterErrorDebugGating:
         response = view.get(request)
         data = json.loads(response.content.decode())
         assert "filter_error" not in data
+
+
+@pytest.mark.django_db
+class TestAutocompleteModelViewSplitSearch:
+    """Tests for opt-in split_search (whitespace-aware tokenizer-based search)."""
+
+    def _setup_editions_with_split_search(self, rf, request_q, user, *, lookups, split=True):
+        view = AutocompleteModelView()
+        view.model = Edition
+        view.search_lookups = list(lookups)
+        view.split_search = split
+        request = rf.get("", {"q": request_q})
+        request.user = user
+        view.setup(request)
+        return view, request
+
+    def test_split_search_default_off_preserves_behavior(self, rf, test_editions, user):
+        """With split_search=False (default), the whole query is one icontains."""
+        view, request = self._setup_editions_with_split_search(
+            rf, "Edition 1", user, lookups=["name__icontains"], split=False
+        )
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        names = sorted(r["name"] for r in data["results"])
+        # Default behavior: matches Edition 1 only (literal "Edition 1" substring).
+        assert names == ["Edition 1"]
+
+    def test_split_search_and_composes_terms(self, rf, test_editions, user):
+        """With split_search=True, terms are AND-composed."""
+        view, request = self._setup_editions_with_split_search(
+            rf, "Edition 1", user, lookups=["name__icontains"], split=True
+        )
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        names = sorted(r["name"] for r in data["results"])
+        # Each term ANDed: "Edition" AND "1" >> only "Edition 1".
+        assert names == ["Edition 1"]
+
+    def test_split_search_with_quoted_phrase_preserves_phrase(self, rf, test_editions, user):
+        """Quoted phrases stay as a single icontains term."""
+        view, request = self._setup_editions_with_split_search(
+            rf, '"Edition 1"', user, lookups=["name__icontains"], split=True
+        )
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        names = [r["name"] for r in data["results"]]
+        assert "Edition 1" in names
+
+    def test_split_search_or_across_lookups_within_term(self, rf, test_editions, user):
+        """Each term is OR'd across search_lookups; terms are then ANDed."""
+        # Looking for "Edition" matching name AND "1" matching either name or pages.
+        view, request = self._setup_editions_with_split_search(
+            rf, "Edition 1", user, lookups=["name__icontains", "pages"], split=True
+        )
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        names = [r["name"] for r in data["results"]]
+        # Edition 1 has pages=1 and name contains "Edition" + "1" >> matches.
+        assert "Edition 1" in names
+
+    def test_split_search_empty_query_is_noop(self, rf, test_editions, user):
+        """Empty query returns the unfiltered queryset, same as default."""
+        view, request = self._setup_editions_with_split_search(
+            rf, "", user, lookups=["name__icontains"], split=True
+        )
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        # All editions visible.
+        assert len(data["results"]) > 0
+
+    def test_split_search_unterminated_quote_falls_back_to_single_term(
+        self, rf, test_editions, user
+    ):
+        """Tokenize failure should fall back to single-term icontains."""
+        view, request = self._setup_editions_with_split_search(
+            rf, 'Edition "1', user, lookups=["name__icontains"], split=True
+        )
+        # Should not raise; falls back to literal-string icontains.
+        response = view.get(request)
+        data = json.loads(response.content.decode())
+        # The literal substring 'Edition "1' won't match anything; that's fine.
+        assert "results" in data

@@ -21,9 +21,13 @@ from django.db.models import (
 from django.db.models.functions import Now
 from django.utils import timezone
 
+from django.utils.translation import gettext_lazy as _
+
 from django_tomselect.autocompletes import (
     AutocompleteIterablesView,
     AutocompleteModelView,
+    CompositeAutocompleteView,
+    Operator,
 )
 from example_project.example.models import (
     Article,
@@ -428,7 +432,7 @@ class CategoryAutocompleteView(AutocompleteModelView):
             # Create the formatted name
             formatted_name = category["name"]
             if category["parent_name"]:
-                formatted_name = f"{category['parent_name']} → {category['name']}"
+                formatted_name = f"{category['parent_name']} >> {category['name']}"
 
             # Add all required data
             formatted_result = {
@@ -754,3 +758,55 @@ class ModelWithPKIDAndUUIDIdAutocompleteView(AutocompleteModelView):
     ordering = ["name"]
     page_size = 20
     allow_anonymous = True
+
+
+class ArticleTokenQueryView(CompositeAutocompleteView):
+    """Token-style article query.
+
+    Multiplexes the per-model autocomplete views into a single endpoint that
+    powers the ``TomSelectTokenWidget`` on /article-token-search/.
+
+    Each operator declares the fields the bound view returns
+    (``value_field``/``label_field``) AND how to filter the parent ``Article``
+    queryset (``filter_lookup``).
+    """
+
+    operators = [
+        Operator(
+            key="author",
+            view=AuthorAutocompleteView,
+            value_field="id",
+            label_field="name",
+            filter_lookup="authors__id",
+            label=_("Author"),
+            max_count=3,
+        ),
+        Operator(
+            key="category",
+            view=CategoryAutocompleteView,
+            value_field="id",
+            label_field="name",
+            filter_lookup="categories__id",
+            label=_("Category"),
+            multi=True,
+        ),
+        Operator(
+            key="magazine",
+            view=MagazineAutocompleteView,
+            value_field="id",
+            label_field="name",
+            filter_lookup="magazine_id",
+            label=_("Magazine"),
+            max_count=1,
+        ),
+        Operator(
+            key="status",
+            view=ArticleStatusAutocompleteView,
+            value_field="value",
+            label_field="label",
+            filter_lookup="status",
+            label=_("Status"),
+            multi=True,
+        ),
+    ]
+    free_text_lookups = ["title__icontains"]

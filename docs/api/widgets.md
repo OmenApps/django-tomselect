@@ -228,3 +228,29 @@ widget = TomSelectModelWidget(
 ```{note}
 Remember to include `{{ form.media }}` in your templates to include the required CSS and JavaScript files.
 ```
+
+## TomSelectTokenWidget
+
+A token-style input that multiplexes multiple autocomplete views. Pairs with
+`CompositeAutocompleteView` (server) and `TomSelectTokenField` (form-level
+validation owner).
+
+```python
+from django_tomselect import TomSelectTokenWidget
+
+widget = TomSelectTokenWidget(
+    composite_view="autocomplete-article-token",  # URL name
+    placeholder="Filter articles…",
+    allow_free_text=True,
+    max_query_length=4096,   # utf-8 byte cap on the serialized value
+    max_tokens=32,
+    css_framework="bootstrap5",  # "default" | "bootstrap4" | "bootstrap5"
+)
+```
+
+The widget is **presentation-only** - `clean()` lives on `TomSelectTokenField`
+in `django_tomselect.forms`. The serialized form value is a single token
+string (e.g. `author:42 category:5 some free text`) stored in a `CharField`.
+
+See the {doc}`../example_app/article_token_search` page for an end-to-end demo
+of the `Operator` configuration, server-side delegation, and chip rehydration.

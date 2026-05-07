@@ -176,11 +176,11 @@ class TestTomSelectModelWidget:
         try:
             widget = self.create_widget()
 
-            # With a value — exercises _build_full_context path
+            # With a value - exercises _build_full_context path
             context = widget.get_context("test", sample_edition.pk, {})
             assert "csp_nonce" in context
 
-            # Without a value — exercises _build_full_context path (no value)
+            # Without a value - exercises _build_full_context path (no value)
             context = widget.get_context("test", None, {})
             assert "csp_nonce" in context
         finally:

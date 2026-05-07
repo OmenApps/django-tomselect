@@ -1,0 +1,61 @@
+{% comment %}
+TomSelect Token widget template.
+
+Renders a single text input + container element, then attaches the per-instance
+init script. Mirrors the inline-init pattern used by tomselect.html so HTMX
+swaps and dynamic re-rendering work the same way.
+
+Context Variables:
+- widget.name, widget.attrs, widget.value: standard Django widget context.
+- widget.composite_view_url: resolved URL for the CompositeAutocompleteView.
+- widget.token_config: dict with allow_free_text, max_query_length, max_tokens.
+- widget.css_framework: "default" | "bootstrap4" | "bootstrap5".
+
+Blocks:
+- block token_input: the underlying <input>; override to change the form field markup.
+- block token_init: the JS init call; override to wrap with custom logic.
+{% endcomment %}
+{% load i18n %}
+
+{% block token_input %}
+<input type="text"
+       name="{{ widget.name }}"
+       value="{{ widget.value|default_if_none:'' }}"
+       {% for k, v in widget.attrs.items %}{% if v is True %}{{ k }} {% elif v is not False and v is not None %}{{ k }}="{{ v }}" {% endif %}{% endfor %}
+       data-django-tomselect-token-input>
+{% endblock token_input %}
+
+<div class="tw"
+     data-django-tomselect-token
+     data-target-name="{{ widget.name }}"
+     data-css-framework="{{ widget.css_framework }}"
+     data-composite-url="{{ widget.composite_view_url }}"
+     data-config="{{ widget.token_config }}"
+     aria-live="polite">
+</div>
+
+<script{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
+{% block token_init %}
+    (function () {
+        var inputName = '{{ widget.name|escapejs }}';
+        function attach() {
+            if (!window.djangoTomSelectToken || typeof window.djangoTomSelectToken.init !== 'function') {
+                // Bundle not yet ready; retry on next tick.
+                return setTimeout(attach, 0);
+            }
+            var escName = (window.CSS && window.CSS.escape) ? window.CSS.escape(inputName) : inputName;
+            var roots = document.querySelectorAll('[data-django-tomselect-token][data-target-name="' + escName + '"]');
+            roots.forEach(function (root) {
+                if (root.dataset.djangoTomselectTokenInitialized === '1') return;
+                window.djangoTomSelectToken.init(root);
+                root.dataset.djangoTomselectTokenInitialized = '1';
+            });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', attach);
+        } else {
+            attach();
+        }
+    })();
+{% endblock token_init %}
+</script>

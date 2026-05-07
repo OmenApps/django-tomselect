@@ -5,6 +5,7 @@ __all__ = [
     "TomSelectMultipleChoiceField",
     "TomSelectModelChoiceField",
     "TomSelectModelMultipleChoiceField",
+    "TomSelectTokenField",
 ]
 
 from typing import Any
@@ -27,6 +28,7 @@ from django_tomselect.widgets import (
     TomSelectIterablesWidget,
     TomSelectModelMultipleWidget,
     TomSelectModelWidget,
+    TomSelectTokenWidget,
 )
 
 logger = get_logger(__name__)
@@ -403,3 +405,162 @@ class TomSelectModelMultipleChoiceField(BaseTomSelectModelMixin, forms.ModelMult
 
     field_base_class = forms.ModelMultipleChoiceField  # type: ignore[assignment]
     widget_class = TomSelectModelMultipleWidget  # type: ignore[assignment]
+
+
+class TomSelectTokenField(forms.CharField):
+    """A CharField that parses and validates a token-style query string.
+
+    The form value is a single canonical token string like
+    ``author:42 category:5 some free text``. ``clean()`` parses the value
+    against the bound :class:`~django_tomselect.autocompletes.CompositeAutocompleteView`
+    and raises :class:`ValidationError` for unknown operators, unterminated
+    quotes, cap overflows, empty operator values, ``allow_free_text=False``
+    violations, or ``Operator.max_count`` / ``min_count`` failures.
+
+    NOTE: there is intentionally no class-level ``widget = TomSelectTokenWidget``
+    because Django would instantiate that class with no args during field setup,
+    but the widget requires ``composite_view``. The widget is constructed in
+    ``__init__`` and passed via the ``widget`` kwarg.
+    """
+
+    def __init__(
+        self,
+        composite_view: str,
+        *,
+        allow_free_text: bool = True,
+        max_query_length: int = 4096,
+        max_tokens: int = 32,
+        max_values_per_operator: int = 16,
+        widget_kwargs: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize the field, auto-constructing a token widget for URL-name composites."""
+        self.composite_view = composite_view
+        self.allow_free_text = allow_free_text
+        self.max_query_length = max_query_length
+        self.max_tokens = max_tokens
+        self.max_values_per_operator = max_values_per_operator
+
+        # Construct the widget here so composite_view (required) and the field's
+        # caps + allow_free_text propagate to the JS plugin. Caller can pass
+        # extra widget-only kwargs (placeholder, css_framework, attrs) via
+        # widget_kwargs.
+        #
+        # The browser-side widget needs a URL name (the JS plugin makes XHRs).
+        # When the field is constructed with a class reference (typically in
+        # server-side / unit-test contexts where a URL is not registered), we
+        # fall back to a plain TextInput. The field's clean() and parse() still
+        # work - only the rich UI is unavailable.
+        if "widget" not in kwargs:
+            if isinstance(composite_view, str):
+                kwargs["widget"] = TomSelectTokenWidget(
+                    composite_view=composite_view,
+                    allow_free_text=allow_free_text,
+                    max_query_length=max_query_length,
+                    max_tokens=max_tokens,
+                    **(widget_kwargs or {}),
+                )
+            else:
+                # forms.TextInput only accepts ``attrs``. Translate token-only
+                # kwargs (``placeholder``, ``css_framework``) into something
+                # TextInput can use, and ignore the ones it can't.
+                wk = dict(widget_kwargs or {})
+                attrs = dict(wk.pop("attrs", None) or {})
+                placeholder = wk.pop("placeholder", None)
+                if placeholder and "placeholder" not in attrs:
+                    attrs["placeholder"] = placeholder
+                # css_framework is rich-widget-only; drop silently.
+                wk.pop("css_framework", None)
+                # Any remaining keys are unrecognized for TextInput; drop them
+                # rather than crashing - the rich UI isn't being rendered anyway.
+                kwargs["widget"] = forms.TextInput(attrs=attrs)
+        super().__init__(**kwargs)
+
+    def clean(self, value: Any) -> str:
+        """Validate parser-level concerns and operator count rules.
+
+        ORM-coercion validation (e.g. typed-but-not-selected values for id-based
+        operators) happens at apply-time in :meth:`ParsedQuery.apply` - the field
+        does not have access to the parent queryset. Calling code should catch
+        ``ValidationError`` from ``apply()`` and route it via
+        ``form.add_error("q", e)``; see the docs for the canonical pattern.
+        """
+        cleaned: str = super().clean(value)
+        if not cleaned:
+            return cleaned
+        parsed = self.parse(cleaned)
+        if parsed.errors:
+            raise ValidationError(parsed.format_errors())
+
+        for token in parsed.tokens:
+            if not any(v.strip() for v in token.values):
+                raise ValidationError(f"Operator {token.key!r} requires a value.")
+
+        if not self.allow_free_text and parsed.free_text:
+            raise ValidationError("Free-text input is not allowed in this filter.")
+
+        self._enforce_count_constraints(parsed)
+        return cleaned
+
+    def _enforce_count_constraints(self, parsed: Any) -> None:
+        """Per-operator max_count / min_count enforcement."""
+        composite_cls = self._resolve_composite_class()
+        if composite_cls is None:
+            return
+        counts: dict[str, int] = {}
+        for t in parsed.tokens:
+            counts[t.key] = counts.get(t.key, 0) + 1
+        for op in composite_cls.operators:
+            count = counts.get(op.key, 0)
+            if op.max_count is not None and count > op.max_count:
+                raise ValidationError(f"Operator {op.key!r} may appear at most {op.max_count} time(s); got {count}.")
+            if op.min_count and count < op.min_count:
+                raise ValidationError(f"Operator {op.key!r} is required (at least {op.min_count} occurrence(s)).")
+
+    def parse(self, value: str):
+        """Parse a value against the bound composite view.
+
+        Returns a :class:`ParsedQuery`. Form ``clean()`` methods can use this to
+        write cross-operator validation rules:
+
+        .. code-block:: python
+
+            def clean(self):
+                cleaned = super().clean()
+                parsed = self.fields["q"].parse(cleaned.get("q", ""))
+                if not parsed.has("asset") and not parsed.has("account"):
+                    raise forms.ValidationError("Provide asset or account.")
+                return cleaned
+        """
+        from django_tomselect.query import parse_query
+
+        return parse_query(
+            value,
+            self.composite_view,
+            max_raw_length=self.max_query_length,
+            max_tokens=self.max_tokens,
+            max_values_per_operator=self.max_values_per_operator,
+        )
+
+    def _resolve_composite_class(self):
+        """Resolve composite_view (URL name or class) to a class for clean().
+
+        When resolved from a URL name, baked-in ``as_view(operators=[...])``
+        kwargs are promoted to class attributes via a lightweight subclass so
+        ``clean()`` sees the same operator registry the view actually serves.
+        """
+        if isinstance(self.composite_view, str):
+            try:
+                from django_tomselect.lazy_utils import resolve_view_class
+
+                view_class, view_initkwargs = resolve_view_class(self.composite_view)
+                if view_initkwargs:
+                    view_class = type(
+                        f"_ResolvedComposite_{view_class.__name__}",
+                        (view_class,),
+                        dict(view_initkwargs),
+                    )
+                return view_class
+            except Exception:
+                return None
+        return self.composite_view

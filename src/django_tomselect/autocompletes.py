@@ -5,10 +5,15 @@ from __future__ import annotations
 __all__ = [
     "AutocompleteModelView",
     "AutocompleteIterablesView",
+    "CompositeAutocompleteView",
+    "Operator",
     "MAX_PAGE_SIZE",
 ]
 
 import json
+from collections import defaultdict
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 if TYPE_CHECKING:
@@ -130,11 +135,10 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             footer when ``show_list=True`` and ``PluginDropdownFooter`` are set in the
             widget's ``TomSelectConfig``.
         create_url: URL name for the create view. Used in two contexts:
-            1. Rendered as a "Create New" link in the dropdown footer when
-               ``show_create=True`` and ``PluginDropdownFooter`` are set in TomSelectConfig.
-            2. Used as the HTMX POST target for inline creation when ``create=True`` and
-               ``create_with_htmx=True`` are set in TomSelectConfig.
-
+            (a) rendered as a "Create New" link in the dropdown footer when
+            ``show_create=True`` and ``PluginDropdownFooter`` are set in TomSelectConfig;
+            (b) used as the HTMX POST target for inline creation when ``create=True`` and
+            ``create_with_htmx=True`` are set in TomSelectConfig.
             Both require this attribute to be set to a valid URL name.
 
         detail_url: URL name for the detail view (used for item detail links)
@@ -150,22 +154,27 @@ class AutocompleteModelView(JSONEncoderMixin, View):
 
         create_field: The field name used when creating new objects via the autocomplete.
 
-    Filter/Exclude Syntax:
-        The `filter_by` and `exclude_by` URL parameters allow dynamic filtering of results
+    Note:
+        **Filter/Exclude Syntax**
+
+        The ``filter_by`` and ``exclude_by`` URL parameters allow dynamic filtering of results
         based on another form field's value. This is useful for dependent dropdowns.
 
-        Format: 'dependent_field__lookup_field=value'
+        Format: ``'dependent_field__lookup_field=value'``
 
         Where:
-            - dependent_field: The name of the form field that triggers filtering
-            - lookup_field: The model field to filter on (can include lookups like __id)
-            - value: The value to filter by (usually from the dependent field)
 
-        Example URL parameters:
+        - ``dependent_field``: The name of the form field that triggers filtering
+        - ``lookup_field``: The model field to filter on (can include lookups like ``__id``)
+        - ``value``: The value to filter by (usually from the dependent field)
+
+        Example URL parameters::
+
             ?filter_by=category__category_id=5  - Filter where category_id equals 5
             ?exclude_by=author__author_id=3     - Exclude where author_id equals 3
 
-        In JavaScript/HTML, use data attributes on the widget:
+        In JavaScript/HTML, use data attributes on the widget::
+
             data-filter-by="category__category_id"  - Will filter by selected category
             data-exclude-by="author__author_id"     - Will exclude by selected author
     """
@@ -567,17 +576,65 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             )
             return queryset.none()
 
+    # Opt-in: when True, search() splits the query on whitespace using a
+    # quote-aware tokenizer. Each term is OR'd across `search_lookups`; terms
+    # are AND-composed. Quoted phrases (e.g. `"foo bar"`) stay as a single
+    # term. Default False preserves existing behavior verbatim.
+    split_search: bool = False
+
+    def _split_search_terms(self, query: str) -> list[str]:
+        """Tokenize ``query`` for split_search, falling back to single-term."""
+        from django_tomselect._tokenize import TokenizeError, tokenize
+
+        try:
+            segments = tokenize(query)
+        except TokenizeError as exc:
+            logger.debug("split_search tokenize failure for %r: %s", query, exc)
+            return [query]
+        terms = [seg.text for seg in segments if seg.text]
+        return terms or [query]
+
+    def _build_split_search_q(self, terms: list[str]) -> Q:
+        """AND-compose per-term OR-across-lookups Q objects."""
+        q_total = Q()
+        first = True
+        for term in terms:
+            term_q = Q()
+            for lookup in self.search_lookups:
+                term_q = term_q | Q(**{lookup: term})  # type: ignore[misc]
+            q_total = term_q if first else q_total & term_q
+            first = False
+        return q_total
+
+    def _build_simple_search_q(self, query: str) -> Q:
+        """OR-compose ``search_lookups`` against the whole query."""
+        q_objects = Q()
+        for lookup in self.search_lookups:
+            q_objects = q_objects | Q(**{lookup: query})  # type: ignore[misc]
+        return q_objects
+
     def search(self, queryset: QuerySet, query: str) -> QuerySet:
-        """Apply search filtering to the queryset."""
+        """Apply search filtering to the queryset.
+
+        With ``split_search=False`` (default) the entire ``query`` is OR'd
+        across ``search_lookups`` as a single icontains.
+
+        With ``split_search=True`` the query is whitespace-split via the shared
+        quote-aware tokenizer (:mod:`django_tomselect._tokenize`); each term
+        is OR'd across ``search_lookups`` and the per-term Qs are ANDed
+        together. Quoted phrases remain single terms.
+        """
         if not query or not self.search_lookups:
             return queryset
 
         try:
-            q_objects = Q()
-            for lookup in self.search_lookups:
-                q_objects = q_objects | Q(**{lookup: query})  # type: ignore[misc]
-            logger.debug("Applying search query %s", q_objects)
-            return queryset.filter(q_objects)
+            if self.split_search:
+                q_total = self._build_split_search_q(self._split_search_terms(query))
+                logger.debug("Applying split search query %s", q_total)
+            else:
+                q_total = self._build_simple_search_q(query)
+                logger.debug("Applying search query %s", q_total)
+            return queryset.filter(q_total)
         except FieldError:
             logger.warning("Invalid search lookup field in %s", self.search_lookups)
         except Exception as e:
@@ -1076,3 +1133,337 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
         """Handle POST requests."""
         logger.debug("Handling POST request")
         return JsonResponse({"error": "Method not allowed"}, status=405, encoder=self.get_json_encoder())  # type: ignore[arg-type]
+
+
+@dataclass(frozen=True)
+class Operator:
+    """One token-key binding for a :class:`CompositeAutocompleteView`.
+
+    See the ``token_widget`` docs page for the full contract. Briefly:
+
+    - ``key``: prefix the user types before the colon (e.g. ``author``).
+    - ``view``: bound autocomplete view (class reference or ``app:url-name``).
+    - ``value_field`` / ``label_field``: JSON keys returned by the bound view's
+      ``prepare_results()`` (model views) or ``get_iterable()`` items (iterables).
+      Required, no defaults - for model views typically ``value_field="id"``
+      plus a label like ``"name"``; for iterables always ``value_field="value"``,
+      ``label_field="label"``.
+    - ``bound_lookup``: ORM field path used in the resolve queryset filter.
+      Defaults to ``value_field``. Override when ``prepare_results()`` projects
+      renamed/computed keys.
+    - Filtering: exactly one of ``filter_lookup`` (exact-match field path) or
+      ``q_translator`` (callable returning a ``Q``) must be set.
+    """
+
+    key: str
+    view: type[View] | str
+    value_field: str = ""
+    label_field: str = ""
+    bound_lookup: str | None = None
+    filter_lookup: str | list[str] | None = None
+    q_translator: Callable[[Operator, list[Any]], Q] | None = None
+    label: str | None = None
+    multi: bool = False
+    # None inherits the bound view's class-level ``search_lookups``;
+    # ``[]`` deliberately disables search; non-empty list overrides.
+    search_lookups: list[str] | None = None
+    max_count: int | None = None
+    min_count: int = 0
+
+    def __post_init__(self) -> None:
+        """Validate required fields and default ``bound_lookup`` to ``value_field``."""
+        if not self.value_field:
+            raise ImproperlyConfigured(f"Operator(key={self.key!r}) requires value_field.")
+        if not self.label_field:
+            raise ImproperlyConfigured(f"Operator(key={self.key!r}) requires label_field.")
+        has_filter = self.filter_lookup is not None
+        has_translator = self.q_translator is not None
+        if not has_filter and not has_translator:
+            raise ImproperlyConfigured(
+                f"Operator(key={self.key!r}) requires filter_lookup or q_translator. "
+                "These tell parse_query.apply() how to filter the parent queryset."
+            )
+        if has_filter and has_translator:
+            raise ImproperlyConfigured(
+                f"Operator(key={self.key!r}) cannot set both filter_lookup and "
+                "q_translator. Pick one - q_translator is the more flexible option."
+            )
+        # Default bound_lookup to value_field (frozen dataclass; use object.__setattr__).
+        if self.bound_lookup is None:
+            object.__setattr__(self, "bound_lookup", self.value_field)
+
+
+class CompositeAutocompleteView(JSONEncoderMixin, View):
+    """Multiplex multiple autocomplete views into a single token-aware endpoint.
+
+    Three GET routes by ``mode=`` query param:
+
+    - ``?mode=operators`` - JSON list of registered operator keys + metadata.
+    - ``?mode=value&op=<key>&q=...&p=...`` - delegate to bound view's ``get()``.
+    - ``?mode=resolve&op=<k>&id=<v>[&op=...&id=...]`` - batch label resolution.
+
+    Subclass and set ``operators`` and ``free_text_lookups``.
+    """
+
+    operators: list[Operator] = []
+    free_text_lookups: list[str] = []
+    max_resolve_ids: int = 64
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Emit a one-time iterables-permission warning on subclass registration."""
+        super().__init_subclass__(**kwargs)
+        seen_iterables = False
+        for op in cls.operators:
+            view = op.view
+            if isinstance(view, type) and issubclass(view, AutocompleteIterablesView):
+                seen_iterables = True
+                break
+            if isinstance(view, str):
+                # URL-name operator. Resolve lazily so import-order issues
+                # (URLs not yet wired) don't crash subclass creation.
+                try:
+                    from django_tomselect.lazy_utils import resolve_view_class
+
+                    resolved, _ = resolve_view_class(view)
+                    if issubclass(resolved, AutocompleteIterablesView):
+                        seen_iterables = True
+                        break
+                except Exception as exc:  # noqa: BLE001
+                    # URL not reversible at import time. The iterables warning
+                    # is best-effort; runtime resolution still works. Log at
+                    # debug so users can opt in to seeing it.
+                    logger.debug(
+                        "%s: could not resolve operator view %r at subclass time: %s",
+                        cls.__name__,
+                        view,
+                        exc,
+                    )
+        if seen_iterables:
+            logger.warning(
+                "%s registers operators bound to AutocompleteIterablesView. "
+                "Iterables views do NOT enforce per-user permissions - labels are "
+                "publicly readable. If sensitive, gate access at the form/view layer.",
+                cls.__name__,
+            )
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
+        """Route the request based on ``?mode=``."""
+        mode = request.GET.get("mode", "operators")
+        try:
+            if mode == "operators":
+                return self._list_operators(request)
+            if mode == "value":
+                return self._delegate_value(request)
+            if mode == "resolve":
+                return self._resolve_labels(request)
+        except Exception:
+            logger.exception("CompositeAutocompleteView dispatch failed for mode=%r", mode)
+            return JsonResponse(
+                {"error": "internal error"},
+                status=500,
+                encoder=self.get_json_encoder(),  # type: ignore[arg-type]
+            )
+        return JsonResponse(
+            {"error": f"unknown mode {mode!r}"},
+            status=400,
+            encoder=self.get_json_encoder(),  # type: ignore[arg-type]
+        )
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
+        """Composite endpoint is GET-only."""
+        return JsonResponse(
+            {"error": "Method not allowed"},
+            status=405,
+            encoder=self.get_json_encoder(),  # type: ignore[arg-type]
+        )
+
+    def _operator_for(self, key: str) -> Operator | None:
+        for op in self.operators:
+            if op.key == key:
+                return op
+        return None
+
+    def _list_operators(self, request: HttpRequest) -> JsonResponse:
+        """Return registered operator metadata for the JS plugin."""
+        out = []
+        for op in self.operators:
+            out.append(
+                {
+                    "key": op.key,
+                    "label": str(op.label) if op.label else op.key,
+                    "multi": op.multi,
+                    "value_field": op.value_field,
+                    "label_field": op.label_field,
+                    "max_count": op.max_count,
+                    "min_count": op.min_count,
+                }
+            )
+        return JsonResponse(
+            {"operators": out, "free_text_lookups": list(self.free_text_lookups)},
+            encoder=self.get_json_encoder(),  # type: ignore[arg-type]
+        )
+
+    def _delegate_value(self, request: HttpRequest) -> JsonResponse:
+        """Delegate ``mode=value`` to the operator's bound view."""
+        from django_tomselect.lazy_utils import resolve_view_class
+
+        op_key = request.GET.get("op", "")
+        op = self._operator_for(op_key)
+        if op is None:
+            return JsonResponse(
+                {"error": f"unknown operator {op_key!r}"},
+                status=400,
+                encoder=self.get_json_encoder(),  # type: ignore[arg-type]
+            )
+
+        view_class, view_initkwargs = resolve_view_class(op.view)
+
+        # Apply per-operator search_lookups override via instance subclass.
+        if op.search_lookups is not None:
+            override = {"search_lookups": list(op.search_lookups)}
+            view_class = type(
+                f"_OperatorOverride_{op.key}_{view_class.__name__}",
+                (view_class,),
+                override,
+            )
+
+        return view_class.as_view(**view_initkwargs)(request)
+
+    def _resolve_labels(self, request: HttpRequest) -> JsonResponse:
+        """Batch-resolve labels for ``(op, id)`` pairs.
+
+        Permission-safe: routes through the bound view's ``has_permission()``
+        when available, catches ``PermissionDenied`` and generic exceptions to
+        prevent label leaks. Per-operator try/except so one failing operator
+        does not poison resolve for the others.
+        """
+        ops = request.GET.getlist("op")
+        ids = request.GET.getlist("id")
+        if len(ops) != len(ids):
+            return JsonResponse(
+                {"error": "op/id list lengths must match"},
+                status=400,
+                encoder=self.get_json_encoder(),  # type: ignore[arg-type]
+            )
+        if len(ops) > self.max_resolve_ids:
+            return JsonResponse(
+                {"error": f"too many resolve ids (max {self.max_resolve_ids})"},
+                status=400,
+                encoder=self.get_json_encoder(),  # type: ignore[arg-type]
+            )
+
+        grouped: dict[str, list[str]] = defaultdict(list)
+        for op_key, id_val in zip(ops, ids, strict=False):
+            grouped[op_key].append(id_val)
+
+        out: list[dict[str, Any]] = []
+        for op_key, key_ids in grouped.items():
+            op = self._operator_for(op_key)
+            if op is None:
+                out.extend({"op": op_key, "id": i, "missing": True} for i in key_ids)
+                continue
+            try:
+                out.extend(self._resolve_one(request, op, key_ids))
+            except PermissionDenied:
+                out.extend({"op": op_key, "id": i, "missing": True} for i in key_ids)
+            except Exception:
+                logger.exception("Resolve failed for operator %r", op_key)
+                out.extend({"op": op_key, "id": i, "missing": True} for i in key_ids)
+
+        return JsonResponse(
+            {"results": out},
+            encoder=self.get_json_encoder(),  # type: ignore[arg-type]
+        )
+
+    def _resolve_one(self, request: HttpRequest, op: Operator, key_ids: list[str]) -> list[dict[str, Any]]:
+        """Resolve labels for a single operator's id list."""
+        from django_tomselect.lazy_utils import resolve_view_class
+
+        view_class, view_initkwargs = resolve_view_class(op.view)
+        view = view_class(**view_initkwargs)
+        view.setup(request)
+
+        if isinstance(view, AutocompleteModelView):
+            return self._resolve_model_view(request, view, op, key_ids)
+        if isinstance(view, AutocompleteIterablesView):
+            return self._resolve_iterables_view(view, op, key_ids)
+        return [{"op": op.key, "id": i, "missing": True} for i in key_ids]
+
+    def _project_resolve(self, op: Operator, key_ids: list[str], found: dict[str, Any]) -> list[dict[str, Any]]:
+        """Project the per-id resolve response from a found-label map."""
+        out: list[dict[str, Any]] = []
+        for i in key_ids:
+            s = str(i)
+            if s in found:
+                out.append({"op": op.key, "id": i, "value": i, "label": found[s]})
+            else:
+                out.append({"op": op.key, "id": i, "missing": True})
+        return out
+
+    def _resolve_model_view(
+        self,
+        request: HttpRequest,
+        view: AutocompleteModelView,
+        op: Operator,
+        key_ids: list[str],
+    ) -> list[dict[str, Any]]:
+        """Permission-safe resolve for a model-backed bound view."""
+        # has_permission signature is (request, action="view"); passing
+        # the model class would poison the permission cache.
+        if not view.has_permission(request, "view"):
+            return [{"op": op.key, "id": i, "missing": True} for i in key_ids]
+
+        qs = view.get_queryset().filter(**{f"{op.bound_lookup}__in": key_ids})
+
+        # Object-level permission gate: prepare_results() does not apply
+        # has_object_permission() to rows, so we apply it ourselves before
+        # projecting labels. Bound views without a custom override get the
+        # default `return True` and behave as before. Filter the ORIGINAL
+        # queryset (with its annotations) by allowed pks so prepare_results()
+        # still sees any custom-annotated fields it depends on.
+        allowed_pks: list[Any] = []
+        for obj in qs:
+            try:
+                if view.has_object_permission(request, obj, "view"):
+                    allowed_pks.append(obj.pk)
+            except PermissionDenied:
+                continue
+
+        rows = view.prepare_results(qs.filter(pk__in=allowed_pks)) if allowed_pks else []
+        found: dict[str, Any] = {}
+        for row in rows:
+            if op.value_field not in row or op.label_field not in row:
+                logger.error(
+                    "Operator %r expects keys %r/%r in prepared row but found %r",
+                    op.key,
+                    op.value_field,
+                    op.label_field,
+                    list(row.keys()),
+                )
+                continue
+            found[str(row[op.value_field])] = row[op.label_field]
+        return self._project_resolve(op, key_ids, found)
+
+    def _resolve_iterables_view(
+        self,
+        view: AutocompleteIterablesView,
+        op: Operator,
+        key_ids: list[str],
+    ) -> list[dict[str, Any]]:
+        """Resolve for an iterables-backed bound view (no permission check)."""
+        id_set = {str(i) for i in key_ids}
+        found: dict[str, Any] = {}
+        for item in view.get_iterable():
+            if op.value_field not in item or op.label_field not in item:
+                logger.error(
+                    "Operator %r expects keys %r/%r in iterable item but found %r",
+                    op.key,
+                    op.value_field,
+                    op.label_field,
+                    list(item.keys()),
+                )
+                continue
+            v = str(item[op.value_field])
+            if v in id_set:
+                found[v] = item[op.label_field]
+        return self._project_resolve(op, key_ids, found)

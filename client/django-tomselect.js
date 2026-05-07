@@ -7,6 +7,7 @@ import TomSelect_dropdown_input from 'tom-select/plugins/dropdown_input/plugin.j
 import TomSelect_remove_button from 'tom-select/plugins/remove_button/plugin.js'
 import TomSelect_virtual_scroll from 'tom-select/plugins/virtual_scroll/plugin.js'
 import TomSelect_dropdown_footer from './plugins/dropdown_footer/plugin.js'
+import './plugins/token/index.js' // Side-effect: registers window.djangoTomSelectToken
 /* eslint-enable camelcase */
 
 // Define plugins

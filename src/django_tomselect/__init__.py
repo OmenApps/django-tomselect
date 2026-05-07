@@ -22,18 +22,27 @@ __all__ = [
     # Autocomplete views
     "AutocompleteModelView",
     "AutocompleteIterablesView",
+    "CompositeAutocompleteView",
+    "Operator",
     "MAX_PAGE_SIZE",
     # Form fields
     "TomSelectChoiceField",
     "TomSelectMultipleChoiceField",
     "TomSelectModelChoiceField",
     "TomSelectModelMultipleChoiceField",
+    "TomSelectTokenField",
     # Widgets
     "TomSelectWidgetMixin",
     "TomSelectModelWidget",
     "TomSelectModelMultipleWidget",
     "TomSelectIterablesWidget",
     "TomSelectIterablesMultipleWidget",
+    "TomSelectTokenWidget",
+    # Token parser
+    "parse_query",
+    "ParsedQuery",
+    "ParsedToken",
+    "ParseError",
     # Middleware
     "TomSelectMiddleware",
     "get_current_request",
@@ -66,7 +75,13 @@ def __getattr__(name: str):
         return getattr(app_settings, name)
 
     # Autocomplete views
-    if name in ("AutocompleteModelView", "AutocompleteIterablesView", "MAX_PAGE_SIZE"):
+    if name in (
+        "AutocompleteModelView",
+        "AutocompleteIterablesView",
+        "CompositeAutocompleteView",
+        "Operator",
+        "MAX_PAGE_SIZE",
+    ):
         from django_tomselect import autocompletes
 
         return getattr(autocompletes, name)
@@ -77,6 +92,7 @@ def __getattr__(name: str):
         "TomSelectMultipleChoiceField",
         "TomSelectModelChoiceField",
         "TomSelectModelMultipleChoiceField",
+        "TomSelectTokenField",
     ):
         from django_tomselect import forms
 
@@ -89,10 +105,17 @@ def __getattr__(name: str):
         "TomSelectModelMultipleWidget",
         "TomSelectIterablesWidget",
         "TomSelectIterablesMultipleWidget",
+        "TomSelectTokenWidget",
     ):
         from django_tomselect import widgets
 
         return getattr(widgets, name)
+
+    # Token query parser
+    if name in ("parse_query", "ParsedQuery", "ParsedToken", "ParseError"):
+        from django_tomselect import query
+
+        return getattr(query, name)
 
     # Middleware
     if name in ("TomSelectMiddleware", "get_current_request"):

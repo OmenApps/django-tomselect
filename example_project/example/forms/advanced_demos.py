@@ -18,6 +18,7 @@ from django_tomselect.forms import (
     TomSelectChoiceField,
     TomSelectModelChoiceField,
     TomSelectModelMultipleChoiceField,
+    TomSelectTokenField,
 )
 from example_project.example.models import Article
 
@@ -739,4 +740,28 @@ class ConstantFilterByForm(forms.Form):
         ),
         required=False,
         help_text=_("Only published articles are shown. Optionally filter further by magazine above."),
+    )
+
+
+class ArticleTokenSearchForm(forms.Form):
+    """Single-field token-style filter for articles.
+
+    Demonstrates :class:`TomSelectTokenField` against
+    :class:`ArticleTokenQueryView` (composite autocomplete view) over the
+    Author/Category/Magazine/Status operators with free-text title search.
+    """
+
+    q = TomSelectTokenField(
+        composite_view="autocomplete-article-token",
+        required=False,
+        allow_free_text=True,
+        max_tokens=20,
+        widget_kwargs={"placeholder": _(
+            "Filter articles… try author:, category:, magazine:, status:, or free text"
+        )},
+        help_text=_(
+            "Operators: author:, category: (multi), magazine:, status: (multi). "
+            "Use commas for multi values: status:draft,review. "
+            "Quote phrases for free-text title search: \"long form essay\"."
+        ),
     )

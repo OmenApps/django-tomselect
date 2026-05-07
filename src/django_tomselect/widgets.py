@@ -6,6 +6,7 @@ __all__ = [
     "TomSelectModelMultipleWidget",
     "TomSelectIterablesWidget",
     "TomSelectIterablesMultipleWidget",
+    "TomSelectTokenWidget",
 ]
 
 import html
@@ -58,7 +59,7 @@ class TomSelectWidgetMixin(_MixinBase):
         """Resolve config input to a merged TomSelectConfig for the widget.
 
         Args:
-            config: The config input — None, TomSelectConfig, or dict.
+            config: The config input - None, TomSelectConfig, or dict.
 
         Returns:
             A fully merged TomSelectConfig.
@@ -383,7 +384,12 @@ class TomSelectWidgetMixin(_MixinBase):
                 else "django_tomselect/vendor/tom-select/css/tom-select.default.css"
             )
 
-        return [css] + ["django_tomselect/css/django-tomselect.css"]
+        paths = [css, "django_tomselect/css/django-tomselect.css"]
+        # Append token-widget chrome only when this widget is a token widget.
+        # Keeps _get_css_paths generic for the existing widgets.
+        if getattr(self, "_token_widget", False):
+            paths.append("django_tomselect/css/django-tomselect-token.css")
+        return paths
 
 
 class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
@@ -1344,3 +1350,172 @@ class TomSelectIterablesMultipleWidget(TomSelectIterablesWidget, forms.SelectMul
         attrs = super().build_attrs(base_attrs, extra_attrs)
         attrs["is-multiple"] = True
         return attrs
+
+
+class TomSelectTokenWidget(TomSelectWidgetMixin, forms.TextInput):
+    """A token-style input that multiplexes multiple autocomplete views.
+
+    Pairs with :class:`~django_tomselect.autocompletes.CompositeAutocompleteView`
+    on the server. The serialized form value is a single canonical token string
+    (e.g. ``author:42 category:5 some free text``) stored in a ``CharField``.
+
+    Validation lives on :class:`~django_tomselect.forms.TomSelectTokenField`,
+    not here - Django widgets do not run ``clean()``.
+    """
+
+    template_name = "django_tomselect/tomselect_token.html"
+    _token_widget = True
+
+    def __init__(
+        self,
+        composite_view: str,
+        *,
+        placeholder: str = "",
+        allow_free_text: bool = True,
+        max_query_length: int = 4096,
+        max_tokens: int = 32,
+        css_framework: str | None = None,
+        attrs: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize the token widget.
+
+        Args:
+            composite_view: A URL name (``"app:url-name"``) for the composite
+                autocomplete endpoint. **Must be a URL name, not a class
+                reference** - the browser plugin needs a URL to call. Use a
+                URL name even when you have a class reference handy; the
+                example app demonstrates the convention.
+            placeholder: Text shown before any tokens are entered.
+            allow_free_text: When False, un-prefixed input is treated as an
+                error by the field's clean() and the JS plugin disables the
+                free-text affordance.
+            max_query_length: utf-8 byte length cap for the serialized value.
+            max_tokens: maximum number of tokens (operator + free-text).
+            css_framework: explicit "default" / "bootstrap4" / "bootstrap5"
+                override for the CSS framework. Otherwise inherited from the
+                project-level ``TOMSELECT.DEFAULT_CSS_FRAMEWORK`` setting.
+            attrs: HTML attributes to set on the underlying ``<input>``.
+
+        Raises:
+            ImproperlyConfigured: If ``composite_view`` is not a string. The
+                browser plugin needs a URL to call; class references would
+                emit dead markup the JS cannot bootstrap.
+        """
+        if not isinstance(composite_view, str):
+            from django.core.exceptions import ImproperlyConfigured
+
+            raise ImproperlyConfigured(
+                "TomSelectTokenWidget requires composite_view to be a URL name "
+                "(string), not a class reference - the browser plugin needs a "
+                "URL to call. Pass the URL name registered for "
+                "CompositeAutocompleteView.as_view()."
+            )
+        self.composite_view = composite_view
+        self.allow_free_text = allow_free_text
+        self.max_query_length = max_query_length
+        self.max_tokens = max_tokens
+
+        # Thread placeholder into attrs so forms.TextInput renders it natively.
+        merged_attrs: dict[str, Any] = dict(attrs or {})
+        if placeholder and "placeholder" not in merged_attrs:
+            merged_attrs["placeholder"] = placeholder
+
+        # Skip TomSelectWidgetMixin.__init__: it merges in TomSelectConfig defaults
+        # designed for model autocomplete widgets (autocomplete URL, value/label
+        # fields, plugin configs) which would pollute the token widget's attrs
+        # and shape. Initialize the underlying TextInput directly, then assign
+        # just the asset-loading attributes the mixin's _get_css_paths and media
+        # property need.
+        forms.TextInput.__init__(self, attrs=merged_attrs)
+
+        self.css_framework = css_framework or GLOBAL_DEFAULT_CONFIG.css_framework
+        self.use_minified = GLOBAL_DEFAULT_CONFIG.use_minified
+        # Plugin context is empty for token widget - no dropdown_header etc.
+        self.plugin_clear_button = None
+        self.plugin_remove_button = None
+        self.plugin_dropdown_header = None
+        self.plugin_dropdown_footer = None
+        self.plugin_checkbox_options = None
+        self.plugin_dropdown_input = None
+
+    def build_attrs(
+        self,
+        base_attrs: dict[str, Any],
+        extra_attrs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build HTML attributes - bypasses the mixin's model-autocomplete attrs.
+
+        The mixin's ``build_attrs`` injects ``data-autocomplete-url`` and other
+        attrs that don't apply to the token widget (which reads from a separate
+        JSON config blob). Use the plain TextInput build_attrs.
+        """
+        return forms.TextInput.build_attrs(self, base_attrs, extra_attrs)
+
+    def get_context(
+        self,
+        name: str,
+        value: Any,
+        attrs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build the widget render context.
+
+        Bypasses :class:`TomSelectWidgetMixin`'s autocomplete-URL plumbing
+        (``get_lazy_view`` / ``get_autocomplete_url`` are designed for
+        single-endpoint model autocomplete views, not the composite view's
+        ``mode=…`` envelope). The token plugin reads our JSON config blob
+        instead.
+
+        ``token_config`` is JSON-serialized here (not as a raw dict) - Django's
+        default template rendering would emit Python ``repr()`` syntax (single
+        quotes, ``True``/``None``) which JSON.parse() cannot consume.
+        """
+        ctx = forms.TextInput.get_context(self, name, value, attrs)
+        ctx["widget"]["composite_view_url"] = self._resolve_composite_url()
+        ctx["widget"]["token_config"] = json.dumps(self._build_token_config())
+        ctx["widget"]["css_framework"] = (
+            self.css_framework.value
+            if isinstance(self.css_framework, AllowedCSSFrameworks)
+            else str(self.css_framework)
+        )
+        # CSP nonce is referenced at top-level by the inline init script.
+        ctx["csp_nonce"] = self.get_csp_nonce() or ""
+        return ctx
+
+    def _resolve_composite_url(self) -> str:
+        """Resolve the composite_view URL name. Raises ImproperlyConfigured.
+
+        ``composite_view`` is a string per __init__'s ImproperlyConfigured
+        check. If the URL doesn't reverse, fail fast at render time rather
+        than emit an inert widget - silently rendering markup the JS can't
+        bootstrap is the same dead-widget failure mode that class refs were
+        rejected to prevent.
+        """
+        from django.core.exceptions import ImproperlyConfigured
+
+        try:
+            return safe_reverse(self.composite_view)
+        except NoReverseMatch as exc:
+            raise ImproperlyConfigured(
+                f"TomSelectTokenWidget: cannot reverse composite_view URL "
+                f"{self.composite_view!r}. Make sure the URL is registered "
+                "before the form is rendered."
+            ) from exc
+
+    def _build_token_config(self) -> dict[str, Any]:
+        """Serialize widget settings the JS plugin needs."""
+        return {
+            "allow_free_text": self.allow_free_text,
+            "max_query_length": self.max_query_length,
+            "max_tokens": self.max_tokens,
+        }
+
+    @property
+    def media(self) -> forms.Media:
+        """Return media - same JS bundle as the standard widgets, plus token CSS."""
+        css_paths = self._get_css_paths()
+        js_path = (
+            "django_tomselect/js/django-tomselect.min.js"
+            if self.use_minified
+            else "django_tomselect/js/django-tomselect.js"
+        )
+        return forms.Media(css={"all": css_paths}, js=[js_path])

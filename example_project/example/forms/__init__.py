@@ -2,6 +2,7 @@
 
 from example_project.example.forms.advanced_demos import (
     ArticleBulkActionForm,
+    ArticleTokenSearchForm,
     ConstantFilterByForm,
     DynamicArticleForm,
     EditionYearForm,
@@ -47,6 +48,7 @@ from example_project.example.forms.oddball_model_forms import (
 __all__ = [
     # Advanced demos
     "ArticleBulkActionForm",
+    "ArticleTokenSearchForm",
     "ConstantFilterByForm",
     "DynamicArticleForm",
     "EditionYearForm",

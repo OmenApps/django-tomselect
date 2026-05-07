@@ -906,12 +906,12 @@
     }
     return false;
   };
-  var getId = (el, id) => {
-    const existing_id = el.getAttribute("id");
+  var getId = (el2, id) => {
+    const existing_id = el2.getAttribute("id");
     if (existing_id) {
       return existing_id;
     }
-    el.setAttribute("id", id);
+    el2.setAttribute("id", id);
     return id;
   };
   var addSlashes = (str) => {
@@ -968,18 +968,18 @@
   var addClasses = (elmts, ...classes) => {
     var norm_classes = classesArray(classes);
     elmts = castAsArray(elmts);
-    elmts.map((el) => {
+    elmts.map((el2) => {
       norm_classes.map((cls) => {
-        el.classList.add(cls);
+        el2.classList.add(cls);
       });
     });
   };
   var removeClasses = (elmts, ...classes) => {
     var norm_classes = classesArray(classes);
     elmts = castAsArray(elmts);
-    elmts.map((el) => {
+    elmts.map((el2) => {
       norm_classes.map((cls) => {
-        el.classList.remove(cls);
+        el2.classList.remove(cls);
       });
     });
   };
@@ -1021,24 +1021,24 @@
   var isEmptyObject = (obj) => {
     return Object.keys(obj).length === 0;
   };
-  var nodeIndex = (el, amongst) => {
-    if (!el)
+  var nodeIndex = (el2, amongst) => {
+    if (!el2)
       return -1;
-    amongst = amongst || el.nodeName;
+    amongst = amongst || el2.nodeName;
     var i = 0;
-    while (el = el.previousElementSibling) {
-      if (el.matches(amongst)) {
+    while (el2 = el2.previousElementSibling) {
+      if (el2.matches(amongst)) {
         i++;
       }
     }
     return i;
   };
-  var setAttr = (el, attrs) => {
+  var setAttr = (el2, attrs) => {
     iterate2(attrs, (val, attr) => {
       if (val == null) {
-        el.removeAttribute(attr);
+        el2.removeAttribute(attr);
       } else {
-        el.setAttribute(attr, "" + val);
+        el2.setAttribute(attr, "" + val);
       }
     });
   };
@@ -1086,11 +1086,11 @@
     };
     highlightRecursive(element);
   };
-  var removeHighlight = (el) => {
-    var elements = el.querySelectorAll("span.highlight");
-    Array.prototype.forEach.call(elements, function(el2) {
-      var parent = el2.parentNode;
-      parent.replaceChild(el2.firstChild, el2);
+  var removeHighlight = (el2) => {
+    var elements = el2.querySelectorAll("span.highlight");
+    Array.prototype.forEach.call(elements, function(el3) {
+      var parent = el3.parentNode;
+      parent.replaceChild(el3.firstChild, el3);
       parent.normalize();
     });
   };
@@ -1226,8 +1226,8 @@
       var optionsMap = {};
       var group_count = 1;
       let $order = 0;
-      var readData = (el) => {
-        var data = Object.assign({}, el.dataset);
+      var readData = (el2) => {
+        var data = Object.assign({}, el2.dataset);
         var json = attr_data && data[attr_data];
         if (typeof json === "string" && json.length) {
           data = Object.assign(data, JSON.parse(json));
@@ -3162,11 +3162,11 @@
      * at the current caret position.
      *
      */
-    insertAtCaret(el) {
+    insertAtCaret(el2) {
       const self = this;
       const caret = self.caretPos;
       const target = self.control;
-      target.insertBefore(el, target.children[caret] || null);
+      target.insertBefore(el2, target.children[caret] || null);
       self.setCaret(caret + 1);
     }
     /**
@@ -3695,12 +3695,12 @@
     }
     return false;
   };
-  var setAttr2 = (el, attrs) => {
+  var setAttr2 = (el2, attrs) => {
     iterate3(attrs, (val, attr) => {
       if (val == null) {
-        el.removeAttribute(attr);
+        el2.removeAttribute(attr);
       } else {
-        el.setAttribute(attr, "" + val);
+        el2.setAttribute(attr, "" + val);
       }
     });
   };
@@ -3764,13 +3764,13 @@
         };
         const dragend = () => {
           var _drag_item;
-          document.querySelectorAll(".ts-drag-over").forEach((el) => el.classList.remove("ts-drag-over"));
+          document.querySelectorAll(".ts-drag-over").forEach((el2) => el2.classList.remove("ts-drag-over"));
           (_drag_item = drag_item) == null || _drag_item.classList.remove("ts-dragging");
           drag_item = void 0;
           var values = [];
-          self.control.querySelectorAll(`[data-value]`).forEach((el) => {
-            if (el.dataset.value) {
-              let value = el.dataset.value;
+          self.control.querySelectorAll(`[data-value]`).forEach((el2) => {
+            if (el2.dataset.value) {
+              let value = el2.dataset.value;
               if (value) {
                 values.push(value);
               }
@@ -3866,9 +3866,9 @@
   var removeClasses2 = (elmts, ...classes) => {
     var norm_classes = classesArray2(classes);
     elmts = castAsArray2(elmts);
-    elmts.map((el) => {
+    elmts.map((el2) => {
       norm_classes.map((cls) => {
-        el.classList.remove(cls);
+        el2.classList.remove(cls);
       });
     });
   };
@@ -3890,12 +3890,12 @@
     }
     return arg;
   };
-  var nodeIndex2 = (el, amongst) => {
-    if (!el) return -1;
-    amongst = amongst || el.nodeName;
+  var nodeIndex2 = (el2, amongst) => {
+    if (!el2) return -1;
+    amongst = amongst || el2.nodeName;
     var i = 0;
-    while (el = el.previousElementSibling) {
-      if (el.matches(amongst)) {
+    while (el2 = el2.previousElementSibling) {
+      if (el2.matches(amongst)) {
         i++;
       }
     }
@@ -3982,9 +3982,9 @@
   var addClasses2 = (elmts, ...classes) => {
     var norm_classes = classesArray3(classes);
     elmts = castAsArray3(elmts);
-    elmts.map((el) => {
+    elmts.map((el2) => {
       norm_classes.map((cls) => {
-        el.classList.add(cls);
+        el2.classList.add(cls);
       });
     });
   };
@@ -4119,12 +4119,12 @@
       target = target.parentNode;
     }
   };
-  var nodeIndex3 = (el, amongst) => {
-    if (!el) return -1;
-    amongst = amongst || el.nodeName;
+  var nodeIndex3 = (el2, amongst) => {
+    if (!el2) return -1;
+    amongst = amongst || el2.nodeName;
     var i = 0;
-    while (el = el.previousElementSibling) {
-      if (el.matches(amongst)) {
+    while (el2 = el2.previousElementSibling) {
+      if (el2.matches(amongst)) {
         i++;
       }
     }
@@ -4266,9 +4266,9 @@
   var addClasses3 = (elmts, ...classes) => {
     var norm_classes = classesArray4(classes);
     elmts = castAsArray4(elmts);
-    elmts.map((el) => {
+    elmts.map((el2) => {
       norm_classes.map((cls) => {
-        el.classList.add(cls);
+        el2.classList.add(cls);
       });
     });
   };
@@ -4455,6 +4455,612 @@
       var footer = getDom(options.html(options));
       self.dropdown.appendChild(footer);
     });
+  }
+
+  // client/plugins/token/parser.js
+  var PARSE_ERRORS = {
+    UNKNOWN_OPERATOR: "UNKNOWN_OPERATOR",
+    UNTERMINATED_QUOTE: "UNTERMINATED_QUOTE",
+    MAX_RAW_LENGTH_EXCEEDED: "MAX_RAW_LENGTH_EXCEEDED",
+    MAX_TOKENS_EXCEEDED: "MAX_TOKENS_EXCEEDED",
+    MAX_VALUES_PER_OPERATOR_EXCEEDED: "MAX_VALUES_PER_OPERATOR_EXCEEDED",
+    EMPTY_VALUE: "EMPTY_VALUE"
+  };
+  var OPERATOR_KEY_RE = /^([A-Za-z][A-Za-z0-9_]*):([\s\S]*)$/;
+  var DEFAULT_CAPS = {
+    max_raw_length: 4096,
+    max_tokens: 32,
+    max_values_per_operator: 16
+  };
+  function tokenize(raw, opts = {}) {
+    const maxBytes = opts.max_raw_length_bytes ?? DEFAULT_CAPS.max_raw_length;
+    if (raw == null) return [];
+    const utf8Len = new TextEncoder().encode(raw).length;
+    if (utf8Len > maxBytes) {
+      const e = new Error("Raw query exceeds maximum byte length (" + maxBytes + ").");
+      e.code = "MAX_RAW_LENGTH";
+      throw e;
+    }
+    const segments = [];
+    let i = 0;
+    const n = raw.length;
+    let buf = [];
+    let inQuote = null;
+    let quotedSegment = false;
+    function flush() {
+      if (buf.length || quotedSegment) {
+        segments.push({ text: buf.join(""), was_quoted: quotedSegment });
+        buf = [];
+      }
+      quotedSegment = false;
+    }
+    while (i < n) {
+      const ch = raw[i];
+      if (inQuote !== null) {
+        if (ch === "\\" && i + 1 < n) {
+          const nxt = raw[i + 1];
+          if (nxt === '"' || nxt === "'" || nxt === "\\") {
+            buf.push(nxt);
+            i += 2;
+            continue;
+          }
+          buf.push(ch);
+          i += 1;
+          continue;
+        }
+        if (ch === inQuote) {
+          inQuote = null;
+          quotedSegment = true;
+          i += 1;
+          continue;
+        }
+        buf.push(ch);
+        i += 1;
+        continue;
+      }
+      if (/\s/.test(ch)) {
+        flush();
+        i += 1;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        inQuote = ch;
+        i += 1;
+        continue;
+      }
+      buf.push(ch);
+      i += 1;
+    }
+    if (inQuote !== null) {
+      const e = new Error("Unterminated quote starting with " + JSON.stringify(inQuote) + ".");
+      e.code = "UNTERMINATED_QUOTE";
+      throw e;
+    }
+    flush();
+    return segments;
+  }
+  function parseQuery(raw, operators, caps = {}) {
+    const merged = Object.assign({}, DEFAULT_CAPS, caps);
+    const result = { tokens: [], free_text: [], errors: [] };
+    if (raw == null || raw === "") return result;
+    let segments;
+    try {
+      segments = tokenize(raw, { max_raw_length_bytes: merged.max_raw_length });
+    } catch (e) {
+      if (e.code === "MAX_RAW_LENGTH") {
+        result.errors.push({ code: PARSE_ERRORS.MAX_RAW_LENGTH_EXCEEDED, message: e.message });
+      } else {
+        result.errors.push({ code: PARSE_ERRORS.UNTERMINATED_QUOTE, message: e.message });
+      }
+      return result;
+    }
+    if (segments.length > merged.max_tokens) {
+      result.errors.push({
+        code: PARSE_ERRORS.MAX_TOKENS_EXCEEDED,
+        message: "Too many tokens (" + segments.length + " > " + merged.max_tokens + ")."
+      });
+      return result;
+    }
+    for (let s = 0; s < segments.length; s++) {
+      const seg = segments[s];
+      const m = seg.text.match(OPERATOR_KEY_RE);
+      if (m === null) {
+        result.free_text.push(seg.text);
+        continue;
+      }
+      const key = m[1];
+      const value = m[2];
+      const opSpec = operators[key];
+      if (opSpec == null) {
+        result.errors.push({
+          code: PARSE_ERRORS.UNKNOWN_OPERATOR,
+          message: "Unknown operator " + JSON.stringify(key) + ".",
+          operator_key: key
+        });
+        continue;
+      }
+      let values;
+      if (opSpec.multi) {
+        values = value === "" ? [""] : value.split(",");
+        if (values.length > merged.max_values_per_operator) {
+          result.errors.push({
+            code: PARSE_ERRORS.MAX_VALUES_PER_OPERATOR_EXCEEDED,
+            message: "Operator " + JSON.stringify(key) + " has " + values.length + " values (maximum " + merged.max_values_per_operator + ").",
+            operator_key: key
+          });
+          continue;
+        }
+        if (values.length > 1 && values.some((v) => v.trim() === "")) {
+          result.errors.push({
+            code: PARSE_ERRORS.EMPTY_VALUE,
+            message: "Operator " + JSON.stringify(key) + " has an empty value in " + JSON.stringify(seg.text) + ".",
+            operator_key: key
+          });
+          continue;
+        }
+      } else {
+        values = [value];
+      }
+      result.tokens.push({ key, values, was_quoted: seg.was_quoted });
+    }
+    return result;
+  }
+
+  // client/plugins/token/index.js
+  var HYDRATION_CACHE_KEY = "__djangoTomSelectTokenHydrationCache";
+  async function fetchOperators(compositeUrl) {
+    const url = new URL(compositeUrl, window.location.origin);
+    url.searchParams.set("mode", "operators");
+    const resp = await window.fetch(url.toString(), { credentials: "same-origin" });
+    if (!resp.ok) throw new Error("operators fetch failed: " + resp.status);
+    return resp.json();
+  }
+  async function fetchValueResults(compositeUrl, opKey, query, page, signal) {
+    const url = new URL(compositeUrl, window.location.origin);
+    url.searchParams.set("mode", "value");
+    url.searchParams.set("op", opKey);
+    url.searchParams.set("q", query || "");
+    if (page) url.searchParams.set("p", String(page));
+    const opts = { credentials: "same-origin" };
+    if (signal) opts.signal = signal;
+    const resp = await window.fetch(url.toString(), opts);
+    if (!resp.ok) throw new Error("value fetch failed: " + resp.status);
+    return resp.json();
+  }
+  async function fetchResolveBatch(compositeUrl, pairs) {
+    const url = new URL(compositeUrl, window.location.origin);
+    url.searchParams.set("mode", "resolve");
+    for (const [op, id] of pairs) {
+      url.searchParams.append("op", op);
+      url.searchParams.append("id", id);
+    }
+    const resp = await window.fetch(url.toString(), { credentials: "same-origin" });
+    if (!resp.ok) throw new Error("resolve fetch failed: " + resp.status);
+    return resp.json();
+  }
+  function el(tag, attrs, children) {
+    const node = document.createElement(tag);
+    if (attrs) {
+      for (const k of Object.keys(attrs)) {
+        const v = attrs[k];
+        if (v == null) continue;
+        if (k === "class") node.className = v;
+        else if (k === "text") node.textContent = v;
+        else if (k.startsWith("data-") || k === "aria-label" || k === "type" || k === "hidden") {
+          node.setAttribute(k, v === true ? "" : String(v));
+        } else node.setAttribute(k, String(v));
+      }
+    }
+    if (children) {
+      for (const c of children) {
+        if (c == null) continue;
+        if (typeof c === "string") node.appendChild(document.createTextNode(c));
+        else node.appendChild(c);
+      }
+    }
+    return node;
+  }
+  function buildTokenChip(token, label) {
+    const valueText = token.values.join(",");
+    const isMissing = label === null;
+    const labelMarkup = isMissing ? el("span", { class: "tw-tok-label", text: "(missing)" }) : label != null ? el("span", { class: "tw-tok-label", text: label }) : null;
+    return el(
+      "span",
+      {
+        class: "tw-tok" + (isMissing ? " tw-tok-missing" : ""),
+        "data-op": token.key,
+        "data-value": valueText
+      },
+      [
+        el("span", { class: "tw-tok-k", text: token.key + ":" }),
+        el("span", { class: "tw-tok-v" }, [
+          el("span", { class: "tw-tok-id", text: valueText }),
+          labelMarkup ? document.createTextNode(" ") : null,
+          labelMarkup
+        ]),
+        el("button", { type: "button", class: "tw-tok-x", "aria-label": "Remove", text: "\xD7" })
+      ]
+    );
+  }
+  function buildFreeTextChip(text) {
+    return el("span", { class: "tw-tok tw-tok-freetext", "data-freetext": text }, [
+      el("span", { class: "tw-tok-k", text: '"' }),
+      el("span", { class: "tw-tok-v" }, [el("span", { class: "tw-tok-label", text })]),
+      el("button", { type: "button", class: "tw-tok-x", "aria-label": "Remove", text: "\xD7" })
+    ]);
+  }
+  function buildErrorChip(text) {
+    return el("span", { class: "tw-tok tw-tok-error" }, [
+      el("span", { class: "tw-tok-k", text: "!" }),
+      el("span", { class: "tw-tok-v" }, [el("span", { class: "tw-tok-label", text })]),
+      el("button", { type: "button", class: "tw-tok-x", "aria-label": "Remove", text: "\xD7" })
+    ]);
+  }
+  function buildOperatorMenu(operators, draft) {
+    const filtered = operators.filter(
+      (o) => !draft || o.key.toLowerCase().startsWith(draft.toLowerCase())
+    );
+    const wrapper = document.createDocumentFragment();
+    if (filtered.length === 0) {
+      wrapper.appendChild(el("div", { class: "tw-dropdown-heading", text: "No operators match." }));
+      return wrapper;
+    }
+    const section = el("div", { class: "tw-dropdown-section" }, [
+      el("div", { class: "tw-dropdown-heading", text: "Operators" })
+    ]);
+    filtered.forEach((op, i) => {
+      const opt = el("div", {
+        class: "tw-opt" + (i === 0 ? " active" : ""),
+        "data-action": "select-operator",
+        "data-key": op.key
+      }, [
+        el("span", { class: "tw-opt-k", text: op.key + ":" }),
+        el("span", { class: "tw-opt-text", text: op.label || op.key }),
+        op.multi ? el("span", { class: "tw-opt-hint", text: "multi" }) : null
+      ]);
+      section.appendChild(opt);
+    });
+    wrapper.appendChild(section);
+    wrapper.appendChild(buildFooter());
+    return wrapper;
+  }
+  function buildValueDropdown(opKey, results, opMeta) {
+    const wrapper = document.createDocumentFragment();
+    if (!results || results.length === 0) {
+      wrapper.appendChild(el("div", { class: "tw-dropdown-heading", text: "No matches." }));
+      wrapper.appendChild(buildFooter("close"));
+      return wrapper;
+    }
+    const section = el("div", { class: "tw-dropdown-section" }, [
+      el("div", { class: "tw-dropdown-heading", text: opMeta.label || opKey })
+    ]);
+    results.forEach((row, i) => {
+      const id = row[opMeta.value_field];
+      const label = row[opMeta.label_field];
+      section.appendChild(el("div", {
+        class: "tw-opt" + (i === 0 ? " active" : ""),
+        "data-action": "select-value",
+        "data-id": id,
+        "data-label": label
+      }, [
+        el("span", { class: "tw-opt-id", text: String(id) }),
+        el("span", { class: "tw-opt-text", text: String(label) })
+      ]));
+    });
+    wrapper.appendChild(section);
+    wrapper.appendChild(buildFooter());
+    return wrapper;
+  }
+  function buildFooter(variant) {
+    const footer = el("div", { class: "tw-dropdown-footer" });
+    if (variant === "close") {
+      footer.appendChild(el("kbd", { text: "esc" }));
+      footer.appendChild(document.createTextNode(" close"));
+      return footer;
+    }
+    const items = [
+      [el("kbd", { text: "\u2191\u2193" }), document.createTextNode(" navigate")],
+      [el("kbd", { text: "\u21B5" }), document.createTextNode(" insert")],
+      [el("kbd", { text: "tab" }), document.createTextNode(" complete")]
+    ];
+    items.forEach((parts, i) => {
+      if (i > 0) footer.appendChild(document.createTextNode(" \xB7 "));
+      parts.forEach((p) => footer.appendChild(p));
+    });
+    return footer;
+  }
+  function init(root) {
+    if (!root || root.dataset.djangoTomselectTokenInitialized === "1") return;
+    root.dataset.djangoTomselectTokenInitialized = "1";
+    const targetName = root.dataset.targetName;
+    const compositeUrl = root.dataset.composite || root.dataset.compositeUrl;
+    if (!compositeUrl) {
+      console.warn("[django-tomselect-token] no composite URL on", root);
+      return;
+    }
+    let config = {};
+    try {
+      config = JSON.parse(root.dataset.config || "{}");
+    } catch (e) {
+      console.warn("[django-tomselect-token] invalid config JSON on", root);
+    }
+    const hiddenInput = document.querySelector(
+      'input[data-django-tomselect-token-input][name="' + (window.CSS && window.CSS.escape ? window.CSS.escape(targetName) : targetName) + '"]'
+    );
+    if (!hiddenInput) {
+      console.warn("[django-tomselect-token] hidden input not found for", targetName);
+      return;
+    }
+    let operatorList = [];
+    let operatorMap = {};
+    const hydration = window[HYDRATION_CACHE_KEY] = window[HYDRATION_CACHE_KEY] || /* @__PURE__ */ new Map();
+    let mode = "operator-menu";
+    let activeOpKey = null;
+    let valueFetchController = null;
+    while (root.firstChild) root.removeChild(root.firstChild);
+    const chipsEl = el("div", { class: "tw-chips" });
+    chipsEl.style.display = "contents";
+    root.appendChild(chipsEl);
+    const draftEl = el("input", { class: "tw-input", type: "text" });
+    draftEl.placeholder = hiddenInput.placeholder || "";
+    root.appendChild(draftEl);
+    const dropdownEl = el("div", { class: "tw-dropdown", hidden: true });
+    root.appendChild(dropdownEl);
+    const errorEl = el("div", { class: "tw-error-msg" });
+    errorEl.style.display = "none";
+    root.parentNode.insertBefore(errorEl, root.nextSibling);
+    function operatorRegistryForParser() {
+      const out = {};
+      for (const op of operatorList) out[op.key] = { multi: !!op.multi };
+      return out;
+    }
+    function serializedValue() {
+      return hiddenInput.value || "";
+    }
+    function setSerialized(s) {
+      hiddenInput.value = s;
+      hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    function clearChildren(node) {
+      while (node.firstChild) node.removeChild(node.firstChild);
+    }
+    function renderChips() {
+      const parsed = parseQuery(serializedValue(), operatorRegistryForParser(), {
+        max_raw_length: config.max_query_length || 4096,
+        max_tokens: config.max_tokens || 32
+      });
+      clearChildren(chipsEl);
+      let hasError = false;
+      for (const err of parsed.errors) {
+        hasError = true;
+        chipsEl.appendChild(buildErrorChip(err.message));
+      }
+      for (const t of parsed.tokens) {
+        const valueText = t.values.join(",");
+        const cacheKey = t.key + ":" + valueText;
+        const cached = hydration.has(cacheKey) ? hydration.get(cacheKey) : void 0;
+        chipsEl.appendChild(buildTokenChip(t, cached));
+        if (cached === void 0 && t.values.length === 1) {
+          scheduleResolve([[t.key, t.values[0]]]);
+        }
+      }
+      for (const ft of parsed.free_text) {
+        chipsEl.appendChild(buildFreeTextChip(ft));
+      }
+      if (hasError) root.classList.add("error");
+      else root.classList.remove("error");
+    }
+    let resolveQueue = [];
+    let resolveScheduled = false;
+    function scheduleResolve(pairs) {
+      for (const p of pairs) resolveQueue.push(p);
+      if (resolveScheduled) return;
+      resolveScheduled = true;
+      Promise.resolve().then(async () => {
+        resolveScheduled = false;
+        const pending = resolveQueue.slice();
+        resolveQueue = [];
+        try {
+          const data = await fetchResolveBatch(compositeUrl, pending);
+          for (const r of data.results || []) {
+            const cacheKey = r.op + ":" + (r.value != null ? r.value : r.id);
+            hydration.set(cacheKey, r.missing ? null : r.label);
+          }
+          renderChips();
+        } catch (e) {
+          console.warn("[django-tomselect-token] resolve failed:", e);
+        }
+      });
+    }
+    function showOperatorMenu(draft) {
+      mode = "operator-menu";
+      clearChildren(dropdownEl);
+      dropdownEl.appendChild(buildOperatorMenu(operatorList, draft));
+      dropdownEl.hidden = false;
+    }
+    async function showValueDropdown(opKey, draft) {
+      mode = "value-mode";
+      activeOpKey = opKey;
+      clearChildren(dropdownEl);
+      dropdownEl.appendChild(el("div", { class: "tw-dropdown-heading", text: "Loading\u2026" }));
+      dropdownEl.hidden = false;
+      if (valueFetchController) valueFetchController.abort();
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      valueFetchController = controller;
+      try {
+        const data = await fetchValueResults(
+          compositeUrl,
+          opKey,
+          draft,
+          1,
+          controller ? controller.signal : null
+        );
+        if (controller && controller.signal.aborted) return;
+        if (mode !== "value-mode" || activeOpKey !== opKey) return;
+        const opMeta = operatorMap[opKey];
+        clearChildren(dropdownEl);
+        dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta));
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+        if (mode !== "value-mode" || activeOpKey !== opKey) return;
+        clearChildren(dropdownEl);
+        dropdownEl.appendChild(el("div", { class: "tw-dropdown-heading", text: "Error loading results." }));
+      }
+    }
+    function closeDropdown() {
+      mode = "closed";
+      dropdownEl.hidden = true;
+    }
+    function commitOperatorAndEnterValueMode(opKey) {
+      draftEl.value = "";
+      showValueDropdown(opKey, "");
+    }
+    function commitValueSelection(opKey, id, label) {
+      const cacheKey = opKey + ":" + id;
+      if (label != null) hydration.set(cacheKey, label);
+      const existing = serializedValue();
+      const newPart = opKey + ":" + id;
+      const next = existing ? existing + " " + newPart : newPart;
+      setSerialized(next);
+      draftEl.value = "";
+      closeDropdown();
+      activeOpKey = null;
+      renderChips();
+    }
+    function commitFreeText(text) {
+      if (!text) return;
+      if (config.allow_free_text === false) return;
+      const existing = serializedValue();
+      const part = /\s/.test(text) ? '"' + text.replace(/"/g, '\\"') + '"' : text;
+      setSerialized(existing ? existing + " " + part : part);
+      draftEl.value = "";
+      closeDropdown();
+      renderChips();
+    }
+    function removeChipByIndex(index) {
+      const parsed = parseQuery(serializedValue(), operatorRegistryForParser(), {
+        max_raw_length: config.max_query_length || 4096,
+        max_tokens: config.max_tokens || 32
+      });
+      const flat = [];
+      for (const t of parsed.tokens) flat.push({ kind: "token", token: t });
+      for (const ft of parsed.free_text) flat.push({ kind: "freetext", text: ft });
+      flat.splice(index, 1);
+      const parts = flat.map((item) => {
+        if (item.kind === "token") {
+          return item.token.key + ":" + item.token.values.join(",");
+        }
+        return /\s/.test(item.text) ? '"' + item.text.replace(/"/g, '\\"') + '"' : item.text;
+      });
+      setSerialized(parts.join(" "));
+      renderChips();
+    }
+    draftEl.addEventListener("input", () => {
+      const draft = draftEl.value;
+      if (mode === "value-mode" && activeOpKey) {
+        showValueDropdown(activeOpKey, draft);
+        return;
+      }
+      const colonIdx = draft.indexOf(":");
+      if (colonIdx >= 0) {
+        const candidate = draft.slice(0, colonIdx);
+        if (operatorMap[candidate]) {
+          const remainder = draft.slice(colonIdx + 1);
+          commitOperatorAndEnterValueMode(candidate);
+          if (remainder) {
+            draftEl.value = remainder;
+            showValueDropdown(candidate, remainder);
+          }
+          return;
+        }
+      }
+      showOperatorMenu(draft);
+    });
+    draftEl.addEventListener("focus", () => {
+      root.classList.add("focused");
+      if (mode === "closed") showOperatorMenu(draftEl.value);
+    });
+    draftEl.addEventListener("blur", () => {
+      setTimeout(() => {
+        root.classList.remove("focused");
+      }, 150);
+    });
+    draftEl.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        closeDropdown();
+      } else if (ev.key === "Enter" || ev.key === "Tab") {
+        const active = dropdownEl.querySelector(".tw-opt.active");
+        if (active) {
+          ev.preventDefault();
+          active.click();
+        } else if (ev.key === "Enter" && draftEl.value) {
+          ev.preventDefault();
+          commitFreeText(draftEl.value);
+        }
+      } else if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        const opts = Array.from(dropdownEl.querySelectorAll(".tw-opt"));
+        if (opts.length === 0) return;
+        ev.preventDefault();
+        const cur = opts.findIndex((elt) => elt.classList.contains("active"));
+        let next = ev.key === "ArrowDown" ? cur + 1 : cur - 1;
+        if (next < 0) next = opts.length - 1;
+        if (next >= opts.length) next = 0;
+        opts.forEach((elt) => elt.classList.remove("active"));
+        opts[next].classList.add("active");
+      } else if (ev.key === "Backspace" && draftEl.value === "") {
+        const chips = chipsEl.querySelectorAll(".tw-tok");
+        if (chips.length > 0) {
+          ev.preventDefault();
+          removeChipByIndex(chips.length - 1);
+        }
+      } else if (ev.key === " " && draftEl.value) {
+        const text = draftEl.value;
+        if (config.allow_free_text !== false && !text.includes(":")) {
+          ev.preventDefault();
+          commitFreeText(text);
+        }
+      }
+    });
+    dropdownEl.addEventListener("mousedown", (ev) => {
+      const opt = ev.target.closest(".tw-opt");
+      if (!opt) return;
+      ev.preventDefault();
+      const action = opt.dataset.action;
+      if (action === "select-operator") {
+        commitOperatorAndEnterValueMode(opt.dataset.key);
+      } else if (action === "select-value" && activeOpKey) {
+        commitValueSelection(activeOpKey, opt.dataset.id, opt.dataset.label);
+      }
+    });
+    chipsEl.addEventListener("click", (ev) => {
+      const x = ev.target.closest(".tw-tok-x");
+      if (!x) return;
+      const chips = Array.from(chipsEl.querySelectorAll(".tw-tok"));
+      const idx = chips.indexOf(x.closest(".tw-tok"));
+      if (idx >= 0) removeChipByIndex(idx);
+    });
+    root.addEventListener("click", (ev) => {
+      if (ev.target === root || ev.target === chipsEl) {
+        draftEl.focus();
+      }
+    });
+    fetchOperators(compositeUrl).then((data) => {
+      operatorList = data.operators || [];
+      operatorMap = {};
+      for (const op of operatorList) operatorMap[op.key] = op;
+      renderChips();
+    }).catch((e) => {
+      console.warn("[django-tomselect-token] could not load operators:", e);
+      errorEl.textContent = "Could not load filter options. Free-text search still works.";
+      errorEl.style.display = "block";
+    });
+  }
+  if (typeof window !== "undefined") {
+    window.djangoTomSelectToken = window.djangoTomSelectToken || {};
+    window.djangoTomSelectToken.init = init;
+    window.djangoTomSelectToken.parseQuery = parseQuery;
+    window.djangoTomSelectToken.PARSE_ERRORS = PARSE_ERRORS;
   }
 
   // client/django-tomselect.js

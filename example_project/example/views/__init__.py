@@ -6,6 +6,7 @@ from example_project.example.views.advanced_demos import (
     article_detail_view,
     article_filtered_table,
     article_list_view,
+    article_token_search_view,
     article_update_view,
     constant_filter_by_demo,
     market_selection_view,
@@ -62,6 +63,7 @@ from example_project.example.views.intermediate_demos import (
 __all__ = [
     # Advanced demos
     "article_bulk_action_view",
+    "article_token_search_view",
     "article_create_view",
     "article_detail_view",
     "article_filtered_table",

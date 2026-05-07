@@ -157,3 +157,47 @@ The fields handle form validation, cleaning, and initial data automatically. The
 ```{note}
 All TomSelect fields require a corresponding autocomplete view to handle the data loading. See the Views documentation for details on setting up autocomplete views.
 ```
+
+## TomSelectTokenField
+
+A `CharField` that parses and validates a token-style query string, paired with
+`TomSelectTokenWidget`. The form value is one canonical token string like
+`author:42 category:5 some free text`.
+
+```python
+from django_tomselect import TomSelectTokenField
+
+class ArticleFilterForm(forms.Form):
+    q = TomSelectTokenField(
+        composite_view="autocomplete-article-token",  # URL name of CompositeAutocompleteView
+        required=False,
+        allow_free_text=True,
+        max_query_length=4096,   # utf-8 byte cap
+        max_tokens=32,
+        max_values_per_operator=16,
+    )
+```
+
+`clean()` enforces:
+
+- Parser-level errors (unknown operators, unterminated quotes, cap overflows)
+  → `ValidationError`. Unknown operators are NEVER silently re-routed as free text.
+- `Operator.max_count` / `Operator.min_count` → field-level error.
+- `allow_free_text=False` → un-prefixed input is rejected.
+- Empty operator values (e.g. `author:`) → field-level error.
+
+ORM coercion errors (`category:tech` against an id-based `filter_lookup`) are
+caught at apply-time, not in `clean()` - the field has no parent queryset.
+Surface them via `form.add_error("q", e)` in your view; see the
+{doc}`../example_app/article_token_search` demo for the canonical pattern.
+
+For cross-operator rules in `Form.clean()`:
+
+```python
+def clean(self):
+    cleaned = super().clean()
+    parsed = self.fields["q"].parse(cleaned.get("q", "") or "")
+    if parsed.has("author") and not parsed.has("category"):
+        raise ValidationError("If you specify author:, you must also specify category:.")
+    return cleaned
+```

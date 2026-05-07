@@ -13,8 +13,14 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET
 
+from django.core.exceptions import ValidationError as _ValidationError
+
+from django_tomselect.query import parse_query as _parse_query
+
+from example_project.example.autocompletes import ArticleTokenQueryView as _ArticleTokenQueryView
 from example_project.example.forms import (
     ArticleBulkActionForm,
+    ArticleTokenSearchForm,
     ConstantFilterByForm,
     DynamicArticleForm,
     EditionYearForm,
@@ -340,3 +346,36 @@ def constant_filter_by_demo(request):
 
     context["form"] = ConstantFilterByForm()
     return TemplateResponse(request, template, context)
+
+
+def article_token_search_view(request):
+    """Token-style article filter demo backed by ArticleTokenQueryView.
+
+    Demonstrates the canonical wiring for :class:`TomSelectTokenField`:
+
+    1. ``form.is_valid()`` runs parser-level validation (unknown operators,
+       caps, ``allow_free_text=False``, ``Operator.max_count``/``min_count``).
+    2. ``apply()`` runs against the parent ``Article`` queryset; ORM coercion
+       errors (typed-but-not-selected values for id-based operators) raise
+       ``ValidationError`` which is surfaced via ``form.add_error("q", e)``.
+    """
+    template = "example/advanced_demos/article_token_search.html"
+
+    form = ArticleTokenSearchForm(request.GET or None)
+    articles = Article.objects.none()
+
+    if not request.GET:
+        articles = Article.objects.all().distinct()[:50]
+    elif form.is_valid():
+        q = form.cleaned_data.get("q", "") or ""
+        if q:
+            parsed = _parse_query(q, _ArticleTokenQueryView)
+            try:
+                qs = parsed.apply(Article.objects.all())
+                articles = qs.distinct()[:50]
+            except _ValidationError as exc:
+                form.add_error("q", exc)
+        else:
+            articles = Article.objects.all().distinct()[:50]
+
+    return TemplateResponse(request, template, {"form": form, "articles": articles})

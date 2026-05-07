@@ -481,3 +481,78 @@ When creating custom templates and renderers for Tom Select widgets, always ensu
 4. When customizing rendering templates, validate and sanitize all input
 
 This is particularly important when using custom rendering templates with `data_template_option` and `data_template_item`.
+
+## CompositeAutocompleteView (token widget backend)
+
+Multiplexes multiple `AutocompleteModelView` and/or `AutocompleteIterablesView`
+subclasses into a single endpoint that powers `TomSelectTokenWidget`. Three
+GET routes by `mode=` query param:
+
+- `?mode=operators` - JSON list of registered operator metadata.
+- `?mode=value&op=<key>&q=...` - delegates to the operator's bound view.
+- `?mode=resolve&op=<k>&id=<v>[...]` - batch label resolution for chip rehydration.
+
+```python
+from django_tomselect import CompositeAutocompleteView, Operator
+
+
+class ArticleTokenQueryView(CompositeAutocompleteView):
+    operators = [
+        Operator(
+            key="author",
+            view=AuthorAutocompleteView,         # class ref or "url-name"
+            value_field="id",                    # JSON key in prepare_results()
+            label_field="name",                  # JSON key in prepare_results()
+            filter_lookup="authors__id",         # parent-QS exact-match field path
+            label=_("Author"),
+            max_count=3,
+        ),
+        Operator(
+            key="status",
+            view=ArticleStatusAutocompleteView,  # iterables view
+            value_field="value",
+            label_field="label",
+            filter_lookup="status",
+            multi=True,                          # comma-separated: status:a,b
+        ),
+    ]
+    free_text_lookups = ["title__icontains"]
+```
+
+### `Operator` contract
+
+- **Required:** `key`, `view`, `value_field`, `label_field`, exactly one of
+  `filter_lookup` or `q_translator`.
+- **`bound_lookup`:** ORM lookup field for chip resolution. Defaults to
+  `value_field`. Override when `prepare_results()` projects renamed/computed keys.
+- **`filter_lookup`:** exact-match field path (e.g. `"authors__id"`,
+  `"status"`). For `multi=True` the per-token lookup is `field__in=[values]`. For
+  non-exact behavior (icontains, gt/lt, custom expressions), use `q_translator`
+  instead.
+- **`q_translator`:** callable `(operator, [values]) -> Q`. Maximum flexibility
+  for custom filtering.
+- **`search_lookups`:** `None` inherits the bound view's lookups; `[]`
+  deliberately disables search; non-empty list overrides for this operator only
+  (instance-scoped per-request, no cross-request leakage).
+- **`max_count` / `min_count`:** enforced by `TomSelectTokenField.clean()`.
+
+### `split_search` flag (opt-in)
+
+`AutocompleteModelView` gained a `split_search: bool = False` class attribute.
+When `True`, `search()` splits the query on whitespace using a quote-aware
+tokenizer; each term is OR'd across `search_lookups`, and per-term Qs are
+ANDed together. Quoted phrases stay single terms. Default `False` preserves
+existing behavior verbatim.
+
+### Permission caveats
+
+- **Iterables operators have no `has_permission()` hook** - they are
+  public-by-default. The composite view emits a one-time logger warning on
+  subclass registration. Gate sensitive iterables at the form/view layer.
+- **Object-level permissions are NOT enforced row-by-row.** The resolve flow
+  honors queryset-level scoping (whatever your `get_queryset()` returns) and
+  dispatch-level `has_permission()`, but `has_object_permission()` is not
+  applied per-row by `prepare_results()`. Override `get_queryset()` for
+  per-row checks.
+
+See {doc}`../example_app/article_token_search` for an end-to-end demo.
