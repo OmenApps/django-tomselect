@@ -452,6 +452,36 @@ This will replace the original code block in the `tomselect_setup.html` template
                         this.observer = null;
                     }
 
+                    // Collect candidate wasReset_* global names from both Maps and
+                    // delete them from window. The wasReset_ prefix guard prevents
+                    // an overridden template or stray config from clobbering
+                    // unrelated globals if resetVarName ever holds an arbitrary key.
+                    const resetNames = new Set();
+                    const collect = (name) => {
+                        if (typeof name === 'string' && name.indexOf('wasReset_') === 0) {
+                            resetNames.add(name);
+                        }
+                    };
+                    const addIdFallback = (id) => {
+                        if (id != null) collect('wasReset_' + String(id).replace(/-/g, '_'));
+                    };
+                    this.configs.forEach((cfg, id) => {
+                        if (cfg) {
+                            collect(cfg.resetVarName);
+                            collect(cfg._resetVarName);
+                        }
+                        addIdFallback(id);
+                    });
+                    this.instances.forEach((inst, id) => {
+                        const s = inst && inst.settings;
+                        if (s) {
+                            collect(s.resetVarName);
+                            collect(s._resetVarName);
+                        }
+                        addIdFallback(id);
+                    });
+                    resetNames.forEach((name) => { delete window[name]; });
+
                     // Destroy all TomSelect instances
                     this.instances.forEach((instance, id) => {
                         try {

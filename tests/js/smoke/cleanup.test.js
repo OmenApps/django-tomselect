@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { setupHarness, makeSelect } from '../helpers/harness.js'
+import { setupHarness, makeSelect, getJsdomWindow } from '../helpers/harness.js'
 
 describe('smoke: cleanup (SPA navigation teardown)', () => {
   let dts
-  beforeEach(() => { dts = setupHarness() })
+  let realWindow
+  beforeEach(() => {
+    dts = setupHarness()
+    realWindow = getJsdomWindow()
+  })
 
   it('destroys every stored instance and clears both Maps', () => {
     const select1 = makeSelect({ id: 'id_a' })
@@ -57,5 +61,80 @@ describe('smoke: cleanup (SPA navigation teardown)', () => {
     dts.instances.set('bad', { destroy: 'not-a-function' })
     expect(() => dts.cleanup()).not.toThrow()
     expect(dts.instances.size).toBe(0)
+  })
+
+  it('deletes wasReset_* globals for each tracked config via config.resetVarName', () => {
+    realWindow['wasReset_id_a'] = false
+    realWindow['wasReset_id_b'] = false
+    dts.instances.set('id_a', { destroy: vi.fn() })
+    dts.instances.set('id_b', { destroy: vi.fn() })
+    dts.configs.set('id_a', { resetVarName: 'wasReset_id_a' })
+    dts.configs.set('id_b', { resetVarName: 'wasReset_id_b' })
+
+    dts.cleanup()
+
+    expect(Object.hasOwn(realWindow, 'wasReset_id_a')).toBe(false)
+    expect(Object.hasOwn(realWindow, 'wasReset_id_b')).toBe(false)
+  })
+
+  it('falls back to ID-derived name when resetVarName is absent (hyphen -> underscore)', () => {
+    realWindow['wasReset_id_formset_0_field'] = false
+    dts.instances.set('id_formset-0-field', { destroy: vi.fn() })
+    dts.configs.set('id_formset-0-field', {})
+
+    dts.cleanup()
+
+    expect(Object.hasOwn(realWindow, 'wasReset_id_formset_0_field')).toBe(false)
+  })
+
+  it('handles IDs with dots, underscores, and numeric-looking strings without affecting unrelated globals', () => {
+    // Id with underscores already present: id_formset-0-user_email_123
+    //   replace(/-/g, '_') -> id_formset_0_user_email_123
+    realWindow['wasReset_id_formset_0_user_email_123'] = false
+    // Id with dots: id.form.0.field
+    //   replace(/-/g, '_') only rewrites hyphens, so dots survive verbatim.
+    realWindow['wasReset_id.form.0.field'] = false
+    // Numeric-looking id: '123'
+    realWindow['wasReset_123'] = false
+    // Unrelated global that must survive cleanup
+    realWindow.appGlobal = 'preserve-me'
+
+    dts.instances.set('id_formset-0-user_email_123', { destroy: vi.fn() })
+    dts.configs.set('id_formset-0-user_email_123', {})
+    dts.instances.set('id.form.0.field', { destroy: vi.fn() })
+    dts.configs.set('id.form.0.field', {})
+    dts.instances.set('123', { destroy: vi.fn() })
+    dts.configs.set('123', {})
+
+    dts.cleanup()
+
+    expect(Object.hasOwn(realWindow, 'wasReset_id_formset_0_user_email_123')).toBe(false)
+    expect(Object.hasOwn(realWindow, 'wasReset_id.form.0.field')).toBe(false)
+    expect(Object.hasOwn(realWindow, 'wasReset_123')).toBe(false)
+    expect(realWindow.appGlobal).toBe('preserve-me')
+  })
+
+  it('guard rejects non-wasReset_* names stored in config.resetVarName (data-integrity safety)', () => {
+    realWindow.someAppFlag = true
+    realWindow['wasReset_id_x'] = false
+    dts.configs.set('id_x', { resetVarName: 'someAppFlag' })
+    dts.instances.set('id_x', { destroy: vi.fn() })
+
+    dts.cleanup()
+
+    expect(realWindow.someAppFlag).toBe(true)
+    expect(Object.hasOwn(realWindow, 'wasReset_id_x')).toBe(false)
+  })
+
+  it('cleans up instance-only entries (instances Map has key, configs does not)', () => {
+    realWindow['wasReset_id_orphan'] = false
+    dts.instances.set('id_orphan', {
+      destroy: vi.fn(),
+      settings: { resetVarName: 'wasReset_id_orphan' }
+    })
+
+    dts.cleanup()
+
+    expect(Object.hasOwn(realWindow, 'wasReset_id_orphan')).toBe(false)
   })
 })

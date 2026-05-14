@@ -3223,6 +3223,25 @@ class TestWidgetContextGlobalSetup:
         # would also wrongly strip 'tomselected' from inside hyphenated names).
         assert "className.replace(/\\btomselected\\b" not in content
 
+    def test_cleanup_deletes_wasreset_globals(self):
+        """Regression guard for the wasReset_* cleanup in tomselect_setup.html.
+
+        Behavioral verification lives in tests/js/smoke/cleanup.test.js.
+        This Python check is a cheap static guard against accidental reversion
+        of the deletion step inside the cleanup() function.
+        """
+        from pathlib import Path
+
+        template = Path(__file__).resolve().parent.parent / (
+            "src/django_tomselect/templates/django_tomselect/tomselect_setup.html"
+        )
+        content = template.read_text(encoding="utf-8")
+        # cleanup() must collect candidate names and delete them from window.
+        assert "resetNames.forEach((name) => { delete window[name]; });" in content
+        # The wasReset_ prefix guard must remain in place to prevent clobbering
+        # unrelated globals if config.resetVarName ever holds an arbitrary key.
+        assert "name.indexOf('wasReset_') === 0" in content
+
 
 @pytest.mark.django_db
 class TestWidgetAddUrlToContext:
