@@ -119,6 +119,25 @@ This will replace the original code block in the `tomselect_setup.html` template
 
                     instance.clearPagination();
 
+                    // Mark as preloaded so that onFocus -> preload() won't
+                    // fire another load() after we've already loaded fresh
+                    // data below. Without this, on the first focus the
+                    // preload-triggered load() would call getUrl(""), which
+                    // virtual_scroll routes to the stored "next page" URL
+                    // (set by checkAndLoadMore + setNextUrl when this load's
+                    // response is processed), so the dropdown ends up fetching
+                    // page 2 and replacing the fresh page-1 options.
+                    if (instance.wrapper) {
+                        instance.wrapper.classList.add('preloaded');
+                    }
+
+                    // Signal that the next dropdown open should land at
+                    // scrollTop=0. The companion consumer lives in
+                    // tomselect.html's onDropdownOpen. See the matching comment
+                    // there for why this is scoped via a flag rather than
+                    // resetting unconditionally on every open.
+                    instance._scrollResetPending = true;
+
                     // Reload with empty query
                     instance.load('', () => {
                         console.log("%c Received callback data after reset", "color:red;");

@@ -3404,6 +3404,31 @@ class TestWidgetContextGlobalSetup:
         # unrelated globals if config.resetVarName ever holds an arbitrary key.
         assert "name.indexOf('wasReset_') === 0" in content
 
+    def test_setup_reset_marks_widget_as_preloaded(self):
+        """Regression guard for the page-2 fetch bug in tomselect_setup.html.
+
+        Without this guard, the dependent field change handler clears
+        loadedSearches and fires a fresh load with the new exclude. The
+        response is processed by checkAndLoadMore + setNextUrl, which
+        stores the "next page" URL in virtual_scroll's pagination map.
+        When the user then focuses the dependent widget for the first
+        time, preload() is unguarded and calls load(''); virtual_scroll's
+        getUrl returns the stored "next page" URL, so the dropdown
+        fetches page 2 and replaces the freshly loaded page-1 options.
+
+        Behavioral verification of the fix is exercised end-to-end via
+        the Exclude-By Primary Author demo. This is a cheap static
+        guard against reverting the wrapper.classList.add('preloaded')
+        line inside resetTomSelectState.
+        """
+        from pathlib import Path
+
+        template = Path(__file__).resolve().parent.parent / (
+            "src/django_tomselect/templates/django_tomselect/tomselect_setup.html"
+        )
+        content = template.read_text(encoding="utf-8")
+        assert "instance.wrapper.classList.add('preloaded')" in content
+
     def test_find_similar_config_handles_nested_formsets(self):
         r"""Regression guard for nested-formset support in findSimilarConfig.
 
@@ -3855,6 +3880,47 @@ class TestClosureToSettingsMigration:
         rendered = self._render()
         # Defensive null-check survives template overrides that may strip settings.
         assert "if (!tomSelect || !tomSelect.settings) return;" in rendered
+
+    def test_reset_helper_marks_widget_as_preloaded(self):
+        """Reset path marks the wrapper as preloaded.
+
+        Without this guard, after a dependent-field change the next
+        onFocus -> preload() call would fire load(''), which the
+        virtual_scroll plugin's overridden getUrl routes to the stored
+        "next page" URL (saved by checkAndLoadMore + setNextUrl when this
+        reset's response is processed). The dropdown would then fetch
+        page 2 and replace the fresh page-1 options - the exact symptom
+        of the "Exclude-By Primary Author starts on page 2" bug.
+        """
+        rendered = self._render()
+        assert "tomSelect.wrapper.classList.add('preloaded')" in rendered
+
+    def test_dropdown_open_resets_scroll_top_when_flagged(self):
+        """onDropdownOpen resets dropdown_content.scrollTop to 0 when flagged.
+
+        scrollTop set inside resetTomSelectState is ineffective while
+        the dropdown is hidden (display:none) because the browser
+        restores the previous scroll value when the element becomes
+        visible again. The reset must happen on dropdown open.
+
+        The reset is gated on the _scrollResetPending flag set by
+        resetTomSelectState so that normal in-dropdown interactions
+        (e.g. multi-select item picks where TomSelect refreshes options
+        without closing) don't accidentally clobber the user's scroll
+        position via TomSelect upstream issue #1003 style behavior.
+        """
+        rendered = self._render()
+        assert "this._scrollResetPending" in rendered
+        assert "this.dropdown_content.scrollTop = 0" in rendered
+        assert "this._scrollResetPending = false" in rendered
+
+    def test_reset_helper_sets_scroll_reset_pending(self):
+        """Reset path signals onDropdownOpen to land at scrollTop=0.
+
+        Companion to test_dropdown_open_resets_scroll_top_when_flagged.
+        """
+        rendered = self._render()
+        assert "tomSelect._scrollResetPending = true" in rendered
 
 
 @pytest.mark.django_db

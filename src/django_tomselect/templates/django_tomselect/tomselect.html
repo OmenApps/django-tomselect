@@ -84,6 +84,25 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 }
                 tomSelect.clearPagination();
 
+                // Mark as preloaded so that a subsequent onFocus -> preload()
+                // call won't fire another load() against virtual_scroll's
+                // stored "next page" URL and clobber the fresh page-1 options
+                // loaded below. See companion comment in tomselect_setup.html.
+                if (tomSelect.wrapper) {
+                    tomSelect.wrapper.classList.add('preloaded');
+                }
+
+                // Signal that the next dropdown open should land at scrollTop=0.
+                // Setting scrollTop here is ineffective because the dropdown is
+                // hidden (display:none); the browser restores the previous
+                // scroll position when the element becomes visible again. The
+                // flag is consumed (and the scroll actually reset) in
+                // onDropdownOpen below. Scoping the reset to "after a state
+                // reset" instead of every open avoids fighting with TomSelect's
+                // scrollToOption during normal in-dropdown interactions like
+                // multi-select item picks.
+                tomSelect._scrollResetPending = true;
+
                 // Mark the widget as reset BEFORE calling load so shouldLoad can check it
                 const resetVar = tomSelect.settings.resetVarName;
                 if (resetVar) {
@@ -352,6 +371,18 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         // (formset rows) target their own select, not the source widget's
                         // closure-captured `element`.
                         this.input.setAttribute('aria-expanded', 'true');
+                        // Consume the pending-scroll-reset flag set by
+                        // resetTomSelectState. We can't set scrollTop during the
+                        // reset itself because the dropdown is hidden at that
+                        // point (display:none) and the browser restores the
+                        // previous scroll value when it becomes visible. The
+                        // flag scopes this reset to "after a state reset" so
+                        // normal opens (and re-opens after multi-select picks)
+                        // don't clobber TomSelect's own scrollToOption.
+                        if (this._scrollResetPending && this.dropdown_content) {
+                            this.dropdown_content.scrollTop = 0;
+                            this._scrollResetPending = false;
+                        }
                     },
 
                     onDropdownClose: function() {
