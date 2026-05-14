@@ -95,6 +95,41 @@ $ PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers uv run pytest example_projec
 
 [pytest]: https://pytest.readthedocs.io/
 
+### JavaScript tests
+
+JavaScript-side behavior is tested with [Vitest] in a JSDOM environment. The suite covers:
+
+- The inline script in `src/django_tomselect/templates/django_tomselect/tomselect_setup.html` (the `window.djangoTomSelect` API: `initialize`, `destroy`, `prepareElement`, `fixAccessibilityClasses`, `cloneConfig`, `findSimilarConfig`, `cleanup`).
+- The token query parser (`client/plugins/token/parser.js`) against the shared `tests/fixtures/parser_corpus.json` corpus that also drives Python tests in `example_project/test_query_parser.py`.
+
+Install Node dependencies first (one-time):
+
+```console
+$ npm install
+```
+
+Run the full JS test suite:
+
+```console
+$ npm test
+```
+
+Watch mode during iteration:
+
+```console
+$ npm run test:watch
+```
+
+Run a focused file:
+
+```console
+$ npm test -- tests/js/regression/wrapper-hidden-accessible.test.js
+```
+
+Vitest tests live in `tests/js/`. The harness in `tests/js/helpers/harness.js` loads the inline script from `tomselect_setup.html`, strips its Django template tags, installs a `TomSelect` stub mirroring the real library, and injects the script into JSDOM. New JS files in `tests/js/` and `vitest.config.js` should be linted explicitly with `npx standard tests/js vitest.config.js` - the packaged `npm run lint` script only covers `client/`.
+
+[Vitest]: https://vitest.dev/
+
 ## How to submit changes
 
 Open a [pull request] to submit changes to this project.
@@ -105,7 +140,7 @@ Your pull request needs to meet the following guidelines for acceptance:
 - Include unit tests. This project maintains at least 80% code coverage.
 - If your changes add functionality, update the documentation accordingly.
 
-Feel free to submit early, though—we can always iterate on this.
+Feel free to submit early, though - we can always iterate on this.
 
 To run linting and code formatting checks before committing your change, you can install pre-commit as a Git hook by running the following command:
 

@@ -1,5 +1,5 @@
 {
-  "_doc": "Shared parser fixture corpus for django-tomselect token parser. Consumed by both Python tests (tests/test_query_parser.py) and JS tests (client/plugins/token/parser.test.js). Adding a new edge case is one entry; both parsers must agree.",
+  "_doc": "Shared parser fixture corpus for django-tomselect token parser. Consumed by Python tests (example_project/test_query_parser.py) and Vitest tests (tests/js/parser/parser-corpus.test.js). Adding a new edge case is one entry; both parsers must agree.",
 
   "default_operators": {
     "author":   {"multi": false},
