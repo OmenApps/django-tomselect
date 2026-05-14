@@ -352,32 +352,18 @@ This will replace the original code block in the `tomselect_setup.html` template
                     // stored factory function. The closure in the old originalFirstUrl
                     // captures the template row's prefix; both `firstUrl` (used by
                     // TomSelect's getUrl on normal loads) and `originalFirstUrl` (used
-                    // on reset by resetTomSelectState) must point at the new-prefix
-                    // function or the cloned row will issue AJAX requests with the
-                    // wrong filter prefix.
+                    // on reset by resetTomSelectState and load) must point at the
+                    // new-prefix function or the cloned row will issue AJAX requests
+                    // with the wrong filter prefix.
                     if (config.createFirstUrlFunction && config.filterConfig) {
                         config.originalFirstUrl = config.createFirstUrlFunction(newFormPrefix, config.filterConfig);
                         config.firstUrl = config.originalFirstUrl;
                     }
 
-                    // If there's an original load function, wrap it to use the new reset variable
-                    // This avoids the fragile approach of string-replacing function code
-                    if (typeof config.load === 'function') {
-                        const originalLoad = config.load;
-                        const resetVarName = newResetVar;
-
-                        // Create a wrapper that intercepts the reset variable check
-                        config.load = function(query, callback) {
-                            // Temporarily set this instance's reset var name for any code that needs it
-                            const self = this;
-                            if (self.settings) {
-                                self.settings._currentResetVar = resetVarName;
-                            }
-                            // Call the original load function
-                            return originalLoad.call(this, query, callback);
-                        };
-                    }
-
+                    // The cloned config's resetVarName (set above) is consumed directly by
+                    // the per-widget load/shouldLoad via this.settings.resetVarName. No
+                    // load wrapper needed; rewriting load here would just leak more closure
+                    // state from the source widget into the clone.
                     return config;
                 },
 

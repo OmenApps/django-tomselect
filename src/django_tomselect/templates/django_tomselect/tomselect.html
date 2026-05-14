@@ -64,9 +64,12 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 console.log("%c Received callback data:", "color:red;", data);
             }
 
-            // Helper function to reset TomSelect state
-            function resetTomSelectState(tomSelect, originalFirstUrl) {
-                if (!tomSelect) return;
+            // Helper function to reset TomSelect state.
+            // Reads resetVarName and originalFirstUrl from tomSelect.settings so that
+            // cloned configs (formset rows, HTMX swaps) operate on their own per-instance
+            // values rather than the original widget's closure-captured state.
+            function resetTomSelectState(tomSelect) {
+                if (!tomSelect || !tomSelect.settings) return;
 
                 tomSelect.clearOptions();
                 tomSelect.clearCache();
@@ -76,12 +79,18 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     tomSelect.dropdown_content.scrollTop = 0;
                 }
 
-                tomSelect.settings.firstUrl = originalFirstUrl;
-                tomSelect.settings.setNextUrl = originalFirstUrl;
+                const resetUrl = tomSelect.settings.originalFirstUrl;
+                if (typeof resetUrl === 'function') {
+                    tomSelect.settings.firstUrl = resetUrl;
+                    tomSelect.settings.setNextUrl = resetUrl;
+                }
                 tomSelect.clearPagination();
 
                 // Mark the widget as reset BEFORE calling load so shouldLoad can check it
-                window[resetVarName] = true;
+                const resetVar = tomSelect.settings.resetVarName;
+                if (resetVar) {
+                    window[resetVar] = true;
+                }
                 tomSelect.load('', logCallback);
             }
 
@@ -313,8 +322,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     },
 
                     onBlur: function() {
-                        const tomSelect = element.tomselect;
-                        resetTomSelectState(tomSelect, originalFirstUrl);
+                        resetTomSelectState(this);
 
                         // Continue with the default tomselect blur functionality
                         if (document.hasFocus() === false)
@@ -353,19 +361,21 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     },
 
                     shouldLoad: function(query){
+                        // Capture per-instance reset-flag name from settings (race-resistant; works
+                        // for cloned configs whose closure points at the wrong widget).
+                        const resetVar = this.settings && this.settings.resetVarName;
                         var shouldLoadValue;
                         var isEmptyQuery = !query.trim() || query === undefined;
 
                         // Allow empty query to load when resetting to initial state
-                        if (window[resetVarName] === true && isEmptyQuery) {
+                        if (resetVar && window[resetVar] === true && isEmptyQuery) {
                             shouldLoadValue = true;
                         } else {
                             shouldLoadValue = query.length >= {{ widget.minimum_query_length }};
                         }
 
                         if (previousQuery.length > 0 && isEmptyQuery) {
-                            const tomSelect = element.tomselect;
-                            resetTomSelectState(tomSelect, originalFirstUrl);
+                            resetTomSelectState(this);
                         }
 
                         previousQuery = query;
@@ -381,9 +391,16 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                     load: function(query, callback) {
                         var self = this;
+                        // Capture per-instance state from settings (race-resistant; survives
+                        // findSimilarConfig clones where the original widget's closure
+                        // would point at the wrong row's reset flag and URL builder).
+                        const resetVar = self.settings && self.settings.resetVarName;
+                        const originalFirstUrlFn = self.settings && self.settings.originalFirstUrl;
                         var url = this.getUrl(query);
-                        if (window[resetVarName] === true) {
-                            url = originalFirstUrl(query);
+                        if (resetVar && window[resetVar] === true) {
+                            if (typeof originalFirstUrlFn === 'function') {
+                                url = originalFirstUrlFn(query);
+                            }
                         }
 
                         // Abort any previous in-flight request (superseded by this new query)
@@ -492,8 +509,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                                     }
 
                                     // Clear the reset flag after the reset-triggered load rebuilds fresh pagination state
-                                    if (window[resetVarName] === true) {
-                                        window[resetVarName] = false;
+                                    if (resetVar && window[resetVar] === true) {
+                                        window[resetVar] = false;
                                     }
 
                                     callback(result);

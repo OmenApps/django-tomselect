@@ -3604,6 +3604,84 @@ class TestWidgetFormsetPrefixSupport:
 
 
 @pytest.mark.django_db
+class TestClosureToSettingsMigration:
+    """Regression guards for the per-widget closure-to-settings migration that
+    fixed issue with findSimilarConfig (firstUrl rebuild + dead load
+    wrapper).
+
+    The per-widget IIFE in tomselect.html used to read resetVarName /
+    originalFirstUrl from its own closure, which meant cloned formset rows
+    consulted the source widget's flag/URL builder. The fix migrates those
+    reads to `this.settings.X`. These tests assert the rendered widget JS
+    matches the migrated pattern and that the dead `_currentResetVar` wrapper
+    marker does not reappear.
+    """
+
+    def _render(self):
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                filter_by=("magazine", "magazine_id"),
+            )
+        )
+        return widget.render("formset-0-edition", None, attrs={"id": "id_formset-0-edition"})
+
+    def test_load_captures_resetvar_from_settings(self):
+        rendered = self._render()
+        # The captured local at top of load() reads from self.settings.
+        assert "self.settings && self.settings.resetVarName" in rendered
+
+    def test_load_captures_originalfirsturl_from_settings(self):
+        rendered = self._render()
+        assert "self.settings && self.settings.originalFirstUrl" in rendered
+
+    def test_shouldload_reads_resetvar_from_settings(self):
+        rendered = self._render()
+        assert "this.settings && this.settings.resetVarName" in rendered
+
+    def test_reset_state_helper_drops_originalfirsturl_param(self):
+        rendered = self._render()
+        # The helper now takes only the TomSelect instance; reads URL from settings.
+        assert "function resetTomSelectState(tomSelect)" in rendered
+        assert "tomSelect.settings.originalFirstUrl" in rendered
+        assert "tomSelect.settings.resetVarName" in rendered
+
+    def test_no_bare_closure_window_resetvarname_reads_in_config_methods(self):
+        """Bare `window[resetVarName]` reads outside the IIFE init seed line are a
+        regression. The init line at the IIFE top (`window[resetVarName] = false;`)
+        is allowed; nothing else should read the closure variable directly."""
+        rendered = self._render()
+        # Exactly one bare reference: the init seed line near the IIFE top.
+        init_seed = rendered.count("window[resetVarName] = false;")
+        assert init_seed == 1, (
+            f"Expected exactly one bare `window[resetVarName] = false;` (IIFE init), "
+            f"got {init_seed}. Bare closure reads of resetVarName outside the init "
+            f"line are a regression of a previous fix."
+        )
+        # No `window[resetVarName] === true` reads (those moved to `window[resetVar]`).
+        assert "window[resetVarName] === true" not in rendered
+
+    def test_no_dead_current_reset_var_wrapper(self):
+        """The findSimilarConfig load wrapper that set _currentResetVar was dropped.
+        Its marker must not reappear in the rendered widget HTML or the global
+        setup script either (rendered into the same HTML when the page loads)."""
+        rendered = self._render()
+        assert "_currentResetVar" not in rendered
+
+    def test_load_reset_path_uses_settings_originalfirsturl(self):
+        """The residual leak (load's reset fallback path used closure
+        originalFirstUrl) is fixed: the reset path now calls originalFirstUrlFn,
+        the captured local from this.settings.originalFirstUrl."""
+        rendered = self._render()
+        assert "originalFirstUrlFn(query)" in rendered
+
+    def test_reset_helper_guards_missing_settings(self):
+        rendered = self._render()
+        # Defensive null-check survives template overrides that may strip settings.
+        assert "if (!tomSelect || !tomSelect.settings) return;" in rendered
+
+
+@pytest.mark.django_db
 class TestAccessibilityAttributes:
     """Tests for ARIA and accessibility attributes (Fixes 5-10)."""
 

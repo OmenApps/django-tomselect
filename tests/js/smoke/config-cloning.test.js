@@ -142,23 +142,23 @@ describe('smoke: findSimilarConfig (formset config inheritance)', () => {
     expect(result.originalFirstUrl()).toBe('url-for-formset-2-')
   })
 
-  it('wraps load() so calling it sets _currentResetVar on this.settings and still invokes the original', () => {
-    // Scope note: this verifies the WRAPPER from findSimilarConfig. The
-    // per-widget load() defined in tomselect.html reads its OWN closed-over
-    // `resetVarName` and `originalFirstUrl`, not `_currentResetVar`. So a
-    // green test here does not prove that cloned formset configs route
-    // reset-triggered loads to the new prefix - only that this wrapper
-    // sets the marker and forwards the call. Wider integration coverage
-    // would require rendering tomselect.html alongside this template.
+  it('does not wrap load(); the cloned function is the same reference as the source', () => {
+    // The per-widget load defined in tomselect.html now reads
+    // this.settings.resetVarName / this.settings.originalFirstUrl. The cloned
+    // config's settings are updated by findSimilarConfig (resetVarName at the
+    // wasReset_* assignment, originalFirstUrl/firstUrl via createFirstUrlFunction),
+    // so no per-clone wrapper is needed and load is shared by reference.
     const originalLoad = vi.fn()
     dts.configs.set('id_formset-0-recipients', { load: originalLoad })
     const result = dts.findSimilarConfig('id_formset-1-recipients')
+    expect(result.load).toBe(originalLoad)
     const fakeInstance = { settings: {} }
     const cb = vi.fn()
     result.load.call(fakeInstance, 'q', cb)
-    expect(fakeInstance.settings._currentResetVar).toBe(result.resetVarName)
     expect(originalLoad).toHaveBeenCalledOnce()
     expect(originalLoad).toHaveBeenCalledWith('q', cb)
+    // The dead _currentResetVar marker is gone.
+    expect(fakeInstance.settings._currentResetVar).toBeUndefined()
   })
 
   it('matches nested formsets when both outer and inner indices differ', () => {
