@@ -3266,6 +3266,46 @@ class TestWidgetContextGlobalSetup:
         # use the new nested prefix on the very first AJAX load.
         assert "config.firstUrl = config.originalFirstUrl;" in content
 
+    def test_truncate_prefix_helper_exists_in_setup_namespace(self):
+        """Static guard: window.djangoTomSelect.truncatePrefix must exist.
+
+        Used by tomselect.html's filterFields/excludeFields builders AND by
+        createFirstUrlFunction's filter/exclude branches. Removing it would
+        break cross-level filter URL construction silently.
+        """
+        from pathlib import Path
+
+        setup_template = Path(__file__).resolve().parent.parent / (
+            "src/django_tomselect/templates/django_tomselect/tomselect_setup.html"
+        )
+        content = setup_template.read_text(encoding="utf-8")
+        # Helper definition inside the namespace.
+        assert "truncatePrefix: function(prefix, levelsUp)" in content
+        # The key algorithmic invariant: misconfig (levelsUp > segments) degrades
+        # unchanged, mirrored on the sliceIndices side. Equal-depth is valid.
+        assert "if (levelsUp > matches.length) return prefix" in content
+        # findSimilarConfig's mirrored slice rule.
+        assert "if (lu > newIndices.length) return newIndices" in content
+
+    def test_widget_template_uses_truncate_prefix_in_builders(self):
+        """Static guard: tomselect.html must call truncatePrefix from both
+        the filterFields/excludeFields builders (config-time) and the URL
+        builder's filter/exclude branches (runtime).
+        """
+        from pathlib import Path
+
+        widget_template = Path(__file__).resolve().parent.parent / (
+            "src/django_tomselect/templates/django_tomselect/tomselect.html"
+        )
+        content = widget_template.read_text(encoding="utf-8")
+        # filterFields builder uses formPrefix (config-time literal levels_up).
+        assert "window.djangoTomSelect.truncatePrefix(formPrefix," in content
+        # createFirstUrlFunction uses runtime prefix + per-filter levelsUp.
+        assert "window.djangoTomSelect.truncatePrefix(prefix, filter.levelsUp || 0)" in content
+        assert "window.djangoTomSelect.truncatePrefix(prefix, exclude.levelsUp || 0)" in content
+        # Filter JS objects must carry levelsUp so the URL builder can read it.
+        assert "levelsUp:" in content
+
 
 @pytest.mark.django_db
 class TestWidgetAddUrlToContext:
@@ -3477,6 +3517,46 @@ class TestWidgetFormsetPrefixSupport:
             child_html = form["child"].as_widget()
             assert "parent" in child_html  # dependent_field should reference parent
             assert "parent_id" in child_html  # dependent_field_lookup
+
+    def test_rendered_javascript_emits_levels_up_per_filter(self):
+        """Widget with FilterSpec(..., levels_up=1) must render levelsUp:1 in JS.
+
+        Rendered output is consumed by the JS-side createFirstUrlFunction's
+        runtime prefix truncation. If this drops to 0 (the default), cross-level
+        filters silently stop applying their filter values.
+        """
+        from django_tomselect.app_settings import FilterSpec
+
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                filter_by=FilterSpec(source="customer", lookup="id", levels_up=1),
+            )
+        )
+        html = widget.render(
+            "orders-0-items-0-product",
+            None,
+            attrs={"id": "id_orders-0-items-0-product"},
+        )
+        # filterConfig.filters[].levelsUp must reach the rendered template.
+        assert "levelsUp: 1" in html
+        # filterFields builder uses the render-time levels_up literal.
+        assert "window.djangoTomSelect.truncatePrefix(formPrefix, 1)" in html
+
+    def test_rendered_javascript_default_levels_up_zero(self):
+        """Default config (no levels_up) renders levelsUp:0.
+
+        Regression guard: ensures the |default:0 filter is wired and that
+        zero-valued levels_up survives JSON-ish template rendering.
+        """
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(
+                url="autocomplete-edition",
+                filter_by=("magazine", "magazine_id"),
+            )
+        )
+        html = widget.render("edition", None, attrs={"id": "id_edition"})
+        assert "levelsUp: 0" in html
 
     def test_multiple_filters_with_formset_prefix(self):
         """Test widget with multiple filters works correctly with formset prefix."""

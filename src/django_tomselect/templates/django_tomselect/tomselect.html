@@ -108,7 +108,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     {% if "filters" in widget.keys %}
                         filters: [
                             {% for filter in widget.filters %}
-                                { source: '{{ filter.source|escapejs }}', lookup: '{{ filter.lookup|escapejs }}', sourceType: '{{ filter.source_type|escapejs }}' }{% if not forloop.last %},{% endif %}
+                                { source: '{{ filter.source|escapejs }}', lookup: '{{ filter.lookup|escapejs }}', sourceType: '{{ filter.source_type|escapejs }}', levelsUp: {{ filter.levels_up|default:0 }} }{% if not forloop.last %},{% endif %}
                             {% endfor %}
                         ],
                     {% elif "dependent_field" in widget.keys %}
@@ -118,7 +118,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     {% if "excludes" in widget.keys %}
                         excludes: [
                             {% for exclude in widget.excludes %}
-                                { source: '{{ exclude.source|escapejs }}', lookup: '{{ exclude.lookup|escapejs }}', sourceType: '{{ exclude.source_type|escapejs }}' }{% if not forloop.last %},{% endif %}
+                                { source: '{{ exclude.source|escapejs }}', lookup: '{{ exclude.lookup|escapejs }}', sourceType: '{{ exclude.source_type|escapejs }}', levelsUp: {{ exclude.levels_up|default:0 }} }{% if not forloop.last %},{% endif %}
                             {% endfor %}
                         ],
                     {% elif "exclude_field" in widget.keys %}
@@ -155,7 +155,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         if (filterCfg.filters) {
                             filterCfg.filters.forEach(function(filter) {
                                 if (filter.sourceType === 'field') {
-                                    const filterField = getCachedField('id_' + prefix + filter.source);
+                                    const effectivePrefix = window.djangoTomSelect.truncatePrefix(prefix, filter.levelsUp || 0);
+                                    const filterField = getCachedField('id_' + effectivePrefix + filter.source);
                                     const filterValue = filterField ? filterField.value : '';
                                     if (filterValue) {
                                         url = addUrlParam(url, FILTER_PARAM, `'${filter.source}__${filter.lookup}=${filterValue}'`);
@@ -176,7 +177,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         if (filterCfg.excludes) {
                             filterCfg.excludes.forEach(function(exclude) {
                                 if (exclude.sourceType === 'field') {
-                                    const excludeField = getCachedField('id_' + prefix + exclude.source);
+                                    const effectivePrefix = window.djangoTomSelect.truncatePrefix(prefix, exclude.levelsUp || 0);
+                                    const excludeField = getCachedField('id_' + effectivePrefix + exclude.source);
                                     const excludeValue = excludeField ? excludeField.value : '';
                                     if (excludeValue) {
                                         url = addUrlParam(url, EXCLUDE_PARAM, `'${exclude.source}__${exclude.lookup}=${excludeValue}'`);
@@ -228,12 +230,12 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     filterConfig: filterConfig,
                     createFirstUrlFunction: createFirstUrlFunction,
                     {% if "filters" in widget.keys %}
-                        filterFields: [{% for filter in widget.filters %}{% if filter.source_type == "field" %}'id_' + formPrefix + '{{ filter.source|escapejs }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
+                        filterFields: [{% for filter in widget.filters %}{% if filter.source_type == "field" %}'id_' + window.djangoTomSelect.truncatePrefix(formPrefix, {{ filter.levels_up|default:0 }}) + '{{ filter.source|escapejs }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
                     {% elif "dependent_field" in widget.keys %}
                         dependentField: 'id_' + formPrefix + '{{ widget.dependent_field|escapejs }}',
                     {% endif %}
                     {% if "excludes" in widget.keys %}
-                        excludeFields: [{% for exclude in widget.excludes %}{% if exclude.source_type == "field" %}'id_' + formPrefix + '{{ exclude.source|escapejs }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
+                        excludeFields: [{% for exclude in widget.excludes %}{% if exclude.source_type == "field" %}'id_' + window.djangoTomSelect.truncatePrefix(formPrefix, {{ exclude.levels_up|default:0 }}) + '{{ exclude.source|escapejs }}'{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}],
                     {% elif "exclude_field" in widget.keys %}
                         excludeField: 'id_' + formPrefix + '{{ widget.exclude_field|escapejs }}',
                     {% endif %}

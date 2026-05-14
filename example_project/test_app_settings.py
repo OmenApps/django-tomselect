@@ -1035,6 +1035,51 @@ class TestFilterSpec:
         with pytest.raises(ValidationError):
             Const(["a,b", "c"], "name__in")
 
+    def test_filterspec_levels_up_default_zero(self):
+        """levels_up defaults to 0 (sibling at the same nesting depth)."""
+        spec = FilterSpec(source="customer", lookup="id")
+        assert spec.levels_up == 0
+
+    def test_filterspec_levels_up_positive(self):
+        """levels_up accepts positive integers."""
+        spec = FilterSpec(source="customer", lookup="id", levels_up=1)
+        assert spec.levels_up == 1
+
+    def test_filterspec_levels_up_rejects_negative(self):
+        """Negative levels_up is meaningless (can't walk below the current row)."""
+        with pytest.raises(ValidationError):
+            FilterSpec(source="customer", lookup="id", levels_up=-1)
+
+    def test_filterspec_levels_up_rejects_string(self):
+        """levels_up must be a real int; strings would render raw into JS."""
+        with pytest.raises(ValidationError):
+            FilterSpec(source="customer", lookup="id", levels_up="1")
+
+    def test_filterspec_levels_up_rejects_bool(self):
+        """Reject bool because Python's bool is an int subtype that would slip past isinstance(int)."""
+        with pytest.raises(ValidationError):
+            FilterSpec(source="customer", lookup="id", levels_up=True)
+
+    def test_filterspec_levels_up_rejects_float(self):
+        """Float would render as e.g. '1.5' in JS, breaking the filterFields lookup."""
+        with pytest.raises(ValidationError):
+            FilterSpec(source="customer", lookup="id", levels_up=1.5)
+
+    def test_filterspec_const_with_levels_up_rejected(self):
+        """levels_up on a const filter is incoherent: there's no form field to walk up to."""
+        with pytest.raises(ValidationError):
+            FilterSpec(source="published", lookup="status", source_type="const", levels_up=1)
+
+    def test_filterspec_const_with_levels_up_zero_allowed(self):
+        """Const + default levels_up=0 is valid (no walk requested)."""
+        spec = FilterSpec(source="published", lookup="status", source_type="const")
+        assert spec.levels_up == 0
+
+    def test_filterspec_from_tuple_defaults_levels_up_zero(self):
+        """Legacy 2-tuple has no levels_up; from_tuple keeps the default."""
+        spec = FilterSpec.from_tuple(("category", "category_id"))
+        assert spec.levels_up == 0
+
 
 class TestMultipleFiltersValidation:
     """Tests for TomSelectConfig filter_by/exclude_by validation with new formats."""
@@ -1238,3 +1283,60 @@ class TestFilterNormalization:
         assert len(excludes) == 2
         assert excludes[0].source == "author"
         assert excludes[1].source == "archived"
+
+    def test_normalize_preserves_levels_up_single_filterspec(self):
+        """A single FilterSpec with levels_up survives normalization."""
+        spec = FilterSpec(source="customer", lookup="id", levels_up=1)
+        config = TomSelectConfig(filter_by=spec)
+        filters = config.get_normalized_filters()
+        assert filters[0].levels_up == 1
+
+    def test_normalize_preserves_levels_up_list_of_filterspecs(self):
+        """A list-of-FilterSpecs path preserves levels_up per entry."""
+        config = TomSelectConfig(
+            filter_by=[
+                FilterSpec(source="category", lookup="id", levels_up=0),
+                FilterSpec(source="customer", lookup="id", levels_up=2),
+            ]
+        )
+        filters = config.get_normalized_filters()
+        assert filters[0].levels_up == 0
+        assert filters[1].levels_up == 2
+
+    def test_normalize_preserves_levels_up_duck_typed_single(self):
+        """Duck-typed FilterSpec (module-reload path at app_settings.py:580-584) preserves levels_up."""
+        # Build a FilterSpec-like via plain dataclass that mimics the structure.
+        # We use _is_filterspec_instance() to confirm duck-typing detection works.
+        from dataclasses import dataclass as _dc
+
+        @_dc(frozen=True)
+        class FakeFilterSpec:
+            source: str
+            lookup: str
+            source_type: str
+            levels_up: int
+
+        FakeFilterSpec.__name__ = "FilterSpec"  # Trip the duck-typed detection
+        fake = FakeFilterSpec(source="customer", lookup="id", source_type="field", levels_up=1)
+        config = TomSelectConfig(filter_by=fake)
+        filters = config.get_normalized_filters()
+        assert filters[0].levels_up == 1
+        # Confirm it became a real FilterSpec (not the fake)
+        assert type(filters[0]).__module__.startswith("django_tomselect")
+
+    def test_normalize_preserves_levels_up_duck_typed_in_list(self):
+        """Duck-typed FilterSpec inside a list (app_settings.py:596-605) preserves levels_up."""
+        from dataclasses import dataclass as _dc
+
+        @_dc(frozen=True)
+        class FakeFilterSpec:
+            source: str
+            lookup: str
+            source_type: str
+            levels_up: int
+
+        FakeFilterSpec.__name__ = "FilterSpec"
+        fake = FakeFilterSpec(source="customer", lookup="id", source_type="field", levels_up=3)
+        config = TomSelectConfig(filter_by=[fake])
+        filters = config.get_normalized_filters()
+        assert filters[0].levels_up == 3

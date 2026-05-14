@@ -50,6 +50,10 @@ class FilterSpec:
         source: Form field name (for field-based filters) OR constant value (for const filters).
         lookup: Django ORM lookup field (e.g., "category_id", "status").
         source_type: Either "field" (value from form field) or "const" (static value).
+        levels_up: Number of formset levels to walk up from the select to find the
+            source field. 0 (default) means the source is at the same nesting depth
+            as the select. 1 means the source lives in the parent formset row.
+            Only valid for source_type="field".
 
     Example:
         # Field-based filter (filter by value from another form field)
@@ -57,11 +61,27 @@ class FilterSpec:
 
         # Constant filter (always filter to a specific value)
         FilterSpec(source="published", lookup="status", source_type="const")
+
+        # Cross-level filter: inner row references outer order's customer
+        FilterSpec(source="customer", lookup="id", source_type="field", levels_up=1)
     """
 
     source: str  # Form field name OR constant value
     lookup: str  # Django ORM lookup (e.g., "category_id")
     source_type: Literal["field", "const"] = "field"
+    levels_up: int = 0
+
+    def __post_init__(self):
+        # Reject bool (which is `int` in Python) and non-int values before the
+        # range check; rendered raw into JS, so the value must be a real int.
+        if isinstance(self.levels_up, bool) or not isinstance(self.levels_up, int):
+            raise ValidationError(
+                f"levels_up must be a non-negative int, got {type(self.levels_up).__name__}"
+            )
+        if self.levels_up < 0:
+            raise ValidationError("levels_up must be >= 0")
+        if self.source_type == "const" and self.levels_up != 0:
+            raise ValidationError("levels_up is only valid for source_type='field'")
 
     @classmethod
     def from_tuple(cls, t: tuple[str, str]) -> "FilterSpec":
@@ -581,7 +601,14 @@ class TomSelectConfig(BaseConfig):
         if self._is_filterspec(value):
             # Convert to ensure it's the current FilterSpec class
             v = value  # duck-typed as FilterSpec
-            return [FilterSpec(source=v.source, lookup=v.lookup, source_type=v.source_type)]  # type: ignore[union-attr]
+            return [
+                FilterSpec(
+                    source=v.source,  # type: ignore[union-attr]
+                    lookup=v.lookup,  # type: ignore[union-attr]
+                    source_type=v.source_type,  # type: ignore[union-attr]
+                    levels_up=getattr(v, "levels_up", 0),
+                )
+            ]
 
         # Legacy 2-tuple of strings
         if isinstance(value, tuple) and len(value) == 2:
@@ -597,7 +624,14 @@ class TomSelectConfig(BaseConfig):
                     result.append(item)
                 elif self._is_filterspec(item):
                     # Convert to ensure it's the current FilterSpec class (duck-typed)
-                    result.append(FilterSpec(source=item.source, lookup=item.lookup, source_type=item.source_type))  # type: ignore[union-attr]
+                    result.append(
+                        FilterSpec(
+                            source=item.source,  # type: ignore[union-attr]
+                            lookup=item.lookup,  # type: ignore[union-attr]
+                            source_type=item.source_type,  # type: ignore[union-attr]
+                            levels_up=getattr(item, "levels_up", 0),
+                        )
+                    )
                 elif isinstance(item, tuple) and len(item) == 2:
                     first, second = item
                     if isinstance(first, str) and isinstance(second, str):

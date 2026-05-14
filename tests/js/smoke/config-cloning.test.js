@@ -275,4 +275,89 @@ describe('smoke: findSimilarConfig (formset config inheritance)', () => {
     expect(result.resetVarName).toBe('wasReset_id_formset_9_recipients')
     expect(realWindow[result.resetVarName]).toBe(false)
   })
+
+  // === Cross-level filter (levels_up) tests ===
+  // These pin the handler-side rewrite consistency with the URL-builder's
+  // truncatePrefix. See tests/js/smoke/truncate-prefix.test.js for the
+  // URL-side pure logic.
+
+  it('rewrites parent-reference filterField using sliced indices for levelsUp=1', () => {
+    // Template config: inner select filters by outer-row customer.
+    dts.configs.set('id_orders-0-items-1-product', {
+      filterConfig: {
+        filters: [{ source: 'customer', lookup: 'id', sourceType: 'field', levelsUp: 1 }]
+      },
+      filterFields: ['id_orders-0-customer']
+    })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    // newIndices=['2','3']; sliceIndices(1) returns ['2']; applyIndices
+    // substitutes the single -0- with -2-, yielding the correct parent ID.
+    expect(result.filterFields).toEqual(['id_orders-2-customer'])
+  })
+
+  it('aligns filterFields and filterConfig.filters by field-only index (const skipped)', () => {
+    // Mixed list: field, const, field. Template's filterFields builder skips
+    // const entries; findSimilarConfig must do the same when pairing for slice.
+    dts.configs.set('id_orders-0-items-1-product', {
+      filterConfig: {
+        filters: [
+          { source: 'color', lookup: 'id', sourceType: 'field', levelsUp: 0 },
+          { source: 'published', lookup: 'status', sourceType: 'const', levelsUp: 0 },
+          { source: 'customer', lookup: 'id', sourceType: 'field', levelsUp: 1 }
+        ]
+      },
+      filterFields: ['id_orders-0-items-1-color', 'id_orders-0-customer']
+    })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    expect(result.filterFields).toEqual([
+      'id_orders-2-items-3-color',   // levelsUp=0, full indices
+      'id_orders-2-customer'         // levelsUp=1, sliced to ['2']
+    ])
+  })
+
+  it('rewrites excludeFields with its OWN field-type filter (separate from filters)', () => {
+    // The excludes side must use fieldExcludes, not fieldFilters, when looking
+    // up per-entry levelsUp. Otherwise excludes inherit filter levels_up.
+    dts.configs.set('id_orders-0-items-1-product', {
+      filterConfig: {
+        filters: [{ source: 'color', lookup: 'id', sourceType: 'field', levelsUp: 0 }],
+        excludes: [{ source: 'banned', lookup: 'id', sourceType: 'field', levelsUp: 1 }]
+      },
+      filterFields: ['id_orders-0-items-1-color'],
+      excludeFields: ['id_orders-0-banned']
+    })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    expect(result.filterFields).toEqual(['id_orders-2-items-3-color'])
+    expect(result.excludeFields).toEqual(['id_orders-2-banned'])
+  })
+
+  it('degrades unchanged when levelsUp exceeds nesting depth (misconfig)', () => {
+    // levelsUp=5 on a 2-level formset is impossible; both URL and handler must
+    // leave their respective IDs untouched so they target the same DOM lookup.
+    dts.configs.set('id_orders-0-items-1-product', {
+      filterConfig: {
+        filters: [{ source: 'customer', lookup: 'id', sourceType: 'field', levelsUp: 5 }]
+      },
+      filterFields: ['id_orders-0-items-1-customer']
+    })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    // sliceIndices(5) with newIndices.length=2 returns newIndices unchanged.
+    // applyIndices then applies both indices positionally.
+    expect(result.filterFields).toEqual(['id_orders-2-items-3-customer'])
+  })
+
+  it('leaves stored ID unchanged for equal-depth levelsUp (handler-side parity with empty prefix)', () => {
+    // Equal depth: levelsUp=2 on a 2-level form means "top-level form field".
+    // The template renders stored filterFields as 'id_<source>' (truncatePrefix
+    // returns ''). On clone, sliceIndices(2) returns []; applyIndices on a
+    // string with no -\d+- patterns is a no-op. Both sides target id_<source>.
+    dts.configs.set('id_orders-0-items-1-product', {
+      filterConfig: {
+        filters: [{ source: 'customer', lookup: 'id', sourceType: 'field', levelsUp: 2 }]
+      },
+      filterFields: ['id_customer']
+    })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    expect(result.filterFields).toEqual(['id_customer'])
+  })
 })

@@ -797,7 +797,13 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         if self.filters:
             # Convert FilterSpec objects to dicts for template use
             base_context["widget"]["filters"] = [
-                {"source": f.source, "lookup": f.lookup, "source_type": f.source_type} for f in self.filters
+                {
+                    "source": f.source,
+                    "lookup": f.lookup,
+                    "source_type": f.source_type,
+                    "levels_up": f.levels_up,
+                }
+                for f in self.filters
             ]
             # Keep for backwards compatibility with custom templates
             # Uses first field-type filter for legacy dependent_field
@@ -813,7 +819,13 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         if self.excludes:
             # Convert FilterSpec objects to dicts for template use
             base_context["widget"]["excludes"] = [
-                {"source": e.source, "lookup": e.lookup, "source_type": e.source_type} for e in self.excludes
+                {
+                    "source": e.source,
+                    "lookup": e.lookup,
+                    "source_type": e.source_type,
+                    "levels_up": e.levels_up,
+                }
+                for e in self.excludes
             ]
             # Keep for backwards compatibility with custom templates
             # Uses first field-type exclude for legacy exclude_field

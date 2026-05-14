@@ -44,6 +44,26 @@ This will replace the original code block in the `tomselect_setup.html` template
                     return `${url}&${paramName}=${encodeURIComponent(paramValue)}`;
                 },
 
+                // Walk back `levelsUp` formset segments from a nested prefix.
+                // Counts `-\d+-` matches as segment boundaries (consistent with applyIndices),
+                // so hyphenated formset names like "orders-2-line-items-3-" still truncate
+                // correctly to "orders-2-" for levelsUp=1.
+                // - levelsUp <= 0: returns prefix unchanged.
+                // - levelsUp === number of segments: valid "top-level" target, returns ''.
+                // - levelsUp > number of segments: misconfig, returns prefix unchanged
+                //   (mirrored by findSimilarConfig's sliceIndices so both sides stay in sync).
+                truncatePrefix: function(prefix, levelsUp) {
+                    if (!levelsUp || levelsUp <= 0) return prefix;
+                    const matches = [];
+                    prefix.replace(/-\d+-/g, function(m, offset) {
+                        matches.push({ end: offset + m.length });
+                        return m;
+                    });
+                    if (levelsUp > matches.length) return prefix;
+                    const keepThrough = matches.length - levelsUp - 1;
+                    return keepThrough < 0 ? '' : prefix.slice(0, matches[keepThrough].end);
+                },
+
                 // Skip observer-driven reinitialization for containers already queued by htmx:afterSwap.
                 isInsidePendingHtmxSwap: function(node) {
                     let current = node;
@@ -282,10 +302,35 @@ This will replace the original code block in the `tomselect_setup.html` template
                     config.formPrefix = newFormPrefix;
 
                     // Rewrite filter/exclude field IDs with the new indices, positionally.
+                    // When a filter declares `levelsUp > 0`, the source lives N formset
+                    // levels above the select, so we slice newIndices to drop the inner
+                    // N positions before applying. This matches truncatePrefix's behavior
+                    // on the URL-builder side, keeping handler-ID and AJAX-URL field
+                    // lookups in sync.
+                    const filterCfg = config.filterConfig;
+                    const fieldFilters = (filterCfg && Array.isArray(filterCfg.filters))
+                        ? filterCfg.filters.filter((f) => f.sourceType === 'field')
+                        : null;
+                    const fieldExcludes = (filterCfg && Array.isArray(filterCfg.excludes))
+                        ? filterCfg.excludes.filter((e) => e.sourceType === 'field')
+                        : null;
+
+                    const sliceIndices = (lu) => {
+                        if (!lu || lu <= 0) return newIndices;
+                        // Mirror truncatePrefix: misconfig (lu > depth) leaves stored ID
+                        // unchanged so both sides target the same (broken) lookup.
+                        if (lu > newIndices.length) return newIndices;
+                        // Equal-depth (lu === newIndices.length) yields []; applyIndices
+                        // then leaves any -\d+- in the stored ID untouched, matching the
+                        // empty-prefix case on the URL side.
+                        return newIndices.slice(0, newIndices.length - lu);
+                    };
+
                     if (config.filterFields && Array.isArray(config.filterFields)) {
-                        config.filterFields = config.filterFields.map((fieldId) =>
-                            applyIndices(fieldId, newIndices)
-                        );
+                        config.filterFields = config.filterFields.map((fieldId, i) => {
+                            const lu = (fieldFilters && fieldFilters[i] && fieldFilters[i].levelsUp) || 0;
+                            return applyIndices(fieldId, sliceIndices(lu));
+                        });
                     }
 
                     if (config.dependentField) {
@@ -293,9 +338,10 @@ This will replace the original code block in the `tomselect_setup.html` template
                     }
 
                     if (config.excludeFields && Array.isArray(config.excludeFields)) {
-                        config.excludeFields = config.excludeFields.map((fieldId) =>
-                            applyIndices(fieldId, newIndices)
-                        );
+                        config.excludeFields = config.excludeFields.map((fieldId, i) => {
+                            const lu = (fieldExcludes && fieldExcludes[i] && fieldExcludes[i].levelsUp) || 0;
+                            return applyIndices(fieldId, sliceIndices(lu));
+                        });
                     }
 
                     if (config.excludeField) {
