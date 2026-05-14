@@ -68,6 +68,10 @@ export class TomSelectStub {
   constructor (element, config) {
     const snapshottedClasses = element.getAttribute('class') || ''
     this.element = element
+    // Real Tom Select 2.x exposes the underlying <select> as `this.input` (see
+    // node_modules/tom-select/src/tom-select.ts:171). Mirror that so config
+    // callbacks reading this.input work under test.
+    this.input = element
     this.config = config
     this.destroyed = false
 
@@ -380,6 +384,10 @@ export function injectWidgetScript (widgetContext) {
 export class IntegrationTomSelectStub {
   constructor (element, config) {
     this.element = element
+    // Real Tom Select 2.x exposes the underlying <select> as `this.input` (see
+    // node_modules/tom-select/src/tom-select.ts:171). Mirror that so config
+    // callbacks reading this.input work under test.
+    this.input = element
     this.config = config
     this.destroyed = false
     this.items = []

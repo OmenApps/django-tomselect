@@ -350,6 +350,11 @@ This will replace the original code block in the `tomselect_setup.html` template
                     // on reset by resetTomSelectState and load) must point at the
                     // new-prefix function or the cloned row will issue AJAX requests
                     // with the wrong filter prefix.
+                    //
+                    // Re-invoke createFirstUrlFunction here (rather than reusing the
+                    // source widget's originalFirstUrl reference) so each clone also
+                    // gets its own fieldCache map. See companion comment in
+                    // tomselect.html#createFirstUrlFunction.
                     if (config.createFirstUrlFunction && config.filterConfig) {
                         config.originalFirstUrl = config.createFirstUrlFunction(newFormPrefix, config.filterConfig);
                         config.firstUrl = config.originalFirstUrl;

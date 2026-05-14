@@ -136,7 +136,12 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                 // Factory function to create originalFirstUrl using provided prefix so it can be updated when cloning for new formset rows
                 function createFirstUrlFunction(prefix, filterCfg) {
-                    // Cache DOM references for filter/exclude fields with staleness check
+                    // fieldCache MUST live inside this factory body, not in the per-widget
+                    // IIFE scope. findSimilarConfig re-invokes this factory per clone
+                    // (see tomselect_setup.html#findSimilarConfig), giving each cloned
+                    // formset row its own cache. Hoisting fieldCache to the IIFE scope
+                    // would share stale id_formset-0-* DOM references with cloned
+                    // formset-1+ rows.
                     const fieldCache = {};
                     function getCachedField(fieldId) {
                         const cached = fieldCache[fieldId];
@@ -337,22 +342,27 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                     },
 
                     onDropdownOpen: function() {
-                        // Update ARIA expanded state for accessibility
-                        element.setAttribute('aria-expanded', 'true');
+                        // Read the per-instance element via this.input so cloned configs
+                        // (formset rows) target their own select, not the source widget's
+                        // closure-captured `element`.
+                        this.input.setAttribute('aria-expanded', 'true');
                     },
 
                     onDropdownClose: function() {
-                        // Update ARIA expanded state for accessibility
-                        element.setAttribute('aria-expanded', 'false');
+                        this.input.setAttribute('aria-expanded', 'false');
                     },
 
                     onItemAdd: function(value, item) {
-                        var el = document.getElementById('{{widget.name|escapejs}}_sr_status');
+                        // Derive the sr-status span id from this.input.name at runtime;
+                        // the cloned select's name reflects the cloned row's formset
+                        // prefix, whereas widget.name baked at template render would
+                        // point at the source row's span for cloned configs.
+                        var el = document.getElementById(this.input.name + '_sr_status');
                         if (el) el.textContent = item.textContent.trim() + ' {% translate "selected" %}';
                     },
 
                     onItemRemove: function(value) {
-                        var el = document.getElementById('{{widget.name|escapejs}}_sr_status');
+                        var el = document.getElementById(this.input.name + '_sr_status');
                         if (el) el.textContent = '{% translate "Item removed" %}';
                     },
 
