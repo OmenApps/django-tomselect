@@ -1,6 +1,7 @@
 """Autocomplete views for the example app."""
 
 import logging
+import zlib
 from datetime import timedelta
 from typing import Any
 
@@ -12,6 +13,7 @@ from django.db.models import (
     FloatField,
     IntegerField,
     Max,
+    Prefetch,
     Q,
     QuerySet,
     Sum,
@@ -555,6 +557,220 @@ class WeightedAuthorAutocompleteView(AutocompleteModelView):
             result["article_count"] = f"{result['article_count']} articles"
 
         return results
+
+
+# Status buckets for the Rich Author demo's status-mix bar.
+# Exact-match allowlists are used (not substring matching), so "unpublished" is not
+# miscounted as "published".
+_PUBLISHED_STATUSES = {ArticleStatus.PUBLISHED.value, ArticleStatus.ACTIVE.value}
+_DRAFT_STATUSES = {
+    ArticleStatus.DRAFT.value,
+    ArticleStatus.PENDING.value,
+    ArticleStatus.ON_REVIEW.value,
+    ArticleStatus.NEEDS_REVIEW.value,
+    ArticleStatus.IN_PROGRESS.value,
+    ArticleStatus.WIP.value,
+}
+
+_AVATAR_PALETTE_COUNT = 6
+
+
+def _bucket_status(status_value: str) -> str:
+    """Group ~40 ArticleStatus values into three demo-friendly buckets."""
+    if status_value in _PUBLISHED_STATUSES:
+        return "published"
+    if status_value in _DRAFT_STATUSES:
+        return "draft"
+    return "other"
+
+
+class RichAuthorAutocompleteView(AutocompleteModelView):
+    """Autocomplete view with rich metadata for authors (powers the multi-select demo).
+
+    Sibling of RichArticleAutocompleteView. Returns enough data per author to drive
+    three distinct visual treatments in the same demo page (full kit, slim card,
+    stats-forward) without any client-side data viz library.
+    """
+
+    model = Author
+    search_lookups = ["name__icontains", "bio__icontains"]
+    ordering = ["-article_count", "name"]
+    page_size = 10
+    # Only concrete model fields here. Annotations and Python-derived fields are
+    # added in prepare_results below; listing them would trigger the
+    # non-concrete-field warning at autocompletes.py.
+    value_fields = ["id", "name", "bio"]
+
+    skip_authorization = True
+
+    def hook_queryset(self, queryset):
+        """Annotate with article/magazine counts and prefetch articles+relations.
+
+        A single Prefetch with select_related("magazine") and
+        prefetch_related("categories") keeps the per-author work in prepare_results
+        N+1 free.
+        """
+        return queryset.annotate(
+            article_count=Count("article", distinct=True),
+            last_active=Max("article__updated_at"),
+            magazines_count=Count("article__magazine", distinct=True),
+        ).prefetch_related(
+            Prefetch(
+                "article_set",
+                queryset=Article.objects.select_related("magazine").prefetch_related("categories"),
+            )
+        )
+
+    def search(self, queryset, query):
+        """Multi-term AND search across name and bio.
+
+        Mirrors RichArticleAutocompleteView.search: every whitespace-separated term
+        must match name OR bio (case-insensitive). Improves precision over plain LIKE.
+        """
+        if not query:
+            return queryset
+
+        terms = query.split()
+        q_objects = Q()
+        for term in terms:
+            term_q = Q()
+            for lookup in self.search_lookups:
+                term_q |= Q(**{lookup: term})
+            q_objects &= term_q
+        return queryset.filter(q_objects)
+
+    def prepare_results(self, results):
+        """Build the rich payload that all three demo widgets render."""
+        # Global rank map: rank by article_count across ALL authors, not just the
+        # filtered/paginated subset. A Window function in hook_queryset would only
+        # rank within the current search result.
+        rank_ids = list(
+            Author.objects.annotate(article_count=Count("article", distinct=True))
+            .order_by("-article_count", "name")
+            .values_list("id", flat=True)
+        )
+        rank_map = {pk: i + 1 for i, pk in enumerate(rank_ids)}
+
+        now = timezone.now()
+        current_year = now.year
+
+        formatted_results = []
+        for author in results:
+            article_count = getattr(author, "article_count", 0) or 0
+            magazines_count = getattr(author, "magazines_count", 0) or 0
+            last_active = getattr(author, "last_active", None)
+
+            initials = "".join(word[0].upper() for word in author.name.split() if word)[:2] or "?"
+            avatar_palette_index = zlib.adler32(author.name.encode("utf-8")) % _AVATAR_PALETTE_COUNT
+
+            # Activity bucket: same color conventions as the article demo's freshness.
+            if last_active is None:
+                activity_level = "never"
+                last_active_display = "Never"
+            else:
+                days_old = (now - last_active).days
+                if days_old <= 7:
+                    activity_level = "recent"
+                elif days_old <= 30:
+                    activity_level = "medium"
+                else:
+                    activity_level = "old"
+                last_active_display = last_active.strftime("%Y-%m-%d")
+
+            # Bio: first sentence, truncated to ~120 chars.
+            bio = author.bio or ""
+            first_sentence = bio.split(".")[0].strip() if bio else ""
+            if len(first_sentence) > 120:
+                bio_snippet = first_sentence[:117] + "..."
+            else:
+                bio_snippet = first_sentence
+
+            years_active = max(1, current_year - author.created_at.year) if author.created_at else 1
+
+            # Walk the prefetched articles ONCE for categories, status mix, and sparkline.
+            category_counts: dict[str, int] = {}
+            status_bucket_counts = {"published": 0, "draft": 0, "other": 0}
+            month_bins = [0] * 12
+            # Boundary: the start of the month 11 months before the current month.
+            # That gives us 12 months including the current one.
+            current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+            articles = list(author.article_set.all())
+            total_articles_seen = len(articles)
+            for article in articles:
+                # Categories
+                for category in article.categories.all():
+                    category_counts[category.name] = category_counts.get(category.name, 0) + 1
+                # Status mix
+                status_bucket_counts[_bucket_status(article.status)] += 1
+                # Sparkline: bucket by months-ago, 0=current month at index 11.
+                updated = article.updated_at
+                if updated is None:
+                    continue
+                months_ago = (current_month_start.year - updated.year) * 12 + (
+                    current_month_start.month - updated.month
+                )
+                if 0 <= months_ago < 12:
+                    month_bins[11 - months_ago] += 1
+
+            top_categories = sorted(
+                ({"name": name, "count": count} for name, count in category_counts.items()),
+                key=lambda c: (-c["count"], c["name"]),
+            )[:2]
+            expertise = top_categories[0]["name"] if top_categories else "Generalist"
+
+            # Status mix as exact-summing integer percentages with 3 segments.
+            status_labels = {"published": "Published", "draft": "Draft", "other": "Other"}
+            if total_articles_seen == 0:
+                status_mix = [
+                    {"key": k, "label": status_labels[k], "pct": 0} for k in ("published", "draft", "other")
+                ]
+            else:
+                raw = {
+                    k: 100 * v / total_articles_seen for k, v in status_bucket_counts.items()
+                }
+                rounded = {k: int(round(v)) for k, v in raw.items()}
+                # Fix rounding drift: push remainder onto whichever bucket has the
+                # largest raw share so the bar always sums to exactly 100.
+                remainder = 100 - sum(rounded.values())
+                if remainder != 0:
+                    largest_key = max(raw, key=lambda k: (raw[k], rounded[k]))
+                    rounded[largest_key] += remainder
+                status_mix = [
+                    {"key": k, "label": status_labels[k], "pct": int(max(0, min(100, rounded[k])))}
+                    for k in ("published", "draft", "other")
+                ]
+
+            # Sparkline bars: server-side normalize to 0..100 for direct use in SVG.
+            max_bin = max(month_bins) if month_bins else 0
+            if max_bin > 0:
+                sparkline_bars = [int(round(100 * c / max_bin)) for c in month_bins]
+            else:
+                sparkline_bars = [0] * 12
+
+            formatted_results.append(
+                {
+                    "id": author.id,
+                    "name": author.name,
+                    "bio": bio,
+                    "bio_snippet": bio_snippet,
+                    "initials": initials,
+                    "avatar_palette_index": int(avatar_palette_index),
+                    "article_count": int(article_count),
+                    "magazines_count": int(magazines_count),
+                    "activity_level": activity_level,
+                    "last_active_display": last_active_display,
+                    "years_active": int(years_active),
+                    "top_categories": top_categories,
+                    "expertise": expertise,
+                    "status_mix": status_mix,
+                    "monthly_sparkline": month_bins,
+                    "sparkline_bars": sparkline_bars,
+                    "peer_rank": int(rank_map.get(author.id, 0)),
+                }
+            )
+
+        return formatted_results
 
 
 class ArticleAutocompleteView(AutocompleteModelView):

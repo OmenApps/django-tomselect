@@ -1,0 +1,69 @@
+{% load i18n %}
+{% comment %}
+Reusable summary card rendered below each Rich Author Multi-Select widget after
+form submission. Receives:
+  - summary: dict from _build_author_summary
+  - variant: "full" | "slim" | "stats" - decides which stats to emphasize
+{% endcomment %}
+<div class="author-summary-card">
+    <div class="summary-title">
+        <i class="bi bi-check-circle-fill"></i>
+        {% if variant == "full" %}
+            {% translate "Selected authors (full kit)" %}
+        {% elif variant == "slim" %}
+            {% translate "Selected authors (slim)" %}
+        {% else %}
+            {% translate "Selected authors (stats)" %}
+        {% endif %}
+    </div>
+
+    <div class="author-summary-stats">
+        <div class="summary-stat">
+            <span class="stat-value">{{ summary.count }}</span>
+            <span class="stat-label">{% translate "Authors" %}</span>
+        </div>
+        <div class="summary-stat">
+            <span class="stat-value">{{ summary.total_articles }}</span>
+            <span class="stat-label">{% translate "Total articles" %}</span>
+        </div>
+        {% if variant != "slim" %}
+            <div class="summary-stat">
+                <span class="stat-value">{{ summary.magazines_count }}</span>
+                <span class="stat-label">{% translate "Magazines" %}</span>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if variant == "full" and summary.shared_categories %}
+        <div>
+            <div class="text-muted small mb-1">{% translate "Top shared categories" %}</div>
+            <div class="summary-categories">
+                {% for name in summary.shared_categories %}
+                    <span class="category-chip">{{ name }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if variant == "stats" and summary.peer_ranks %}
+        <div>
+            <div class="text-muted small mb-1">{% translate "Peer ranks" %}</div>
+            <div class="summary-rank-row">
+                {% for name, rank in summary.peer_ranks %}
+                    <span class="summary-rank-tile">
+                        {{ name }}
+                        <span class="peer-rank-pill">#{{ rank }}</span>
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if variant == "slim" or variant == "full" %}
+        <div class="summary-author-list">
+            {% for name in summary.names %}
+                <span class="name">{{ name }}</span>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>

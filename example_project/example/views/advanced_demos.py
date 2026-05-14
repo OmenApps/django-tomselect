@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import models
+from django.db.models import Count
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import HttpResponseRedirect, get_object_or_404, reverse
 from django.template.response import TemplateResponse
@@ -27,9 +28,10 @@ from example_project.example.forms import (
     MarketSelectionForm,
     MultipleFilterByForm,
     RichArticleSelectForm,
+    RichAuthorMultiSelectForm,
     WordCountForm,
 )
-from example_project.example.models import Article, ArticleStatus
+from example_project.example.models import Article, ArticleStatus, Author
 
 logger = logging.getLogger(__name__)
 
@@ -320,6 +322,85 @@ def rich_article_select_demo(request):
 
     context["form"] = RichArticleSelectForm()
     return TemplateResponse(request, template, context)
+
+
+def _build_author_summary(authors_qs):
+    """Aggregate stats across a queryset of selected authors for the summary card.
+
+    Bounded by however many authors the user selected, so a few extra queries are
+    fine.
+    """
+    authors_list = list(authors_qs)
+    count = len(authors_list)
+    if count == 0:
+        return {
+            "count": 0,
+            "total_articles": 0,
+            "shared_categories": [],
+            "magazines_count": 0,
+            "names": [],
+            "peer_ranks": [],
+        }
+
+    articles_qs = Article.objects.filter(authors__in=authors_list).distinct()
+    total_articles = articles_qs.count()
+    magazines_count = articles_qs.values("magazine").distinct().count()
+
+    # Shared categories: categories appearing on the selected authors' articles.
+    # Ranked by how many of the selected authors share each category (when
+    # multiple authors are selected) or by total occurrences (single author).
+    from collections import Counter
+
+    category_share_counter: Counter = Counter()
+    for author in authors_list:
+        seen_for_author: set[str] = set()
+        for article in author.article_set.all():
+            for category in article.categories.all():
+                if category.name not in seen_for_author:
+                    seen_for_author.add(category.name)
+                    category_share_counter[category.name] += 1
+    shared_categories = [name for name, _count in category_share_counter.most_common(3)]
+
+    # Global peer rank by article_count
+    rank_ids = list(
+        Author.objects.annotate(article_count=Count("article", distinct=True))
+        .order_by("-article_count", "name")
+        .values_list("id", flat=True)
+    )
+    rank_map = {pk: i + 1 for i, pk in enumerate(rank_ids)}
+    peer_ranks = [(author.name, rank_map.get(author.id, 0)) for author in authors_list]
+
+    return {
+        "count": count,
+        "total_articles": total_articles,
+        "shared_categories": shared_categories,
+        "magazines_count": magazines_count,
+        "names": [author.name for author in authors_list],
+        "peer_ranks": peer_ranks,
+    }
+
+
+def rich_author_multi_select_demo(request):
+    """View demonstrating three multi-select widgets sharing one rich autocomplete.
+
+    On POST, renders an unbound form (so the widgets start clean - the item
+    template carries only the author name and would otherwise show partial data
+    for retained selections) and adds a per-widget summary card to the context
+    for every field that had selections.
+    """
+    template = "example/advanced_demos/rich_author_multi_select.html"
+    if request.method == "POST":
+        bound = RichAuthorMultiSelectForm(request.POST)
+        context = {"form": RichAuthorMultiSelectForm()}
+        if bound.is_valid():
+            for field_name in ("authors_full", "authors_slim", "authors_stats"):
+                authors_qs = bound.cleaned_data.get(field_name)
+                if authors_qs:
+                    context[f"{field_name}_summary"] = _build_author_summary(authors_qs)
+        else:
+            context["form"] = bound
+        return TemplateResponse(request, template, context)
+    return TemplateResponse(request, template, {"form": RichAuthorMultiSelectForm()})
 
 
 def multiple_filter_by_demo(request):

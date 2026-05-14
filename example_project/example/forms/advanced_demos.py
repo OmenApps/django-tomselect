@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 from django_tomselect.app_settings import (
     Const,
+    PluginCheckboxOptions,
     PluginClearButton,
     PluginDropdownFooter,
     PluginDropdownHeader,
@@ -622,6 +623,233 @@ class RichArticleSelectForm(forms.Form):
             },
         ),
         help_text=_("Search for articles by title, author, or category"),
+    )
+
+
+def _rich_author_base_config_kwargs():
+    """Shared TomSelectConfig kwargs for the three Rich Author Multi-Select widgets."""
+    return dict(
+        url="autocomplete-rich-author",
+        value_field="id",
+        label_field="name",
+        placeholder=_("Search for authors..."),
+        highlight=True,
+        preload=True,
+        minimum_query_length=1,
+        css_framework="bootstrap5",
+    )
+
+
+class RichAuthorMultiSelectForm(forms.Form):
+    """Three multi-select widgets backed by the same Rich Author autocomplete.
+
+    All three fields hit the same endpoint and receive the same rich payload, but
+    each renders a different subset of that data with a different plugin combo:
+
+    - authors_full: every signal at a glance (avatar, count, activity, top
+      categories, magazines, bio snippet, status mix, years active). Plugins:
+      Remove + Clear + Dropdown Header.
+    - authors_slim: minimal card (avatar, name, count, activity, bio snippet).
+      Plugins: Remove only.
+    - authors_stats: data-viz-forward (avatar, sparkline SVG, expertise, peer
+      rank). Plugins: Remove + Checkbox Options.
+
+    All fields are required=False so partial submissions work.
+
+    Item (selected-chip) templates only reference data.name because the multi-
+    widget rehydrates selected items as {value, label} only - other keys would
+    render as 'undefined' on a bound form.
+    """
+
+    authors_full = TomSelectModelMultipleChoiceField(
+        required=False,
+        config=TomSelectConfig(
+            **_rich_author_base_config_kwargs(),
+            plugin_remove_button=PluginRemoveButton(title=_("Remove this author")),
+            plugin_clear_button=PluginClearButton(title=_("Clear all authors")),
+            attrs={
+                "render": {
+                    "option": """
+                        `<div class="author-option">
+                            <div class="author-avatar-rich palette-${Number(data.avatar_palette_index)}"
+                                 title="${escape(data.name)}">
+                                ${escape(data.initials)}
+                            </div>
+                            <div class="author-body">
+                                <div class="author-headline">
+                                    <span class="author-name">${escape(data.name)}</span>
+                                    <span class="activity-indicator activity-${escape(data.activity_level)}"
+                                          title="${escape(data.last_active_display)}"></span>
+                                    <span class="count-badge">
+                                        <i class="bi bi-journal-text"></i>
+                                        ${Number(data.article_count)} articles
+                                    </span>
+                                    <span class="magazines-pill">
+                                        <i class="bi bi-collection"></i>
+                                        ${Number(data.magazines_count)} mag
+                                    </span>
+                                </div>
+                                <div class="author-meta">
+                                    ${data.top_categories.map(cat => `
+                                        <span class="category-chip" title="${escape(cat.name)}">
+                                            ${escape(cat.name)}
+                                            <span class="category-count">${Number(cat.count)}</span>
+                                        </span>
+                                    `).join('')}
+                                </div>
+                                <div class="author-bio">${escape(data.bio_snippet)}</div>
+                                <div class="status-mix-bar" title="Status mix">
+                                    ${data.status_mix.map(seg => seg.pct > 0 ? `
+                                        <span class="status-mix-segment status-mix-segment-${escape(seg.key)}"
+                                              style="flex-basis: ${Number(seg.pct)}%"
+                                              title="${escape(seg.label)}: ${Number(seg.pct)}%"></span>
+                                    ` : '').join('')}
+                                </div>
+                                <div class="author-footer">
+                                    <span class="text-muted small">${escape(data.last_active_display)}</span>
+                                    <span class="text-muted small">${Number(data.years_active)}y active</span>
+                                </div>
+                            </div>
+                        </div>`
+                    """,
+                    "item": """
+                        `<div class="selected-author-chip selected-author-chip-full">
+                            <span class="author-avatar-rich author-avatar-chip
+                                         palette-${Number(data.avatar_palette_index || 0)}">
+                                ${escape(
+                                    data.initials
+                                    || (data.name || '')
+                                        .split(' ')
+                                        .map(w => w[0] || '')
+                                        .join('')
+                                        .slice(0, 2)
+                                        .toUpperCase()
+                                )}
+                            </span>
+                            <span class="ms-1">${escape(data.name)}</span>
+                        </div>`
+                    """,
+                }
+            },
+        ),
+        help_text=_(
+            "Full kit - avatar, article/magazine counts, activity, top categories, bio, "
+            "status mix, years active. Plugins: Remove + Clear."
+        ),
+    )
+
+    authors_slim = TomSelectModelMultipleChoiceField(
+        required=False,
+        config=TomSelectConfig(
+            **_rich_author_base_config_kwargs(),
+            plugin_remove_button=PluginRemoveButton(title=_("Remove this author")),
+            attrs={
+                "render": {
+                    "option": """
+                        `<div class="author-option author-option-slim">
+                            <div class="author-avatar-rich author-avatar-slim
+                                        palette-${Number(data.avatar_palette_index)}">
+                                ${escape(data.initials)}
+                            </div>
+                            <div class="author-body">
+                                <div class="author-headline">
+                                    <span class="author-name">${escape(data.name)}</span>
+                                    <span class="count-badge count-badge-slim">${Number(data.article_count)}</span>
+                                    <span class="activity-indicator activity-${escape(data.activity_level)}"
+                                          title="${escape(data.last_active_display)}"></span>
+                                </div>
+                                <div class="author-bio author-bio-slim">${escape(data.bio_snippet)}</div>
+                            </div>
+                        </div>`
+                    """,
+                    "item": """
+                        `<div class="selected-author-chip selected-author-chip-slim">
+                            <span class="author-avatar-rich author-avatar-chip
+                                         palette-${Number(data.avatar_palette_index || 0)}">
+                                ${escape(
+                                    data.initials
+                                    || (data.name || '')
+                                        .split(' ')
+                                        .map(w => w[0] || '')
+                                        .join('')
+                                        .slice(0, 2)
+                                        .toUpperCase()
+                                )}
+                            </span>
+                            <span class="ms-1">${escape(data.name)}</span>
+                        </div>`
+                    """,
+                }
+            },
+        ),
+        help_text=_("Slim - avatar, name, count, activity dot, bio snippet. Plugin: Remove only."),
+    )
+
+    authors_stats = TomSelectModelMultipleChoiceField(
+        required=False,
+        config=TomSelectConfig(
+            **_rich_author_base_config_kwargs(),
+            plugin_remove_button=PluginRemoveButton(title=_("Remove this author")),
+            plugin_checkbox_options=PluginCheckboxOptions(),
+            attrs={
+                "render": {
+                    "option": """
+                        `<div class="author-option author-option-stats">
+                            <div class="author-avatar-rich palette-${Number(data.avatar_palette_index)}">
+                                ${escape(data.initials)}
+                            </div>
+                            <div class="author-body">
+                                <div class="author-headline">
+                                    <span class="author-name">${escape(data.name)}</span>
+                                    <span class="peer-rank-pill" title="Peer rank by article count">
+                                        #${Number(data.peer_rank)}
+                                    </span>
+                                </div>
+                                <div class="author-stats-row">
+                                    <svg class="sparkline"
+                                         viewBox="0 0 60 24"
+                                         preserveAspectRatio="none"
+                                         aria-hidden="true">
+                                        ${data.sparkline_bars.map((h, i) => `
+                                            <rect class="sparkline-bar"
+                                                  x="${i * 5}"
+                                                  y="${24 - (Number(h) * 22 / 100) - 1}"
+                                                  width="4"
+                                                  height="${Math.max(1, Number(h) * 22 / 100)}"></rect>
+                                        `).join('')}
+                                    </svg>
+                                    <span class="expertise-badge">${escape(data.expertise)}</span>
+                                    <span class="count-badge count-badge-stats">
+                                        ${Number(data.article_count)} <small>articles</small>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>`
+                    """,
+                    "item": """
+                        `<div class="selected-author-chip selected-author-chip-stats">
+                            <span class="author-avatar-rich author-avatar-chip
+                                         palette-${Number(data.avatar_palette_index || 0)}">
+                                ${escape(
+                                    data.initials
+                                    || (data.name || '')
+                                        .split(' ')
+                                        .map(w => w[0] || '')
+                                        .join('')
+                                        .slice(0, 2)
+                                        .toUpperCase()
+                                )}
+                            </span>
+                            <span class="ms-1">${escape(data.name)}</span>
+                        </div>`
+                    """,
+                }
+            },
+        ),
+        help_text=_(
+            "Stats-forward - avatar, sparkline of articles per month, top expertise, peer rank. "
+            "Plugins: Remove + Checkbox Options."
+        ),
     )
 
 

@@ -48,6 +48,11 @@ urlpatterns = [
     path("article-token-search/", views.article_token_search_view, name="article-token-search"),
     path("article-filtered-table/", views.article_filtered_table, name="article-filtered-table"),
     path("rich-article-select/", views.rich_article_select_demo, name="rich-article-select"),
+    path(
+        "rich-author-multi-select/",
+        views.rich_author_multi_select_demo,
+        name="rich-author-multi-select",
+    ),
     path("multiple-filter-by/", views.multiple_filter_by_demo, name="multiple-filter-by"),
     path("constant-filter-by/", views.constant_filter_by_demo, name="constant-filter-by"),
     path("articles/<int:page>/", views.article_list_view, name="article-list"),
@@ -170,6 +175,11 @@ urlpatterns = [
         "autocomplete/rich-article/",
         autocompletes.RichArticleAutocompleteView.as_view(),
         name="autocomplete-rich-article",
+    ),
+    path(
+        "autocomplete/rich-author/",
+        autocompletes.RichAuthorAutocompleteView.as_view(),
+        name="autocomplete-rich-author",
     ),
     path(
         "autocomplete/uuid-pk/",

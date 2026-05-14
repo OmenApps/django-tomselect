@@ -9,6 +9,7 @@ from example_project.example.forms.advanced_demos import (
     MarketSelectionForm,
     MultipleFilterByForm,
     RichArticleSelectForm,
+    RichAuthorMultiSelectForm,
     WordCountForm,
 )
 from example_project.example.forms.basic_demos import (
@@ -55,6 +56,7 @@ __all__ = [
     "MarketSelectionForm",
     "MultipleFilterByForm",
     "RichArticleSelectForm",
+    "RichAuthorMultiSelectForm",
     "WordCountForm",
     # Basic demos
     "Bootstrap4StylingForm",

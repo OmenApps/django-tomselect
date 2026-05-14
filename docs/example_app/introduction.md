@@ -82,6 +82,7 @@ This may take a couple of minutes to complete. It creates a large number of obje
 - [Multiple Filter-By](multiple_filter_by.md) - Filter by multiple form fields with AND logic
 - [Constant Filter-By](constant_filter_by.md) - Filter with constant values (e.g., always show published)
 - [Rich Article Select](rich_article_select.md)
+- [Rich Author Multi-Select](rich_author_multi_select.md) - Three multi-select widgets sharing one autocomplete, with different render templates and plugin combos
 - [Article List and Create](article_list_and_create.md)
 - [Article Bulk Actions](article_bulk_actions.md)
 

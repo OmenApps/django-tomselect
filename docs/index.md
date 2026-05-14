@@ -49,6 +49,7 @@ example_app/three_level_filter_by
 example_app/multiple_filter_by
 example_app/constant_filter_by
 example_app/rich_article_select
+example_app/rich_author_multi_select
 example_app/article_list_and_create
 example_app/article_bulk_actions
 example_app/article_token_search

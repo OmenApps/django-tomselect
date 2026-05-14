@@ -12,6 +12,7 @@ from example_project.example.views.advanced_demos import (
     market_selection_view,
     multiple_filter_by_demo,
     rich_article_select_demo,
+    rich_author_multi_select_demo,
 )
 from example_project.example.views.basic_demos import (
     bootstrap4_demo,
@@ -73,6 +74,7 @@ __all__ = [
     "market_selection_view",
     "multiple_filter_by_demo",
     "rich_article_select_demo",
+    "rich_author_multi_select_demo",
     # Basic demos
     "bootstrap4_demo",
     "bootstrap5_demo",
