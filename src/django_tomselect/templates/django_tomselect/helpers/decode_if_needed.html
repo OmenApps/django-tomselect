@@ -2,7 +2,11 @@
 Helper function to safely decode HTML entities only if they exist.
 {% endcomment %}
 function decodeIfNeeded(str) {
-    if (!str || typeof str !== 'string') return '';
+    if (str === undefined || str === null) return '';
+    // Pass non-strings (numbers, booleans, etc.) through untouched so callers
+    // like `escape(decodeIfNeeded(data['direct_articles']))` still see the
+    // original value when extra columns hold numeric counts.
+    if (typeof str !== 'string') return str;
 
     // Check if string contains HTML entities
     if (/&[a-z]+;|&#[0-9]+;/i.test(str)) {

@@ -2231,10 +2231,13 @@ class TestWidgetSecurity:
         # Get the rendered widget and look for proper escaping in templates
         full_render = widget.render("test_field", None)
 
-        # Check that the option template uses escape function
-        # We should find either template string syntax or function calls with escape
+        # Check that the option template uses escape function on the label field.
+        # The decodeIfNeeded() inner wrap is the current implementation; the bare
+        # escape() patterns are retained here to keep this assertion permissive
+        # if the wrapping is ever refactored.
         assert (
-            "${escape(data[this.settings.labelField])}" in full_render
+            "escape(decodeIfNeeded(data[this.settings.labelField]))" in full_render
+            or "${escape(data[this.settings.labelField])}" in full_render
             or "${data[this.settings.labelField]}" in full_render
             or "escape(data[this.settings.labelField])" in full_render
         )
@@ -2384,6 +2387,68 @@ class TestWidgetEscaping:
         # Verify the template uses proper escaping syntax
         assert "${escape(" in rendered
         assert "decodeIfNeeded(" in rendered
+
+    def test_tabular_option_decodes_entities_before_escape(self):
+        """Regression: the tabular option branch must round-trip server-side HTML entities.
+
+        AutocompleteModelView HTML-escapes string fields server-side (utils.safe_escape) as
+        XSS defense in depth, so "Food & Drink" arrives on the wire as "Food &amp; Drink".
+        The default (non-tabular) branch, item.html, and optgroup_header.html all pipe
+        values through decodeIfNeeded() before escape() so the &amp; round-trips to a
+        single &amp; in the DOM (which the browser renders as "&").
+
+        The tabular branch (rendered when plugin_dropdown_header is configured) previously
+        omitted decodeIfNeeded(), producing &amp;amp; in the DOM and visibly displaying
+        "Food &amp; Drink" to the user. See the filter-by-category demo.
+        """
+        from django.template.loader import render_to_string
+
+        rendered = render_to_string(
+            "django_tomselect/render/option.html",
+            {
+                "widget": {
+                    "is_tabular": True,
+                    "label_field": "name",
+                    "attrs": {},
+                    "plugins": {
+                        "dropdown_header": {
+                            "show_value_field": True,
+                            "extra_values": ["parent_name", "direct_articles"],
+                        }
+                    },
+                }
+            },
+        )
+
+        assert "escape(decodeIfNeeded(data[this.settings.labelField]))" in rendered
+        assert "escape(decodeIfNeeded(data[this.settings.valueField]))" in rendered
+        assert "escape(decodeIfNeeded(data['parent_name'] || ''))" in rendered
+        assert "escape(decodeIfNeeded(data['direct_articles'] || ''))" in rendered
+
+        # The bare-escape pattern (the bug) must not appear anywhere in the tabular branch.
+        assert "escape(data[this.settings.labelField])" not in rendered
+        assert "escape(data[this.settings.valueField])" not in rendered
+        assert "escape(data['parent_name']" not in rendered
+
+    def test_decode_if_needed_preserves_non_strings(self):
+        """Regression: decodeIfNeeded must not blank non-string inputs.
+
+        Now that the tabular branch wraps every column in decodeIfNeeded() - including
+        numeric extra_values like direct_articles=12 - the helper can no longer return
+        '' for non-string inputs (the previous behavior). It must return null/undefined
+        as '' but pass numbers, booleans, etc. through unchanged so escape(String(value))
+        on the JS side still gets the right value.
+        """
+        from django.template.loader import render_to_string
+
+        helper = render_to_string("django_tomselect/helpers/decode_if_needed.html", {})
+
+        # Null/undefined still collapse to ''.
+        assert "str === undefined" in helper or "str == null" in helper or "str === null" in helper
+
+        # The old guard 'typeof str !== \\'string\\' return \\'\\'' must be gone - it would
+        # silently blank numeric extra columns when they pass through decodeIfNeeded().
+        assert "typeof str !== 'string') return ''" not in helper
 
     def test_url_escaping_in_templates(self):
         """Test that URLs with JavaScript are properly sanitized in templates."""
