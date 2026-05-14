@@ -72,6 +72,7 @@ class FilterSpec:
     levels_up: int = 0
 
     def __post_init__(self):
+        """Validate levels_up type and value, and its compatibility with source_type."""
         # Reject bool (which is `int` in Python) and non-int values before the
         # range check; rendered raw into JS, so the value must be a real int.
         if isinstance(self.levels_up, bool) or not isinstance(self.levels_up, int):

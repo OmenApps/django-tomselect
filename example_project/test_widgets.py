@@ -3299,11 +3299,11 @@ class TestWidgetContextGlobalSetup:
         assert "name.indexOf('wasReset_') === 0" in content
 
     def test_find_similar_config_handles_nested_formsets(self):
-        """Regression guard for nested-formset support in findSimilarConfig.
+        r"""Regression guard for nested-formset support in findSimilarConfig.
 
         Behavioral verification lives in tests/js/smoke/config-cloning.test.js.
         This Python check is a cheap static guard against accidental reversion
-        to the single-replace regex that only normalized the FIRST `-\\d+-`
+        to the single-replace regex that only normalized the FIRST `-\d+-`
         occurrence (broke nested formsets like id_orders-0-items-1-product).
         """
         from pathlib import Path
@@ -3344,9 +3344,10 @@ class TestWidgetContextGlobalSetup:
         assert "if (lu > newIndices.length) return newIndices" in content
 
     def test_widget_template_uses_truncate_prefix_in_builders(self):
-        """Static guard: tomselect.html must call truncatePrefix from both
-        the filterFields/excludeFields builders (config-time) and the URL
-        builder's filter/exclude branches (runtime).
+        """Static guard for truncatePrefix usage in tomselect.html.
+
+        Must be called from both the filterFields/excludeFields builders
+        (config-time) and the URL builder's filter/exclude branches (runtime).
         """
         from pathlib import Path
 
@@ -3602,7 +3603,7 @@ class TestWidgetFormsetPrefixSupport:
     def test_rendered_javascript_default_levels_up_zero(self):
         """Default config (no levels_up) renders levelsUp:0.
 
-        Regression guard: ensures the |default:0 filter is wired and that
+        Regression guard: ensures the ``|default:0`` filter is wired and that
         zero-valued levels_up survives JSON-ish template rendering.
         """
         widget = TomSelectModelWidget(
@@ -3661,9 +3662,10 @@ class TestWidgetFormsetPrefixSupport:
 
 @pytest.mark.django_db
 class TestClosureToSettingsMigration:
-    """Regression guards for the per-widget closure-to-settings migration that
-    fixed issue with findSimilarConfig (firstUrl rebuild + dead load
-    wrapper).
+    """Regression guards for the per-widget closure-to-settings migration.
+
+    The migration fixed an issue with findSimilarConfig (firstUrl rebuild +
+    dead load wrapper).
 
     The per-widget IIFE in tomselect.html used to read resetVarName /
     originalFirstUrl from its own closure, which meant cloned formset rows
@@ -3683,19 +3685,23 @@ class TestClosureToSettingsMigration:
         return widget.render("formset-0-edition", None, attrs={"id": "id_formset-0-edition"})
 
     def test_load_captures_resetvar_from_settings(self):
+        """load() captures resetVarName from self.settings."""
         rendered = self._render()
         # The captured local at top of load() reads from self.settings.
         assert "self.settings && self.settings.resetVarName" in rendered
 
     def test_load_captures_originalfirsturl_from_settings(self):
+        """load() captures originalFirstUrl from self.settings."""
         rendered = self._render()
         assert "self.settings && self.settings.originalFirstUrl" in rendered
 
     def test_shouldload_reads_resetvar_from_settings(self):
+        """shouldLoad() reads resetVarName from this.settings."""
         rendered = self._render()
         assert "this.settings && this.settings.resetVarName" in rendered
 
     def test_reset_state_helper_drops_originalfirsturl_param(self):
+        """The reset helper reads URL from settings instead of taking a param."""
         rendered = self._render()
         # The helper now takes only the TomSelect instance; reads URL from settings.
         assert "function resetTomSelectState(tomSelect)" in rendered
@@ -3703,9 +3709,11 @@ class TestClosureToSettingsMigration:
         assert "tomSelect.settings.resetVarName" in rendered
 
     def test_no_bare_closure_window_resetvarname_reads_in_config_methods(self):
-        """Bare `window[resetVarName]` reads outside the IIFE init seed line are a
-        regression. The init line at the IIFE top (`window[resetVarName] = false;`)
-        is allowed; nothing else should read the closure variable directly."""
+        """Bare ``window[resetVarName]`` reads outside the IIFE init seed line are a regression.
+
+        The init line at the IIFE top (``window[resetVarName] = false;``) is
+        allowed; nothing else should read the closure variable directly.
+        """
         rendered = self._render()
         # Exactly one bare reference: the init seed line near the IIFE top.
         init_seed = rendered.count("window[resetVarName] = false;")
@@ -3719,19 +3727,25 @@ class TestClosureToSettingsMigration:
 
     def test_no_dead_current_reset_var_wrapper(self):
         """The findSimilarConfig load wrapper that set _currentResetVar was dropped.
+
         Its marker must not reappear in the rendered widget HTML or the global
-        setup script either (rendered into the same HTML when the page loads)."""
+        setup script either (rendered into the same HTML when the page loads).
+        """
         rendered = self._render()
         assert "_currentResetVar" not in rendered
 
     def test_load_reset_path_uses_settings_originalfirsturl(self):
-        """The residual leak (load's reset fallback path used closure
-        originalFirstUrl) is fixed: the reset path now calls originalFirstUrlFn,
-        the captured local from this.settings.originalFirstUrl."""
+        """Reset path for load now calls originalFirstUrlFn via this.settings.originalFirstUrl.
+
+        Fixes the residual leak where load's reset fallback path used the
+        closure-bound originalFirstUrl. The reset path now calls
+        originalFirstUrlFn, the captured local from this.settings.originalFirstUrl.
+        """
         rendered = self._render()
         assert "originalFirstUrlFn(query)" in rendered
 
     def test_reset_helper_guards_missing_settings(self):
+        """Reset helper short-circuits if the TomSelect instance lacks settings."""
         rendered = self._render()
         # Defensive null-check survives template overrides that may strip settings.
         assert "if (!tomSelect || !tomSelect.settings) return;" in rendered
