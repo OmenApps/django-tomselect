@@ -143,6 +143,38 @@ spec = FilterSpec(source='category', lookup='category_id', source_type='field')
 spec = FilterSpec(source='published', lookup='status', source_type='const')
 ```
 
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `source` | `str` | required | Form field name (for `source_type='field'`) or constant value (for `source_type='const'`). |
+| `lookup` | `str` | required | Django ORM lookup applied on the autocomplete side (e.g. `category_id`, `status`). |
+| `source_type` | `'field' \| 'const'` | `'field'` | Whether `source` names a form field or holds a literal value. |
+| `levels_up` | `int` | `0` | Number of formset levels to walk up from the select to find the source field. Only valid for `source_type='field'`. See [Cross-level filters in nested formsets](#cross-level-filters-in-nested-formsets). |
+
+#### Cross-level filters in nested formsets
+
+For nested formsets (a formset inside a parent formset row), `levels_up` lets
+an inner row pull its filter value from a field on an outer ancestor row.
+`levels_up=0` (the default) is the original behavior: the source field lives
+in the same row as the select. `levels_up=1` walks up one formset segment,
+`levels_up=2` walks up two, and so on.
+
+```python
+# Inner "line items" formset row filters Products by the parent Order's customer
+FilterSpec(source='customer', lookup='id', source_type='field', levels_up=1)
+```
+
+For a select with id `id_orders-2-line_items-3-product`, this resolves the
+source field to `id_orders-2-customer` rather than
+`id_orders-2-line_items-3-customer`.
+
+Validation:
+
+- `levels_up` must be a non-negative `int`. `bool`, `float`, and `str` are rejected.
+- `levels_up != 0` is rejected when `source_type='const'` (there's no field to walk up to).
+- Walking past the outermost formset is a no-op and falls back to the original prefix.
+
 ### Const Helper
 
 ```{eval-rst}

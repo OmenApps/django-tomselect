@@ -870,6 +870,26 @@ MagazineEditionFormset = formset_factory(MagazineEditionForm, extra=2)
 
 See the [Formset with filter_by](example_app/formset_filter_by.md) example for complete demonstration including dynamic row addition.
 
+For **nested formsets**, where an inner row needs to filter by a value on the outer parent row, use `FilterSpec` with `levels_up`:
+
+```python
+from django_tomselect.app_settings import TomSelectConfig, FilterSpec
+
+class LineItemForm(forms.Form):
+    product = TomSelectModelChoiceField(
+        config=TomSelectConfig(
+            url="autocomplete-product",
+            # Inner row, but pull "customer" from the parent Order row
+            filter_by=FilterSpec(
+                source="customer", lookup="id",
+                source_type="field", levels_up=1,
+            ),
+        ),
+    )
+```
+
+`levels_up=0` (the default) keeps the same-row behavior. See [FilterSpec](api/config.md#filterspec) for full details.
+
 #### Constant Value Filters
 
 Use the `Const` helper to filter by a constant value that doesn't come from a form field. This is useful for enforcing business rules in the UI:
