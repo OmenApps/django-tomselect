@@ -3203,6 +3203,26 @@ class TestWidgetContextGlobalSetup:
         context = widget.get_context("test", None, {})
         assert "widget" in context
 
+    def test_prepare_element_strips_ts_hidden_accessible(self):
+        """Regression guard for the prepareElement fix in tomselect_setup.html.
+
+        The global setup template only renders when a request is in scope (see
+        widgets.py:614). Behavioral verification of the fix lives in
+        tests/js/regression/wrapper-hidden-accessible.test.js. This Python check
+        is a cheap static guard against accidental reversion of line 131.
+        """
+        from pathlib import Path
+
+        template = Path(__file__).resolve().parent.parent / (
+            "src/django_tomselect/templates/django_tomselect/tomselect_setup.html"
+        )
+        content = template.read_text(encoding="utf-8")
+        # Fixed call uses classList.remove for both Tom Select-added classes.
+        assert "classList.remove('tomselected', 'ts-hidden-accessible')" in content
+        # The old buggy regex-based class strip must not reappear (the \b form
+        # would also wrongly strip 'tomselected' from inside hyphenated names).
+        assert "className.replace(/\\btomselected\\b" not in content
+
 
 @pytest.mark.django_db
 class TestWidgetAddUrlToContext:

@@ -128,7 +128,7 @@ This will replace the original code block in the `tomselect_setup.html` template
                     });
 
                     // Reset the select element to its original state
-                    element.className = element.className.replace(/\btomselected\b/g, '');
+                    element.classList.remove('tomselected', 'ts-hidden-accessible');
                     element.style.display = '';
                     element.removeAttribute('tabindex');
                     element.removeAttribute('data-ts-hidden');
