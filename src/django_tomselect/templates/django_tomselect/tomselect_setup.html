@@ -229,9 +229,30 @@ This will replace the original code block in the `tomselect_setup.html` template
 
                 // Find a similar configuration based on ID pattern
                 findSimilarConfig: function(selectId) {
-                    // Match patterns like "id_formset-0-field" or "id_prefix-0-field"
-                    const similarId = Array.from(this.configs.keys()).find(id =>
-                        id.replace(/-\d+-/, '-X-') === selectId.replace(/-\d+-/, '-X-'));
+                    // Normalize every `-\d+-` occurrence so flat AND nested formsets match.
+                    const normalizeId = (id) => id.replace(/-\d+-/g, '-X-');
+
+                    // Walk each `-\d+-` in `id`, substituting the matching new index.
+                    // If `id` has MORE occurrences than `indices` provides, surplus
+                    // positions are left unchanged (the original `m` is returned).
+                    const applyIndices = (id, indices) => {
+                        let i = 0;
+                        return id.replace(/-\d+-/g, (m) => {
+                            if (i >= indices.length) return m;
+                            return `-${indices[i++]}-`;
+                        });
+                    };
+
+                    // Extract the new indices in document order. Using replace + callback
+                    // instead of matchAll keeps this inline template compatible with
+                    // older browsers (matchAll is ES2020).
+                    const newIndices = [];
+                    selectId.replace(/-(\d+)-/g, (_, n) => { newIndices.push(n); return ''; });
+
+                    const targetKey = normalizeId(selectId);
+                    const similarId = Array.from(this.configs.keys()).find(
+                        (id) => normalizeId(id) === targetKey
+                    );
 
                     if (!similarId) return null;
 
@@ -252,41 +273,45 @@ This will replace the original code block in the `tomselect_setup.html` template
 
                     // Extract the new form prefix from the select ID
                     // e.g., "id_formset-1-field" -> "formset-1-"
+                    // e.g., "id_orders-2-items-3-product" -> "orders-2-items-3-"
                     const idWithoutPrefix = selectId.replace(/^id_/, '');
                     const lastDashIndex = idWithoutPrefix.lastIndexOf('-');
                     const newFormPrefix = lastDashIndex !== -1 ? idWithoutPrefix.slice(0, lastDashIndex + 1) : '';
-                    const formIndex = idWithoutPrefix.match(/-(\d+)-/)?.[1] || '0';
 
                     // Update the formPrefix in config
                     config.formPrefix = newFormPrefix;
 
-                    // Update filter/exclude field IDs with new prefix
+                    // Rewrite filter/exclude field IDs with the new indices, positionally.
                     if (config.filterFields && Array.isArray(config.filterFields)) {
-                        config.filterFields = config.filterFields.map(fieldId => {
-                            // Replace old prefix with new prefix in field ID
-                            // e.g., "id_formset-0-parent" -> "id_formset-1-parent"
-                            return fieldId.replace(/-\d+-/, `-${formIndex}-`);
-                        });
+                        config.filterFields = config.filterFields.map((fieldId) =>
+                            applyIndices(fieldId, newIndices)
+                        );
                     }
 
                     if (config.dependentField) {
-                        config.dependentField = config.dependentField.replace(/-\d+-/, `-${formIndex}-`);
+                        config.dependentField = applyIndices(config.dependentField, newIndices);
                     }
 
                     if (config.excludeFields && Array.isArray(config.excludeFields)) {
-                        config.excludeFields = config.excludeFields.map(fieldId => {
-                            return fieldId.replace(/-\d+-/, `-${formIndex}-`);
-                        });
+                        config.excludeFields = config.excludeFields.map((fieldId) =>
+                            applyIndices(fieldId, newIndices)
+                        );
                     }
 
                     if (config.excludeField) {
-                        config.excludeField = config.excludeField.replace(/-\d+-/, `-${formIndex}-`);
+                        config.excludeField = applyIndices(config.excludeField, newIndices);
                     }
 
-                    // Rebuild originalFirstUrl with the new prefix using the stored factory function
-                    // This is critical for formsets - the closure in originalFirstUrl captures the old prefix
+                    // Rebuild originalFirstUrl AND firstUrl with the new prefix using the
+                    // stored factory function. The closure in the old originalFirstUrl
+                    // captures the template row's prefix; both `firstUrl` (used by
+                    // TomSelect's getUrl on normal loads) and `originalFirstUrl` (used
+                    // on reset by resetTomSelectState) must point at the new-prefix
+                    // function or the cloned row will issue AJAX requests with the
+                    // wrong filter prefix.
                     if (config.createFirstUrlFunction && config.filterConfig) {
                         config.originalFirstUrl = config.createFirstUrlFunction(newFormPrefix, config.filterConfig);
+                        config.firstUrl = config.originalFirstUrl;
                     }
 
                     // If there's an original load function, wrap it to use the new reset variable

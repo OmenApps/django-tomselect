@@ -161,17 +161,102 @@ describe('smoke: findSimilarConfig (formset config inheritance)', () => {
     expect(originalLoad).toHaveBeenCalledWith('q', cb)
   })
 
-  it('contract: only the FIRST -N- in the selectId is normalized (nested formsets cross inner indices do not match)', () => {
-    // Documented limitation: id.replace(/-\d+-/, '-X-') replaces only the
-    // first match. For nested formsets like `id_outer-0-inner-1-field`, a
-    // lookup against `id_outer-2-inner-3-field` normalizes both to
-    // `id_outer-X-inner-1-field` and `id_outer-X-inner-3-field`, which differ
-    // on the inner index - so no match. Outer-only varying indices DO match.
-    dts.configs.set('id_outer-0-inner-1-field', { url: '/nested' })
-    expect(dts.findSimilarConfig('id_outer-2-inner-3-field')).toBeNull()
-    const sameInner = dts.findSimilarConfig('id_outer-9-inner-1-field')
-    expect(sameInner).toBeTruthy()
-    expect(sameInner.url).toBe('/nested')
+  it('matches nested formsets when both outer and inner indices differ', () => {
+    dts.configs.set('id_orders-0-items-1-product', { url: '/nested' })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    expect(result).toBeTruthy()
+    expect(result.url).toBe('/nested')
+  })
+
+  it('does not match when terminal field names differ (negative case)', () => {
+    // Regression guard: normalising every `-\d+-` must not collapse IDs whose
+    // stable (non-index) segments differ.
+    dts.configs.set('id_orders-0-items-1-product', { url: '/x' })
+    expect(dts.findSimilarConfig('id_orders-2-items-3-category')).toBeNull()
+  })
+
+  it('rebuilds formPrefix for nested formsets', () => {
+    dts.configs.set('id_orders-0-items-1-product', {})
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    expect(result.formPrefix).toBe('orders-2-items-3-')
+  })
+
+  it('rebuilds originalFirstUrl with the nested form prefix', () => {
+    const calls = []
+    const createFirstUrlFunction = (prefix, filterConfig) => {
+      calls.push({ prefix, filterConfig })
+      return () => `url-for-${prefix}`
+    }
+    dts.configs.set('id_orders-0-items-1-product', {
+      createFirstUrlFunction,
+      filterConfig: { foo: 'bar' }
+    })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    expect(calls).toEqual([{ prefix: 'orders-2-items-3-', filterConfig: { foo: 'bar' } }])
+    expect(result.originalFirstUrl()).toBe('url-for-orders-2-items-3-')
+  })
+
+  it('rewrites sibling filterFields positionally for nested formsets', () => {
+    // Sibling fields share the select's full nesting depth; both indices get
+    // substituted positionally.
+    dts.configs.set('id_orders-0-items-1-product', {
+      filterFields: ['id_orders-0-items-1-category', 'id_orders-0-items-1-color']
+    })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    expect(result.filterFields).toEqual([
+      'id_orders-2-items-3-category',
+      'id_orders-2-items-3-color'
+    ])
+  })
+
+  it('leaves surplus index positions unchanged when a filterField has more indices than the new selectId', () => {
+    // Contract: applyIndices preserves the original index (does NOT fall back
+    // to `0`) when a stored field has more `-\d+-` occurrences than the new
+    // selectId provides. The stored SELECT structure must still match the
+    // new selectId for lookup to succeed; surplus indices live only in the
+    // related field.
+    dts.configs.set('id_orders-0-product', {
+      filterFields: ['id_orders-0-items-1-category']
+    })
+    const result = dts.findSimilarConfig('id_orders-3-product')
+    // newIndices = ['3']; the second `-1-` in the field ID has no
+    // corresponding new index, so it is preserved verbatim.
+    expect(result.filterFields).toEqual(['id_orders-3-items-1-category'])
+  })
+
+  it('rebuilds firstUrl (not just originalFirstUrl) with the new prefix', () => {
+    // tomselect.html exposes both `firstUrl` and `originalFirstUrl` in the
+    // initial config. TomSelect's `getUrl()` reads
+    // `this.settings.firstUrl(query)`, so a cloned config that updates only
+    // originalFirstUrl would still issue AJAX with the stale prefix until
+    // resetTomSelectState() reassigns firstUrl. Both must be rebuilt.
+    const createFirstUrlFunction = (prefix) => () => `url-for-${prefix}`
+    dts.configs.set('id_orders-0-items-1-product', {
+      createFirstUrlFunction,
+      filterConfig: {}
+    })
+    const result = dts.findSimilarConfig('id_orders-2-items-3-product')
+    expect(result.originalFirstUrl()).toBe('url-for-orders-2-items-3-')
+    expect(result.firstUrl()).toBe('url-for-orders-2-items-3-')
+    expect(result.firstUrl).toBe(result.originalFirstUrl)
+  })
+
+  it('rewrites dependentField positionally for nested formsets', () => {
+    dts.configs.set('id_orders-0-items-1-product', {
+      dependentField: 'id_orders-0-items-1-category'
+    })
+    const result = dts.findSimilarConfig('id_orders-4-items-7-product')
+    expect(result.dependentField).toBe('id_orders-4-items-7-category')
+  })
+
+  it('rewrites excludeFields and excludeField positionally for nested formsets', () => {
+    dts.configs.set('id_orders-0-items-1-product', {
+      excludeFields: ['id_orders-0-items-1-x', 'id_orders-0-items-1-w'],
+      excludeField: 'id_orders-0-items-1-z'
+    })
+    const result = dts.findSimilarConfig('id_orders-5-items-6-product')
+    expect(result.excludeFields).toEqual(['id_orders-5-items-6-x', 'id_orders-5-items-6-w'])
+    expect(result.excludeField).toBe('id_orders-5-items-6-z')
   })
 
   it('drops instance-specific state (items, renderCache) from the cloned config', () => {

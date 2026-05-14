@@ -3242,6 +3242,30 @@ class TestWidgetContextGlobalSetup:
         # unrelated globals if config.resetVarName ever holds an arbitrary key.
         assert "name.indexOf('wasReset_') === 0" in content
 
+    def test_find_similar_config_handles_nested_formsets(self):
+        """Regression guard for nested-formset support in findSimilarConfig.
+
+        Behavioral verification lives in tests/js/smoke/config-cloning.test.js.
+        This Python check is a cheap static guard against accidental reversion
+        to the single-replace regex that only normalized the FIRST `-\\d+-`
+        occurrence (broke nested formsets like id_orders-0-items-1-product).
+        """
+        from pathlib import Path
+
+        template = Path(__file__).resolve().parent.parent / (
+            "src/django_tomselect/templates/django_tomselect/tomselect_setup.html"
+        )
+        content = template.read_text(encoding="utf-8")
+        # Normalization must use the global flag so every `-\d+-` is replaced,
+        # not only the first occurrence.
+        assert "id.replace(/-\\d+-/g, '-X-')" in content
+        # The old single-replace `formIndex` variable is gone; positional
+        # rewriting is done by walking newIndices instead.
+        assert "const formIndex = idWithoutPrefix.match" not in content
+        # firstUrl must be rebuilt alongside originalFirstUrl so cloned rows
+        # use the new nested prefix on the very first AJAX load.
+        assert "config.firstUrl = config.originalFirstUrl;" in content
+
 
 @pytest.mark.django_db
 class TestWidgetAddUrlToContext:
