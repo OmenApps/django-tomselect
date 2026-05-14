@@ -54,19 +54,21 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
             const resetVarName = 'wasReset_' + elementId.replace(/-/g, '_');
             window[resetVarName] = false;
 
-            // Used for resetting the TomSelect contents when a query is zeroed
-            let previousQuery = '';
-
-            // AbortController for canceling superseded fetch requests during rapid typing
-            let currentLoadController = null;
+            // Per-instance state (_previousQuery for zero-query reset detection,
+            // _currentLoadController for fetch cancellation) lives on each TomSelect
+            // instance so cloned configs from findSimilarConfig don't share runtime
+            // state with the source widget.
 
             // Helper function to reset TomSelect state.
             // Reads resetVarName and originalFirstUrl from tomSelect.settings so that
             // cloned configs (formset rows, HTMX swaps) operate on their own per-instance
-            // values rather than the original widget's closure-captured state.
+            // values rather than the original widget's closure-captured state. Also clears
+            // _previousQuery so the same instance doesn't immediately re-fire the reset
+            // path on the next shouldLoad('').
             function resetTomSelectState(tomSelect) {
                 if (!tomSelect || !tomSelect.settings) return;
 
+                tomSelect._previousQuery = '';
                 tomSelect.clearOptions();
                 tomSelect.clearCache();
                 tomSelect.settings.pagination = {};
@@ -87,7 +89,11 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 if (resetVar) {
                     window[resetVar] = true;
                 }
-                tomSelect.load('');
+                // No-op callback: the reset is fire-and-forget but `load` invokes
+                // its callback in both success and superseded-error paths and crashes
+                // on undefined. Matches the pattern in tomselect_setup.html's sister
+                // resetTomSelectState.
+                tomSelect.load('', function () {});
             }
 
             // Helper function to add a URL parameter
@@ -380,11 +386,15 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             shouldLoadValue = query.length >= {{ widget.minimum_query_length }};
                         }
 
-                        if (previousQuery.length > 0 && isEmptyQuery) {
+                        // Per-instance previousQuery: cloned configs from
+                        // findSimilarConfig share function references, so closure state
+                        // must live on the instance rather than the IIFE scope.
+                        const prevQuery = this._previousQuery || '';
+                        if (prevQuery.length > 0 && isEmptyQuery) {
                             resetTomSelectState(this);
                         }
 
-                        previousQuery = query;
+                        this._previousQuery = query;
                         return shouldLoadValue;
                     },
 
@@ -409,9 +419,11 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             }
                         }
 
-                        // Abort any previous in-flight request (superseded by this new query)
-                        if (currentLoadController) {
-                            currentLoadController.abort();
+                        // Abort any previous in-flight request (superseded by this new query).
+                        // Stored on the instance so cloned configs (formset rows) don't
+                        // abort each other's fetches via a shared IIFE-scoped variable.
+                        if (self._currentLoadController) {
+                            self._currentLoadController.abort();
                         }
 
                         // Helper function to check if all items are already selected and load more if needed
@@ -484,8 +496,8 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                         // Main fetch call with timeout to prevent hanging requests
                         const FETCH_TIMEOUT_MS = 30000;  // 30 second timeout
-                        currentLoadController = new AbortController();
-                        const controller = currentLoadController;
+                        self._currentLoadController = new AbortController();
+                        const controller = self._currentLoadController;
                         const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
                         fetch(url, { signal: controller.signal })
@@ -522,8 +534,11 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             })
                             .catch(error => {
                                 clearTimeout(timeoutId);
-                                // If this request was superseded by a newer one, silently ignore
-                                if (error.name === 'AbortError' && currentLoadController !== controller) {
+                                // If this request was superseded by a newer one, silently ignore.
+                                // Compare against self._currentLoadController so the check
+                                // detects supersession on the SAME instance only - clones do
+                                // not share the slot.
+                                if (error.name === 'AbortError' && self._currentLoadController !== controller) {
                                     callback([]);
                                     return;
                                 }
