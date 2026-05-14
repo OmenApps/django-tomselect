@@ -8,8 +8,11 @@ function decodeIfNeeded(str) {
     // original value when extra columns hold numeric counts.
     if (typeof str !== 'string') return str;
 
-    // Check if string contains HTML entities
-    if (/&[a-z]+;|&#[0-9]+;/i.test(str)) {
+    // Check if string contains HTML entities (named, decimal numeric, or hex numeric).
+    // Hex entities matter because Django's escape() emits them for apostrophes
+    // (' >> &#x27;) since Django 3.0, so server-escaped labels reach this branch as
+    // hex-encoded text and must be decoded before Tom Select's escape() runs.
+    if (/&[a-z]+;|&#[0-9]+;|&#x[0-9a-f]+;/i.test(str)) {
         {# SECURITY: innerHTML is used here on a detached <textarea> element solely to decode #}
         {# HTML entities (e.g., &amp; -> &). The textarea is never inserted into the DOM, and #}
         {# its .value property returns the decoded plain text (not HTML). This is a standard #}

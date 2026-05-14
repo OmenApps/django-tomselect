@@ -2450,6 +2450,47 @@ class TestWidgetEscaping:
         # silently blank numeric extra columns when they pass through decodeIfNeeded().
         assert "typeof str !== 'string') return ''" not in helper
 
+    def test_decode_if_needed_matches_hex_numeric_entities(self):
+        """Regression: decodeIfNeeded must detect hex numeric entities like &#x27;.
+
+        Django's escape() (called by utils.safe_escape on every string field server-side)
+        emits hex numeric entities for apostrophes since Django 3.0: "Fiona O'Brien" becomes
+        "Fiona O&#x27;Brien" on the wire. The previous regex `&[a-z]+;|&#[0-9]+;` matched
+        only named entities (&amp;) and decimal numeric entities (&#39;), silently skipping
+        hex entities. That left them in the string, which Tom Select's escape() then
+        re-escaped to "Fiona O&amp;#x27;Brien" - rendered by the browser as the literal
+        text "Fiona O&#x27;Brien". Affected every author/category/etc. with an apostrophe
+        in the default item.html, optgroup_header.html, and non-tabular option.html branches
+        (e.g. the Exclude-By Primary Author and Weighted Author Search demos).
+
+        We extract the regex literal from the rendered helper and exercise it directly,
+        translating JS-style /pattern/i to a Python re flag - the character classes used
+        here are the common subset of JS and Python regex syntax, so the same pattern
+        validates both.
+        """
+        import re as _re
+
+        from django.template.loader import render_to_string
+
+        helper = render_to_string("django_tomselect/helpers/decode_if_needed.html", {})
+
+        match = _re.search(r"/([^/]+)/i\.test\(str\)", helper)
+        assert match, "Could not extract entity-detection regex from decode_if_needed.html"
+        pattern = _re.compile(match.group(1), _re.IGNORECASE)
+
+        # Hex numeric entities (Django's apostrophe escape and friends).
+        assert pattern.search("Fiona O&#x27;Brien")
+        assert pattern.search("&#x2F;")  # forward slash, also hex-escaped
+        assert pattern.search("UPPER &#X27; CASE")  # case-insensitive hex digits
+
+        # Existing matches must keep working.
+        assert pattern.search("Food &amp; Drink")  # named entity
+        assert pattern.search("&#39;")  # decimal numeric entity
+
+        # Plain text without entities must NOT match (would force needless decode).
+        assert not pattern.search("Fiona OBrien")
+        assert not pattern.search("just plain text")
+
     def test_url_escaping_in_templates(self):
         """Test that URLs with JavaScript are properly sanitized in templates."""
         from django_tomselect.utils import safe_url
