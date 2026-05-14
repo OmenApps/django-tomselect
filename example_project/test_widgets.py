@@ -645,13 +645,6 @@ class TestWidgetQuerysetAndDependencies:
         assert isinstance(lookups, list)
         assert len(lookups) == 1
 
-    def test_get_autocomplete_params_no_view(self, setup_dependent_widget):
-        """Test get_autocomplete_params when no view is available."""
-        widget = setup_dependent_widget
-        widget.get_autocomplete_view = lambda: None
-        params = widget.get_autocomplete_params()
-        assert params == ""
-
     def test_get_model_from_choices_model(self):
         """Test get_model when choices has model attribute."""
         widget = TomSelectModelWidget(config=TomSelectConfig(url="autocomplete-edition"))
@@ -1381,6 +1374,69 @@ class TestWidgetValidationAndPermissions:
 
         urls = widget.get_instance_url_context(sample_edition, MockView())
         assert not urls
+
+    def test_get_instance_url_context_2arg_override_compatibility(self, sample_edition):
+        """Regression: subclass overrides using the documented 2-arg signature must work.
+
+        `get_instance_url_context(self, obj, autocomplete_view)` is part of the public
+        widget API (indexed in the Sphinx docs). Framework call sites must not pass
+        extra positional/keyword arguments to it - the cached-permissions hot path uses
+        `_compute_instance_url_context` instead so subclass overrides keep working.
+        """
+        import inspect
+
+        from django_tomselect import widgets as widgets_module
+
+        # Pin the public method signature so framework changes cannot quietly add
+        # extra parameters that would break downstream subclass overrides.
+        sig = inspect.signature(TomSelectModelWidget.get_instance_url_context)
+        param_names = [p for p in sig.parameters if p != "self"]
+        assert param_names == ["obj", "autocomplete_view"], (
+            f"Public hook signature changed - downstream overrides will break. Got: {param_names}"
+        )
+
+        # Pin call sites: every framework call to .get_instance_url_context must pass
+        # at most 2 positional args (plus self). The cached-permissions path must use
+        # _compute_instance_url_context instead.
+        source = inspect.getsource(widgets_module)
+        # Strip the method definitions themselves so we only inspect call sites.
+        call_sites = [
+            line
+            for line in source.splitlines()
+            if "get_instance_url_context(" in line and "def get_instance_url_context" not in line
+        ]
+        for line in call_sites:
+            assert "cached_permissions" not in line, (
+                f"Framework call site passes cached_permissions to public hook: {line!r}"
+            )
+
+        # End-to-end behavior check: strict 2-arg override must work via the public hook.
+        class OverriddenWidget(TomSelectModelWidget):
+            """Widget overriding the public hook with the original 2-arg signature."""
+
+            override_calls: list = []
+
+            def get_instance_url_context(self, obj, autocomplete_view):
+                """Strict 2-arg override - calling with extra args would TypeError."""
+                OverriddenWidget.override_calls.append((obj, autocomplete_view))
+                return {"detail_url": "/custom-detail/"}
+
+        class MockView:
+            """Mock view with no URLs."""
+
+            detail_url = None
+            update_url = None
+            delete_url = None
+
+            def has_permission(self, request, action):
+                """Mock has_permission method."""
+                return True
+
+        widget = OverriddenWidget(config=TomSelectConfig(url="autocomplete-edition"))
+        OverriddenWidget.override_calls = []
+        result = widget.get_instance_url_context(sample_edition, MockView())
+        assert result == {"detail_url": "/custom-detail/"}
+        assert len(OverriddenWidget.override_calls) == 1
 
     @pytest.mark.parametrize("has_get_full_path", [True, False])
     def test_validate_request_get_full_path(self, has_get_full_path):

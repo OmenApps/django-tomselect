@@ -39,11 +39,6 @@ This will replace the original code block in the `tomselect_setup.html` template
                 REINIT_DELAY: 100,   // Delay for reinitialization in ms
                 OBSERVER_DEBOUNCE: 50, // Debounce time for mutation observer
 
-                // Helper function to add a URL parameter
-                addUrlParam: function(url, paramName, paramValue) {
-                    return `${url}&${paramName}=${encodeURIComponent(paramValue)}`;
-                },
-
                 // Walk back `levelsUp` formset segments from a nested prefix.
                 // Counts `-\d+-` matches as segment boundaries (consistent with applyIndices),
                 // so hyphenated formset names like "orders-2-line-items-3-" still truncate

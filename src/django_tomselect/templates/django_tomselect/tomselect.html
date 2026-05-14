@@ -60,10 +60,6 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
             // AbortController for canceling superseded fetch requests during rapid typing
             let currentLoadController = null;
 
-            function logCallback(data) {
-                console.log("%c Received callback data:", "color:red;", data);
-            }
-
             // Helper function to reset TomSelect state.
             // Reads resetVarName and originalFirstUrl from tomSelect.settings so that
             // cloned configs (formset rows, HTMX swaps) operate on their own per-instance
@@ -91,7 +87,7 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 if (resetVar) {
                     window[resetVar] = true;
                 }
-                tomSelect.load('', logCallback);
+                tomSelect.load('');
             }
 
             // Helper function to add a URL parameter
@@ -408,8 +404,6 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                             currentLoadController.abort();
                         }
 
-                        var currentPage = 1;
-
                         // Helper function to check if all items are already selected and load more if needed
                         const checkAndLoadMore = function(json, originalCallback, collectedResults = []) {
                             // Store the pagination info for virtual scrolling regardless of selection status
@@ -449,9 +443,6 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                             // Add new unselected results to our collection
                             collectedResults = collectedResults.concat(newResults);
-
-                            // Set the current page
-                            currentPage = json.page;
 
                             // Check if all items in the response were already selected and we need more
                             const allSelected = newResults.length === 0;
@@ -565,22 +556,6 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
 
                 };
             {% endblock tomselect_config %}
-
-            {% if 'render' in widget.attrs.keys and widget.attrs.render %}
-                element.addEventListener('option_add', function() {
-                    // Ensure all selected data is preserved
-                    this.items.forEach(item => {
-                        this.options[item].selected = true;
-                    });
-                });
-
-                element.addEventListener('load', function(data) {
-                    // Ensure all loaded data is preserved
-                    data.forEach(item => {
-                        this.options[item.id] = item;
-                    });
-                });
-            {% endif %}
 
             // Mark the select as a TomSelect widget
             element.setAttribute('data-tomselect', 'true');

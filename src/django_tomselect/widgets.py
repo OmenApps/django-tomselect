@@ -241,14 +241,10 @@ class TomSelectWidgetMixin(_MixinBase):
         return self._cached_url
 
     def get_autocomplete_params(self) -> str:
-        """Hook to specify additional autocomplete parameters."""
-        params: list[str] = []
-        autocomplete_view = self.get_autocomplete_view()
-        if not autocomplete_view:
-            return ""
+        """Hook for subclasses to specify additional autocomplete query parameters.
 
-        if params:
-            return f"{'&'.join(params)}"
+        Override and return a URL-safe `&`-joined string (no leading `&`).
+        """
         return ""
 
     def build_attrs(self, base_attrs: dict[str, Any], extra_attrs: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -523,67 +519,67 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
     def get_instance_url_context(
         self, obj: Model | dict[str, Any], autocomplete_view: AutocompleteModelView
     ) -> dict[str, Any]:
-        """Get URL-related context for a selected object."""
-        request = self.get_current_request()
-        urls: dict[str, str] = {}
+        """Get URL-related context for a selected object.
 
-        # If obj is a dictionary, it's likely a cleaned_data object, return empty context
-        if isinstance(obj, dict) or not hasattr(obj, "pk") or obj.pk is None:
-            return {}
+        Public subclass-override hook. Returns a dict mapping `detail_url` /
+        `update_url` / `delete_url` to fully built URL strings, omitting keys
+        that are not configured or not permitted. Dicts and instances with no
+        pk return an empty mapping.
+        """
+        return self._compute_instance_url_context(obj, autocomplete_view, cached_permissions=None)
 
-        # Add detail URL if available and permitted
-        if self.show_detail and autocomplete_view.detail_url and autocomplete_view.has_permission(request, "view"):
-            self._add_url_to_context(urls, "detail_url", autocomplete_view.detail_url, obj.pk)
-
-        # Add update URL if available and permitted
-        if self.show_update and autocomplete_view.update_url and autocomplete_view.has_permission(request, "update"):
-            self._add_url_to_context(urls, "update_url", autocomplete_view.update_url, obj.pk)
-
-        # Add delete URL if available and permitted
-        if self.show_delete and autocomplete_view.delete_url and autocomplete_view.has_permission(request, "delete"):
-            self._add_url_to_context(urls, "delete_url", autocomplete_view.delete_url, obj.pk)
-
-        logger.debug("Instance URL context: %s", urls)
-        return urls
-
-    def _get_instance_urls_with_permissions(
+    def _compute_instance_url_context(
         self,
         obj: Model | dict[str, Any],
         autocomplete_view: AutocompleteModelView,
-        cached_permissions: dict[str, bool],
-    ) -> dict[str, str]:
-        """Get URLs for an object using pre-computed permissions.
+        cached_permissions: dict[str, bool] | None,
+    ) -> dict[str, Any]:
+        """Shared implementation behind `get_instance_url_context`.
 
-        This method is optimized to avoid repeated permission checks when processing
-        multiple objects. Permissions should be computed once before the loop and
-        passed in via cached_permissions.
-
-        Args:
-            obj: The model instance or dictionary
-            autocomplete_view: The autocomplete view instance
-            cached_permissions: Pre-computed permissions dict with keys 'view', 'update', 'delete'
-
-        Returns:
-            Dictionary with URL types as keys and URL strings as values
+        When `cached_permissions` is `None`, permissions are looked up once via
+        `get_current_request()`, preserving the original behavior of only
+        calling `has_permission` when both the corresponding `show_*` flag and
+        `*_url` attribute are truthy. When pre-computed permissions are passed
+        in (loop-rendering hot path), the lookup is skipped entirely.
         """
         urls: dict[str, str] = {}
 
-        # If obj is a dictionary or doesn't have a pk, return empty context
         if isinstance(obj, dict) or not hasattr(obj, "pk") or obj.pk is None:
             return urls
 
-        # Add detail URL if available and permitted
+        if cached_permissions is None:
+            # Match the original gating: only call has_permission when BOTH
+            # show_X and the *_url attr are truthy. has_permission has potential
+            # side effects (logging, cache fills), so we preserve when calls happen.
+            request = self.get_current_request()
+            cached_permissions = {
+                "view": (
+                    autocomplete_view.has_permission(request, "view")
+                    if self.show_detail and autocomplete_view.detail_url
+                    else False
+                ),
+                "update": (
+                    autocomplete_view.has_permission(request, "update")
+                    if self.show_update and autocomplete_view.update_url
+                    else False
+                ),
+                "delete": (
+                    autocomplete_view.has_permission(request, "delete")
+                    if self.show_delete and autocomplete_view.delete_url
+                    else False
+                ),
+            }
+
         if self.show_detail and autocomplete_view.detail_url and cached_permissions.get("view"):
             self._add_url_to_context(urls, "detail_url", autocomplete_view.detail_url, obj.pk)
 
-        # Add update URL if available and permitted
         if self.show_update and autocomplete_view.update_url and cached_permissions.get("update"):
             self._add_url_to_context(urls, "update_url", autocomplete_view.update_url, obj.pk)
 
-        # Add delete URL if available and permitted
         if self.show_delete and autocomplete_view.delete_url and cached_permissions.get("delete"):
             self._add_url_to_context(urls, "delete_url", autocomplete_view.delete_url, obj.pk)
 
+        logger.debug("Instance URL context: %s", urls)
         return urls
 
     def _add_url_to_context(self, context: dict[str, str], key: str, url_pattern: str, pk: Any) -> None:
@@ -862,8 +858,8 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         request = self.get_current_request()
 
         if autocomplete_view and request and self.validate_request(request):
-            for url_type in ["detail_url", "update_url", "delete_url"]:
-                url = self.get_instance_url_context(instance, autocomplete_view).get(url_type)
+            urls = self.get_instance_url_context(instance, autocomplete_view)
+            for url_type, url in urls.items():
                 if url:
                     opt[url_type] = escape(url)
 
@@ -957,8 +953,11 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
                     "label": self.get_label_for_object(obj, autocomplete_view),
                 }
 
-            # Safely add URLs with proper escaping, using pre-computed permissions
-            urls = self._get_instance_urls_with_permissions(obj, autocomplete_view, cached_permissions)
+            # Safely add URLs with proper escaping, using pre-computed permissions.
+            # Bypasses get_instance_url_context() to avoid breaking subclass overrides
+            # that use the documented 2-arg signature; the override path is preserved
+            # for single-instance rendering at _get_option_from_instance.
+            urls = self._compute_instance_url_context(obj, autocomplete_view, cached_permissions)
             for url_type, url in urls.items():
                 if url:
                     opt[url_type] = escape(url)
