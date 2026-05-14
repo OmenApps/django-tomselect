@@ -533,7 +533,7 @@ The filter form and article list are rendered in the template with built-in styl
                                         {% for category in article.categories.all %}
                                             <div class="mb-1">
                                                 {% if category.parent %}
-                                                    <small class="text-muted">{{ category.parent.name }} →</small>
+                                                    <small class="text-muted">{{ category.parent.name }} >></small>
                                                 {% endif %}
                                                 {{ category.name }}
                                             </div>

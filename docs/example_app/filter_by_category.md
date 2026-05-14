@@ -196,7 +196,7 @@ class CategoryAutocompleteView(AutocompleteModelView):
             # Create the formatted name
             formatted_name = category["name"]
             if category["parent_name"]:
-                formatted_name = f"{category['parent_name']} → {category['name']}"
+                formatted_name = f"{category['parent_name']} >> {category['name']}"
 
             # Add all required data
             formatted_result = {

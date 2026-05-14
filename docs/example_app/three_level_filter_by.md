@@ -10,7 +10,7 @@ The "3-Level Filter-By" example demonstrates how to use `django_tomselect` to im
 
 **Use Case**:
 - Content publishing platforms selecting publishing regions, countries, and local markets.
-- Applications that require dependent dropdowns like car make → model → trim selection.
+- Applications that require dependent dropdowns like car make >> model >> trim selection.
 
 **Visual Examples**
 

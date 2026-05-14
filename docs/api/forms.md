@@ -181,10 +181,10 @@ class ArticleFilterForm(forms.Form):
 `clean()` enforces:
 
 - Parser-level errors (unknown operators, unterminated quotes, cap overflows)
-  → `ValidationError`. Unknown operators are NEVER silently re-routed as free text.
-- `Operator.max_count` / `Operator.min_count` → field-level error.
-- `allow_free_text=False` → un-prefixed input is rejected.
-- Empty operator values (e.g. `author:`) → field-level error.
+  >> `ValidationError`. Unknown operators are NEVER silently re-routed as free text.
+- `Operator.max_count` / `Operator.min_count` >> field-level error.
+- `allow_free_text=False` >> un-prefixed input is rejected.
+- Empty operator values (e.g. `author:`) >> field-level error.
 
 ORM coercion errors (`category:tech` against an id-based `filter_lookup`) are
 caught at apply-time, not in `clean()` - the field has no parent queryset.
