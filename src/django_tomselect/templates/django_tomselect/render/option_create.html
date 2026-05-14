@@ -12,7 +12,7 @@ option_create: function(data, escape) {
                     hx-post="{{ widget.view_create_url|escapejs }}"
                     hx-swap="outerHTML"
                     hx-trigger="click"
-                    hx-target="#id_{{ widget.name|escapejs }}"
+                    hx-target="#${this.input.id}"
                     role="option"
                     aria-label="{% translate 'Create new item' %}">${escape(data.input)}</div>`;
     {% else %}

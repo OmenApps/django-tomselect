@@ -14,6 +14,11 @@ const WIDGET_TEMPLATE_PATH = resolve(
   '../../../src/django_tomselect/templates/django_tomselect/tomselect.html'
 )
 
+const OPTION_CREATE_TEMPLATE_PATH = resolve(
+  __dirname,
+  '../../../src/django_tomselect/templates/django_tomselect/render/option_create.html'
+)
+
 // Vitest 4's JSDOM environment copies dom.window properties onto Node's
 // global, but the test-facing `window` is NOT the same object as JSDOM's
 // internal window. Scripts injected via document.head.appendChild execute
@@ -291,10 +296,17 @@ export function renderWidgetTemplate (widgetContext = {}) {
     ''
   )
 
-  // 11. {% block tomselect_render %}...{% endblock %} - replace with empty render
+  // 11. {% block tomselect_render %}...{% endblock %}
+  // Default: emit an empty render block (cheaper, avoids loading partials that
+  // most tests don't exercise). When widgetContext.optionCreate is provided,
+  // splice in the real render/option_create.html partial (substituted) so the
+  // cloned config's render.option_create can be exercised end-to-end.
+  const renderBlockBody = ctx.optionCreate
+    ? `render: { ${renderOptionCreatePartial(ctx.optionCreate)} }`
+    : 'render: {}'
   js = js.replace(
     /\{%\s*block tomselect_render\s*%\}[\s\S]*?\{%\s*endblock tomselect_render\s*%\}/,
-    'render: {}'
+    () => renderBlockBody  // function form: avoids $-interpretation of ${...} JS template literals
   )
 
   // 12. {% if 'render' in widget.attrs.keys and widget.attrs.render %}...{% endif %} - omit
@@ -344,6 +356,37 @@ function renderFieldArray (fields, formPrefix) {
       return `'id_${escapeJsLiteral(effectivePrefix + f.source)}'`
     })
     .join(', ')
+}
+
+// Render render/option_create.html with widget context substituted.
+// optionCreateCtx: { createWithHtmx: boolean, viewCreateUrl: string }
+// Returns the JS body (option_create: function(data, escape){...},) ready to
+// splice into a `render: { ... }` block. Function-form replacements throughout
+// to avoid $-interpretation of ${this.input.id} / ${escape(data.input)} in the
+// JS template literals embedded in the partial.
+function renderOptionCreatePartial (optionCreateCtx) {
+  let partial = readFileSync(OPTION_CREATE_TEMPLATE_PATH, 'utf-8')
+
+  partial = partial.replace(/\{%\s*comment\s*%\}[\s\S]*?\{%\s*endcomment\s*%\}/g, '')
+  partial = partial.replace(/\{%\s*load\s+[^%]*%\}/g, '')
+
+  // Resolve the create_with_htmx conditional. Anchored loosely so future
+  // additions to the predicate don't break the harness.
+  partial = partial.replace(
+    /\{%\s*if 'create_with_htmx' in widget\.keys[\s\S]*?widget\.view_create_url\s*%\}([\s\S]*?)\{%\s*else\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/,
+    (_, htmxBranch, plainBranch) => optionCreateCtx.createWithHtmx ? htmxBranch : plainBranch
+  )
+
+  partial = partial.replace(
+    /\{\{\s*widget\.view_create_url\|escapejs\s*\}\}/g,
+    () => escapeJsLiteral(optionCreateCtx.viewCreateUrl || '')
+  )
+
+  // {% translate "..." %} and {% translate '...' %}
+  partial = partial.replace(/\{%\s*translate\s+"([^"]*)"\s*%\}/g, (_, s) => s)
+  partial = partial.replace(/\{%\s*translate\s+'([^']*)'\s*%\}/g, (_, s) => s)
+
+  return partial.trim()
 }
 
 function renderFilterConfigFilters (filters) {

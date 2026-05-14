@@ -277,6 +277,11 @@ This will replace the original code block in the `tomselect_setup.html` template
                     // Clean instance-specific settings
                     delete config.items;
                     delete config.renderCache;
+                    // onInitialize is template-baked from the source row's
+                    // selected_options. cloneConfig copies it by reference, so
+                    // leaving it in place would pre-select the source row's
+                    // options on the cloned row. Cloned rows must start empty.
+                    delete config.onInitialize;
 
                     // Generate a new unique reset variable name for this instance
                     const newResetVar = `wasReset_${selectId.replace(/-/g, '_')}`;
