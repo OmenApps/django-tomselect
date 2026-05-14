@@ -639,7 +639,7 @@ class RichAuthorAutocompleteView(AutocompleteModelView):
             q_objects &= term_q
         return queryset.filter(q_objects)
 
-    def prepare_results(self, results):
+    def prepare_results(self, results):  # noqa: C901
         """Build the rich payload that all three demo widgets render."""
         # Global rank map: rank by article_count across ALL authors, not just the
         # filtered/paginated subset. A Window function in hook_queryset would only

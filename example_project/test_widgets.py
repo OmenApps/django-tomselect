@@ -3896,7 +3896,7 @@ class TestClosureToSettingsMigration:
         assert "tomSelect.wrapper.classList.add('preloaded')" in rendered
 
     def test_dropdown_open_resets_scroll_top_when_flagged(self):
-        """onDropdownOpen resets dropdown_content.scrollTop to 0 when flagged.
+        """The onDropdownOpen resets dropdown_content.scrollTop to 0 when flagged.
 
         scrollTop set inside resetTomSelectState is ineffective while
         the dropdown is hidden (display:none) because the browser
