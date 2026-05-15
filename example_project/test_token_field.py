@@ -53,11 +53,6 @@ def composite_class():
     return _ArticleQueryView
 
 
-# ---------------------------------------------------------------------------
-# Field initialization
-# ---------------------------------------------------------------------------
-
-
 def test_field_constructs_widget_with_composite_view():
     """When composite_view is a URL name, the field auto-builds the rich widget."""
     field = TomSelectTokenField(composite_view="autocomplete-article-token")
@@ -100,11 +95,6 @@ def test_field_widget_kwargs_propagate():
     )
     assert field.widget.attrs.get("placeholder") == "Filter…"
     assert field.widget.css_framework == "bootstrap4"
-
-
-# ---------------------------------------------------------------------------
-# clean() - validation
-# ---------------------------------------------------------------------------
 
 
 def test_clean_accepts_empty_value_when_not_required(composite_class):
@@ -199,11 +189,6 @@ def test_clean_enforces_caps(composite_class):
     assert "Too many tokens" in str(exc_info.value)
 
 
-# ---------------------------------------------------------------------------
-# parse() helper
-# ---------------------------------------------------------------------------
-
-
 def test_parse_helper_returns_parsed_query(composite_class):
     """field.parse() returns a ParsedQuery exposing tokens and free_text."""
     field = TomSelectTokenField(composite_view=composite_class, required=False)
@@ -232,11 +217,6 @@ def test_parse_helper_supports_cross_operator_form_validation(composite_class):
 
     f = MyForm({"q": "author:1 category:5"})
     assert f.is_valid(), f.errors
-
-
-# ---------------------------------------------------------------------------
-# Widget rendering
-# ---------------------------------------------------------------------------
 
 
 def test_widget_rendering_includes_token_config(composite_class):

@@ -53,6 +53,10 @@ example_app/rich_author_multi_select
 example_app/article_list_and_create
 example_app/article_bulk_actions
 example_app/article_token_search
+example_app/article_advanced_token_search
+example_app/github_user_picker
+example_app/inline_create_tag
+example_app/gfk_picker
 ```
 
 ```{toctree}

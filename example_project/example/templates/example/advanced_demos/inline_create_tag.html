@@ -1,0 +1,178 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+{% load i18n %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext { font-size: 12px; color: #6c757d; }
+        .code-example {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        #inline-create-error {
+            display: none;
+            margin-top: 6px;
+            color: #b02a37;
+            font-size: 0.9rem;
+        }
+        .gap-notice {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px 14px;
+            margin: 12px 0;
+            border-radius: 4px;
+            font-size: 0.92rem;
+        }
+        #session-panel {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 12px 14px;
+            min-height: 90px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{% translate "Inline Create with HTMX" %}</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>{% translate "Type a tag that doesn't exist yet — Tom Select shows an <em>Add <strong>your-tag</strong>…</em> option in the dropdown. Click it and the server persists the tag instantly, without a page reload or a form submit. The newly created tag becomes a selected chip on the spot, and appears in the <em>Tags created this session</em> sidebar." %}</p>
+            <p class="small text-muted">{% translate "Picking an existing tag from the dropdown adds a chip but doesn't appear in the sidebar — only fresh creations land there." %}</p>
+            <div class="gap-notice">
+                <strong>{% translate "Why this demo is a recipe:" %}</strong>
+                {% translate "The package ships <code>create_with_htmx=True</code>, but the generated <code>option_create.html</code> markup currently doesn't post the typed value and can replace the underlying <code>&lt;select&gt;</code>. This demo bypasses that wiring and uses Tom Select's native <code>settings.create</code> callback to talk to a JSON endpoint. The pattern below is the recommended recipe today." %}
+            </div>
+
+            <h5 class="mt-3">{% translate "Code Example — JS bridge" %}</h5>
+            <pre class="code-example">document.addEventListener('DOMContentLoaded', function attachCreateHandler() {
+    var el = document.getElementById('id_tags');
+    if (!el || !el.tomselect) {
+        requestAnimationFrame(attachCreateHandler);
+        return;
+    }
+    var ts = el.tomselect;
+    var valueField = ts.settings.valueField;
+    var labelField = ts.settings.labelField;
+
+    ts.settings.create = function (input, callback) {
+        fetch(CREATE_URL, {
+            method: 'POST',
+            headers: {'X-CSRFToken': CSRF_TOKEN, 'Accept': 'application/json'},
+            body: new URLSearchParams({name: input}),
+        })
+        .then(r => r.json().then(body => ({ok: r.ok, body})))
+        .then(({ok, body}) => {
+            if (ok && body.action === 'select') {
+                var opt = {};
+                opt[valueField] = body.value;
+                opt[labelField] = body.label;
+                callback(opt);
+                ts.setTextboxValue('');
+                htmx.trigger(document.body, 'tag-created', {detail: body});
+            } else {
+                showInlineError(body.error || 'Could not create tag.');
+                callback();
+            }
+        })
+        .catch(() => { showInlineError('Network error.'); callback(); });
+    };
+});</pre>
+        </div>
+
+        <form method="post" class="row">
+            {% csrf_token %}
+            <div class="col-md-8 mb-3">
+                {{ form.tags.label_tag }}
+                {{ form.tags }}
+                {% if form.tags.help_text %}<div class="helptext">{{ form.tags.help_text }}</div>{% endif %}
+                <div id="inline-create-error" class="text-danger small"></div>
+                <button type="submit" class="btn btn-primary mt-3">{% translate "Submit" %}</button>
+                <a href="{% url 'inline-create-tag' %}" class="btn btn-link mt-3">{% translate "Reset" %}</a>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div hx-get="{% url 'htmx-tag-session-panel' %}"
+                     hx-trigger="tag-created from:body"
+                     hx-target="#session-panel"
+                     hx-swap="outerHTML">
+                    {% include "example/advanced_demos/_tag_session_panel.html" %}
+                </div>
+            </div>
+        </form>
+
+        {% if submitted is not None %}
+            <div class="alert alert-success mt-3">
+                <strong>{% translate "Submitted tags:" %}</strong>
+                {% for t in submitted %}<span class="badge bg-success">{{ t }}</span> {% empty %}<em>{% translate "(none)" %}</em>{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function () {
+    var CREATE_URL = "{% url 'htmx-create-publication-tag' %}";
+
+    function csrfToken() {
+        var input = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return input ? input.value : '';
+    }
+
+    function showInlineError(msg) {
+        var node = document.getElementById('inline-create-error');
+        if (!node) return;
+        node.textContent = msg;
+        node.style.display = 'block';
+        setTimeout(function () { node.style.display = 'none'; }, 5000);
+    }
+
+    document.addEventListener('DOMContentLoaded', function attachCreateHandler() {
+        var el = document.getElementById('id_tags');
+        if (!el || !el.tomselect) {
+            // Tom Select also initializes on DOMContentLoaded — retry next frame.
+            requestAnimationFrame(attachCreateHandler);
+            return;
+        }
+        var ts = el.tomselect;
+        var valueField = ts.settings.valueField;   // "value"
+        var labelField = ts.settings.labelField;   // "label"
+
+        ts.settings.create = function (input, callback) {
+            fetch(CREATE_URL, {
+                method: 'POST',
+                headers: {'X-CSRFToken': csrfToken(), 'Accept': 'application/json'},
+                body: new URLSearchParams({name: input}),
+            })
+            .then(function (r) { return r.json().then(function (body) { return {ok: r.ok, body: body}; }); })
+            .then(function (res) {
+                if (res.ok && res.body.action === 'select') {
+                    var opt = {};
+                    opt[valueField] = res.body.value;
+                    opt[labelField] = res.body.label;
+                    callback(opt);
+                    ts.setTextboxValue('');
+                    if (window.htmx) {
+                        htmx.trigger(document.body, 'tag-created', {detail: res.body});
+                    }
+                } else {
+                    showInlineError((res.body && res.body.error) || 'Could not create tag.');
+                    callback();
+                }
+            })
+            .catch(function () {
+                showInlineError('Network error.');
+                callback();
+            });
+        };
+    });
+})();
+</script>
+{% endblock %}

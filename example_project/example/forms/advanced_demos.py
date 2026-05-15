@@ -21,6 +21,9 @@ from django_tomselect.forms import (
     TomSelectModelMultipleChoiceField,
     TomSelectTokenField,
 )
+from django_tomselect.widgets import (
+    TomSelectIterablesWidget,
+)
 from example_project.example.models import Article
 
 category_header = PluginDropdownHeader(
@@ -993,3 +996,302 @@ class ArticleTokenSearchForm(forms.Form):
             "Quote phrases for free-text title search: \"long form essay\"."
         ),
     )
+
+
+class ArticleAdvancedTokenSearchForm(forms.Form):
+    """Token-style filter with date / range / comparison operators.
+
+    Demonstrates :class:`TomSelectTokenField` against
+    :class:`ArticleAdvancedTokenQueryView`, which uses
+    :class:`~django_tomselect.autocompletes.Operator`'s ``q_translator``
+    callable to build custom ``Q`` objects from the token value. The simple
+    token demo only exercises ``filter_lookup`` (exact / ``__in`` matching);
+    this one extends to:
+
+    - ``published_after:<YYYY-MM-DD>`` / ``published_before:<YYYY-MM-DD>``
+    - ``word_count:>500`` / ``<2000`` / ``>=1000`` / ``<=5000`` / ``=500``
+    - ``word_count:100..2000`` (inclusive range)
+    - ``author:`` and ``status:`` (multi, equality-based for comparison)
+    """
+
+    q = TomSelectTokenField(
+        composite_view="autocomplete-article-advanced-token",
+        required=False,
+        allow_free_text=True,
+        max_tokens=20,
+        widget_kwargs={"placeholder": _(
+            "e.g. published_after:2024-01-01 word_count:>500 author:1"
+        )},
+        help_text=_(
+            "Operators: author: (multi), status: (multi), "
+            "published_after:YYYY-MM-DD, published_before:YYYY-MM-DD, "
+            "word_count:<comparison>. "
+            "Comparison values: '>500', '<2000', '>=1000', '<=5000', '=500', '100..2000'."
+        ),
+    )
+
+
+class GitHubUserPickerForm(forms.Form):
+    """External-API-backed autocomplete demo.
+
+    The widget hits :class:`GitHubUserAutocompleteView`, which proxies the
+    public GitHub ``/search/users`` endpoint. Stored value is the user's login
+    (``octocat``, etc.) — emitted as both ``value`` and ``label`` in the
+    dropdown rows so the iterables widget's default ``value == label``
+    fallback renders selected options correctly on form re-submit without
+    any custom widget.
+    """
+
+    github_user = forms.CharField(
+        required=False,
+        widget=TomSelectIterablesWidget(
+            config=TomSelectConfig(
+                url="autocomplete-github-user",
+                value_field="value",
+                label_field="label",
+                placeholder=_("Type a GitHub username — e.g. octo"),
+                # Avoid hammering GitHub with single-character queries.
+                minimum_query_length=2,
+                load_throttle=400,
+                plugin_dropdown_header=PluginDropdownHeader(
+                    title=_("GitHub users"),
+                    show_value_field=False,
+                    label_field_label=_("Login"),
+                    extra_columns={"bio": _("Bio")},
+                ),
+            ),
+        ),
+        help_text=_(
+            "Backed by the public GitHub Search API (no auth). "
+            "Results are cached per-process for 5 minutes."
+        ),
+    )
+
+
+# Imported lazily to avoid touching the existing intermediate-demos forms module
+# at top-of-file (the import order of TomSelectConfig + plugins is tightly coupled
+# in this file). DynamicTagField is reused for the HTMX-create demo because the
+# value space is tag names (strings), not model PKs.
+from example_project.example.forms.intermediate_demos import DynamicTagField  # noqa: E402
+
+
+class InlineCreateTagForm(forms.Form):
+    """HTMX-create demo: the tags field accepts brand-new tag names that are
+    persisted server-side instantly via :func:`publication_tag_create_htmx`,
+    not at form submit.
+
+    Reuses :class:`DynamicTagField` (a ``TomSelectMultipleChoiceField`` subclass)
+    so submitted values are a list of tag-name strings — sidestepping the
+    ``to_field_name=config.value_field`` model-field validation path that would
+    otherwise reject ``name``-valued options.
+    """
+
+    tags = DynamicTagField(
+        config=TomSelectConfig(
+            url="autocomplete-publication-tag",
+            value_field="value",
+            label_field="label",
+            placeholder=_("Type a tag — e.g. quantum-computing"),
+            create=True,
+            highlight=True,
+            minimum_query_length=1,
+        ),
+        required=False,
+        help_text=_(
+            "Type any tag. Existing tags appear in the dropdown; novel tags "
+            "show an 'Add <name>…' option that POSTs to the HTMX endpoint."
+        ),
+    )
+
+
+
+_GFK_TYPE_MAP = {
+    "article": "article",
+    "author": "author",
+    "magazine": "magazine",
+}
+
+
+class TomSelectGFKWidget(TomSelectIterablesWidget):
+    """Widget that resolves selected ``type:id`` values to ``{value, label}`` server-side.
+
+    Overriding ``_get_selected_options`` lets us look up the underlying model
+    instance and emit a human-readable label without making a roundtrip through
+    the autocomplete URL. The widget context preserves the configured
+    ``value_field``/``label_field`` ("value"/"label") so the rendered
+    ``allOptions`` array carries the same row shape the AJAX endpoint emits.
+
+    The ``scope`` constructor kwarg, when set, narrows results to one operator
+    by appending ``?scope=<key>`` to the autocomplete URL via
+    ``get_autocomplete_params`` (the widget mixin's documented extension point
+    for extra query-string params).
+    """
+
+    def __init__(self, *args, scope: str | None = None, **kwargs):
+        self.scope = (scope or "").strip() or None
+        super().__init__(*args, **kwargs)
+
+    def get_autocomplete_params(self):  # type: ignore[override]
+        base = super().get_autocomplete_params() or ""
+        if not self.scope:
+            return base
+        suffix = f"scope={self.scope}"
+        if not base:
+            return suffix
+        # Append to existing query string. The mixin's default return is a
+        # string (possibly empty) — concatenate with '&' on either side.
+        sep = "&" if not base.endswith("&") else ""
+        return f"{base}{sep}{suffix}"
+
+    def get_autocomplete_context(self):  # type: ignore[override]
+        # The iterables widget's get_autocomplete_context does NOT call
+        # get_autocomplete_params (only the model widget does). Add the key
+        # ourselves so the template can render ``autocompleteParams:``.
+        ctx = super().get_autocomplete_context()
+        ctx["autocomplete_params"] = self.get_autocomplete_params()
+        return ctx
+
+    def _resolve_pair(self, raw: str):
+        """Parse ``"type:id"`` and return ``(value, label)`` or ``None``."""
+        from example_project.example.models import (
+            Article as _Article,
+            Author as _Author,
+            Magazine as _Magazine,
+        )
+
+        raw = (raw or "").strip()
+        if not raw or ":" not in raw:
+            return None
+        type_key, _, obj_id = raw.partition(":")
+        type_key = type_key.strip()
+        if type_key not in _GFK_TYPE_MAP or not obj_id.strip():
+            return None
+        try:
+            pk = int(obj_id.strip())
+        except ValueError:
+            return None
+        try:
+            if type_key == "article":
+                obj = _Article.objects.get(pk=pk)
+                label = obj.title
+            elif type_key == "author":
+                obj = _Author.objects.get(pk=pk)
+                label = obj.name
+            else:  # magazine
+                obj = _Magazine.objects.get(pk=pk)
+                label = obj.name
+        except Exception:
+            return None
+        return raw, label
+
+    def _get_selected_options(self, value):  # type: ignore[override]
+        if not value:
+            return []
+        values = value if isinstance(value, (list, tuple)) else [value]
+        rows = []
+        for raw in values:
+            pair = self._resolve_pair(raw)
+            if pair is None:
+                # Fall back to the raw value so the chip is still rendered.
+                rows.append({"value": raw, "label": raw})
+                continue
+            v, label = pair
+            rows.append({"value": v, "label": label})
+        return rows
+
+
+class TomSelectGenericForeignKeyField(forms.CharField):
+    """Form field that round-trips a ``"type:id"`` opaque string.
+
+    ``clean`` parses the value into ``(content_type, object_id)``, validates
+    that the referenced object exists, and stashes the resolved pair on
+    ``self._gfk_resolved`` so the view can apply it to a ``Spotlight``.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._gfk_resolved = None
+
+    def clean(self, value):
+        raw = super().clean(value)
+        self._gfk_resolved = None
+        if not raw:
+            if self.required:
+                raise ValidationError(self.error_messages["required"], code="required")
+            return ""
+        if ":" not in raw:
+            raise ValidationError(_("Invalid value. Expected '<type>:<id>'."))
+        type_key, _sep, obj_id = raw.partition(":")
+        type_key = type_key.strip()
+        if type_key not in _GFK_TYPE_MAP:
+            raise ValidationError(_("Unknown type %(t)r.") % {"t": type_key})
+        try:
+            pk = int((obj_id or "").strip())
+        except ValueError as exc:
+            raise ValidationError(_("Object id must be an integer.")) from exc
+
+        # Resolve to ContentType + object so the view can persist a Spotlight.
+        from django.contrib.contenttypes.models import ContentType
+        from example_project.example.models import Article, Author, Magazine
+
+        model = {"article": Article, "author": Author, "magazine": Magazine}[type_key]
+        try:
+            obj = model.objects.get(pk=pk)
+        except model.DoesNotExist as exc:
+            raise ValidationError(_("Selected object no longer exists.")) from exc
+        ct = ContentType.objects.get_for_model(model)
+        self._gfk_resolved = (ct, obj.pk, obj)
+        return raw
+
+
+class SpotlightForm(forms.Form):
+    """Generic Foreign Key picker demo.
+
+    A single field that picks across Article / Author / Magazine. Stored value
+    is ``"<type>:<pk>"``. The view reads ``field._gfk_resolved`` to create a
+    ``Spotlight`` row with the right ``content_type`` + ``object_id``.
+
+    The optional ``scope`` constructor kwarg narrows results to one operator;
+    it's wired into the widget so the autocomplete URL receives ``?scope=...``.
+    """
+
+    SCOPE_CHOICES = (
+        ("", _("All types")),
+        ("article", _("Articles only")),
+        ("author", _("Authors only")),
+        ("magazine", _("Magazines only")),
+    )
+
+    title = forms.CharField(
+        max_length=200,
+        required=True,
+        help_text=_("A short title for this spotlight."),
+    )
+    featured = TomSelectGenericForeignKeyField(
+        required=True,
+        widget=TomSelectGFKWidget(
+            config=TomSelectConfig(
+                url="autocomplete-multi-type-featured",
+                value_field="value",
+                label_field="label",
+                placeholder=_("Search Articles / Authors / Magazines…"),
+                minimum_query_length=1,
+                load_throttle=300,
+            ),
+        ),
+        help_text=_(
+            "Type to search across all three model types. Result rows are "
+            "tagged with a type pill (Article / Author / Magazine)."
+        ),
+    )
+    scope = forms.ChoiceField(choices=SCOPE_CHOICES, required=False)
+
+    def __init__(self, *args, scope: str | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if scope:
+            # Set scope on the already-instantiated widget so
+            # get_autocomplete_params() emits ``?scope=...`` on every fetch.
+            # Avoids reinstantiating the widget (config attribute access
+            # internals vary across django-tomselect versions).
+            self.fields["featured"].widget.scope = scope
+            self.fields["scope"].initial = scope

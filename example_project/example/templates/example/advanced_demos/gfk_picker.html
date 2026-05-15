@@ -1,0 +1,175 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+{% load i18n %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext { font-size: 12px; color: #6c757d; }
+        .code-example {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        /* Type pills inside Tom Select option/item renders. */
+        .dts-gfk-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dts-type-pill {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 1px 8px;
+            border-radius: 10px;
+            color: #fff;
+        }
+        .dts-type-article { background: #1f6feb; }
+        .dts-type-author { background: #2da44e; }
+        .dts-type-magazine { background: #8250df; }
+        .spotlight-list dt { font-size: 0.9rem; }
+        .spotlight-list dd { margin-left: 1.2em; color: #555; font-size: 0.9rem; }
+    </style>
+    <script>
+    /* Tom Select option/item render templates: derive the type-pill metadata
+       client-side from data.value ("article:42"). The package template only
+       serializes value + label + action URLs into allOptions, so we don't try
+       to pass _type_key/_type_label through initial values. */
+    window.dtsGfkRenderers = (function () {
+        var TYPE_LABELS = {article: 'Article', author: 'Author', magazine: 'Magazine'};
+        function typeKey(value) {
+            return (value || '').split(':')[0];
+        }
+        function row(data, escape) {
+            var key = typeKey(data.value);
+            var label = TYPE_LABELS[key] || key;
+            return '<div class="dts-gfk-row">' +
+                '<span class="dts-type-pill dts-type-' + escape(key) + '">' + escape(label) + '</span>' +
+                '<span>' + escape(data.label || data.value || '') + '</span>' +
+                '</div>';
+        }
+        return { option: row, item: row };
+    })();
+    </script>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{% translate "Generic Foreign Key Picker" %}</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>{% translate "A single autocomplete field that picks across Article / Author / Magazine. The stored value is an opaque <code>\"&lt;type&gt;:&lt;id&gt;\"</code> string; the form's <code>clean()</code> resolves it to a <code>ContentType</code> + object id pair and the view persists a <code>Spotlight</code> row." %}</p>
+
+            <h5 class="mt-3">{% translate "Code Example — adapter view" %}</h5>
+            <pre class="code-example">class MultiTypeFeaturedAdapterView(AutocompleteIterablesView):
+    """Subviews are dispatched via as_view() (mirrors _delegate_value).
+
+    First-page only: each subview is called once and its results are merged.
+    has_more=False keeps the contract with the frontend (which needs both
+    has_more AND next_page truthy to paginate).
+    """
+    skip_authorization = True
+
+    def get(self, request, *args, **kwargs):
+        scope = request.GET.get("scope")
+        rows = []
+        for key, type_label, view_cls, label_field in routes():
+            if scope and scope != key:
+                continue
+            try:
+                resp = view_cls.as_view()(request)
+            except PermissionDenied:
+                continue
+            for r in json.loads(resp.content).get("results", []):
+                pk = r.get((view_cls.value_fields or ["id"])[0], r.get("id"))
+                rows.append(sanitize_dict({
+                    "value": f"{key}:{pk}",
+                    "label": str(r.get(label_field, "")),
+                    "_type_key": key,
+                    "_type_label": type_label,
+                }))
+        return JsonResponse({"results": rows, "page": 1, "has_more": False, "next_page": None})</pre>
+        </div>
+
+        {# Scope narrowing form (GET → reloads the page with ?scope=...) #}
+        <form method="get" class="mb-3 row align-items-end">
+            <div class="col-md-4">
+                <label for="id_scope" class="form-label">{% translate "Type filter" %}</label>
+                <select name="scope" id="id_scope" class="form-select"
+                        onchange="this.form.submit()">
+                    {% for value, label in form.fields.scope.choices %}
+                        <option value="{{ value }}" {% if value == scope %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div class="helptext">{% translate "Changing this reloads the page and narrows the autocomplete." %}</div>
+            </div>
+            <div class="col-md-8 text-muted small">
+                {% if scope %}
+                    {% blocktranslate %}Scoped to: <code>{{ scope }}</code>. The autocomplete URL will include <code>?scope={{ scope }}</code>.{% endblocktranslate %}
+                {% else %}
+                    {% translate "Scope: All types. The autocomplete URL has no scope filter." %}
+                {% endif %}
+            </div>
+        </form>
+
+        <form method="post">
+            {% csrf_token %}
+            {# Preserve the active scope on POST so the redirect retains it. #}
+            {% if scope %}<input type="hidden" name="scope" value="{{ scope }}">{% endif %}
+            <div class="mb-3">
+                {{ form.title.label_tag }}
+                {{ form.title }}
+                {% if form.title.errors %}<div class="text-danger small">{{ form.title.errors }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                {{ form.featured.label_tag }}
+                {{ form.featured }}
+                {% if form.featured.help_text %}<div class="helptext">{{ form.featured.help_text }}</div>{% endif %}
+                {% if form.featured.errors %}<div class="text-danger small">{{ form.featured.errors }}</div>{% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">{% translate "Create Spotlight" %}</button>
+        </form>
+
+        {% if spotlights %}
+            <hr>
+            <h5>{% translate "Recent spotlights" %}</h5>
+            <dl class="spotlight-list">
+                {% for s in spotlights %}
+                    <dt>
+                        <span class="dts-type-pill dts-type-{{ s.content_type.model }}">{{ s.content_type.model|capfirst }}</span>
+                        <strong>{{ s.title }}</strong>
+                    </dt>
+                    <dd>&rarr; {% if s.content_object %}{{ s.content_object }}{% else %}<em>(missing)</em>{% endif %}<br>
+                        <small class="text-muted">{{ s.featured_at|date:"Y-m-d H:i" }}</small>
+                    </dd>
+                {% endfor %}
+            </dl>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+/* Wire the option/item renderers AFTER Tom Select initializes the widget. */
+document.addEventListener('DOMContentLoaded', function attach() {
+    var el = document.getElementById('id_featured');
+    if (!el || !el.tomselect) {
+        requestAnimationFrame(attach);
+        return;
+    }
+    var ts = el.tomselect;
+    ts.settings.render = Object.assign({}, ts.settings.render || {}, {
+        option: window.dtsGfkRenderers.option,
+        item: window.dtsGfkRenderers.item,
+    });
+    // Force Tom Select to re-render any pre-selected items with the new template.
+    var current = ts.items.slice();
+    ts.clear(true);
+    current.forEach(function (v) { ts.addItem(v, true); });
+});
+</script>
+{% endblock %}

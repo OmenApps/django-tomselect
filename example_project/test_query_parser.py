@@ -66,11 +66,6 @@ def _build_composite(operator_specs: dict[str, dict], free_text_lookups=("title_
     return composite
 
 
-# ---------------------------------------------------------------------------
-# Corpus-driven parser tests
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture(scope="module")
 def corpus() -> dict:
     """Return the parsed JSON corpus shared with the JS parser tests."""
@@ -108,11 +103,6 @@ def test_parser_corpus(name: str, case: dict, corpus: dict) -> None:
     expected_error_codes = case["errors"]
     actual_error_codes = [e.code for e in parsed.errors]
     assert actual_error_codes == expected_error_codes, f"{name}: error codes mismatch"
-
-
-# ---------------------------------------------------------------------------
-# ParsedQuery.apply() tests
-# ---------------------------------------------------------------------------
 
 
 class _FakeQS:
@@ -251,11 +241,6 @@ def test_apply_no_op_when_empty():
     assert qs.applied == []
 
 
-# ---------------------------------------------------------------------------
-# Operator validation tests
-# ---------------------------------------------------------------------------
-
-
 def test_operator_requires_value_field():
     """Operator construction without value_field raises ImproperlyConfigured."""
     with pytest.raises(ImproperlyConfigured, match="requires value_field"):
@@ -299,11 +284,6 @@ def test_operator_bound_lookup_explicit_override():
         label_field="name", filter_lookup="id", bound_lookup="id",
     )
     assert op.bound_lookup == "id"
-
-
-# ---------------------------------------------------------------------------
-# Helpers (defined after their first use for readability)
-# ---------------------------------------------------------------------------
 
 
 class _DummyModelView(AutocompleteModelView):

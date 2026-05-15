@@ -1,0 +1,134 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+{% load i18n %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .demo-container {
+            max-width: 980px;
+            margin: 20px auto;
+        }
+        .code-example {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        .cheatsheet {
+            background: #fefefe;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 12px 16px;
+        }
+        .cheatsheet code {
+            background: #f1f3f5;
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .results-table th { background: #f8f9fa; }
+        .article-row td { vertical-align: middle; }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{% translate "Article Token Search (Advanced)" %}</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>{% translate "Companion to the basic <a href='/article-token-search/'>token-style search</a>. This version exercises <code>Operator.q_translator</code> — a callable hook that lets each operator build an arbitrary <code>Q</code> object from the token value. Comparison/range syntax lives inside the value because the tokenizer only understands <code>key:value</code>." %}</p>
+
+            <div class="cheatsheet my-3">
+                <strong>{% translate "Cheatsheet:" %}</strong>
+                <ul class="mb-0">
+                    <li><code>author:&lt;id&gt;</code> &mdash; {% translate "filter by author id (multi: <code>author:1,2</code>)" %}</li>
+                    <li><code>status:&lt;value&gt;</code> &mdash; {% translate "filter by status (multi: <code>status:draft,published</code>)" %}</li>
+                    <li><code>published_after:YYYY-MM-DD</code> &mdash; {% translate "articles created on/after this date" %}</li>
+                    <li><code>published_before:YYYY-MM-DD</code> &mdash; {% translate "articles created strictly before this date" %}</li>
+                    <li><code>word_count:&gt;500</code>, <code>&lt;2000</code>, <code>&gt;=1000</code>, <code>&lt;=5000</code>, <code>=500</code> &mdash; {% translate "comparison operators" %}</li>
+                    <li><code>word_count:100..2000</code> &mdash; {% translate "inclusive range" %}</li>
+                    <li>{% translate "Quote a phrase for free-text title search:" %} <code>"long form essay"</code></li>
+                </ul>
+            </div>
+
+            <p class="text-muted small">{% translate "Try:" %}
+                <a href="?q=published_after:2024-01-01+word_count:%3E500">
+                    <code>published_after:2024-01-01 word_count:&gt;500</code>
+                </a>
+            </p>
+
+            <h5 class="mt-4">{% translate "Code Example" %}</h5>
+            <pre class="code-example">def _q_word_count(op, values):
+    raw = values[0].strip()
+    if ".." in raw:
+        lo, hi = raw.split("..", 1)
+        return Q(word_count__gte=int(lo), word_count__lte=int(hi))
+    for prefix, lookup in ((">=", "gte"), ("<=", "lte"),
+                            (">", "gt"), ("<", "lt"), ("=", "exact")):
+        if raw.startswith(prefix):
+            return Q(**{f"word_count__{lookup}": int(raw[len(prefix):])})
+    return Q(word_count__exact=int(raw))
+
+class ArticleAdvancedTokenQueryView(CompositeAutocompleteView):
+    operators = [
+        Operator(key="word_count", view=NoSuggestionAutocompleteView,
+                 value_field="id", label_field="id",
+                 q_translator=_q_word_count, max_count=1),
+        # ... published_after, published_before, author, status ...
+    ]
+    free_text_lookups = ["title__icontains"]</pre>
+        </div>
+
+        <form method="get" class="mb-4">
+            <div class="mb-3">
+                {{ form.q.label_tag }}
+                {{ form.q }}
+                {% if form.q.help_text %}<div class="helptext">{{ form.q.help_text }}</div>{% endif %}
+                {% if form.q.errors %}
+                    <div class="text-danger small mt-1">{{ form.q.errors }}</div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">{% translate "Filter" %}</button>
+            <a href="{% url 'article-advanced-token-search' %}" class="btn btn-link">{% translate "Reset" %}</a>
+        </form>
+
+        <h5>{% translate "Results" %}</h5>
+        {% if articles %}
+            <table class="table table-sm results-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{% translate "Title" %}</th>
+                        <th>{% translate "Word Count" %}</th>
+                        <th>{% translate "Status" %}</th>
+                        <th>{% translate "Created" %}</th>
+                        <th>{% translate "Authors" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for article in articles %}
+                        <tr class="article-row">
+                            <td>{{ article.id }}</td>
+                            <td>{{ article.title }}</td>
+                            <td>{{ article.word_count }}</td>
+                            <td><span class="badge bg-secondary">{{ article.get_status_display }}</span></td>
+                            <td><small class="text-muted">{{ article.created_at|date:"Y-m-d" }}</small></td>
+                            <td>{% for a in article.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="text-muted small">{% blocktranslate count counter=articles|length %}{{ counter }} match{% plural %}{{ counter }} matches{% endblocktranslate %} ({% translate "showing first 50" %})</div>
+        {% else %}
+            <p class="text-muted">{% translate "No articles match the current filter." %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

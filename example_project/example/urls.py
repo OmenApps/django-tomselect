@@ -46,6 +46,24 @@ urlpatterns = [
     path("three-level-filter-by/", views.market_selection_view, name="three-level-filter-by"),
     path("article-bulk-action/", views.article_bulk_action_view, name="article-bulk-action"),
     path("article-token-search/", views.article_token_search_view, name="article-token-search"),
+    path(
+        "article-advanced-token-search/",
+        views.article_advanced_token_search_view,
+        name="article-advanced-token-search",
+    ),
+    path("demo-github-user-picker/", views.github_user_picker_view, name="github-user-picker"),
+    path("demo-inline-create-tag/", views.inline_create_tag_demo, name="inline-create-tag"),
+    path(
+        "htmx-create-publication-tag/",
+        views.publication_tag_create_htmx,
+        name="htmx-create-publication-tag",
+    ),
+    path(
+        "htmx-tag-session-panel/",
+        views.tag_session_panel_htmx,
+        name="htmx-tag-session-panel",
+    ),
+    path("demo-gfk-picker/", views.gfk_picker_view, name="gfk-picker"),
     path("article-filtered-table/", views.article_filtered_table, name="article-filtered-table"),
     path("rich-article-select/", views.rich_article_select_demo, name="rich-article-select"),
     path(
@@ -195,5 +213,25 @@ urlpatterns = [
         "autocomplete/article-token/",
         autocompletes.ArticleTokenQueryView.as_view(),
         name="autocomplete-article-token",
+    ),
+    path(
+        "autocomplete/article-advanced-token/",
+        autocompletes.ArticleAdvancedTokenQueryView.as_view(),
+        name="autocomplete-article-advanced-token",
+    ),
+    path(
+        "autocomplete/no-suggestion/",
+        autocompletes.NoSuggestionAutocompleteView.as_view(),
+        name="autocomplete-no-suggestion",
+    ),
+    path(
+        "autocomplete/github-user/",
+        autocompletes.GitHubUserAutocompleteView.as_view(),
+        name="autocomplete-github-user",
+    ),
+    path(
+        "autocomplete/multi-type-featured/",
+        autocompletes.MultiTypeFeaturedAdapterView.as_view(),
+        name="autocomplete-multi-type-featured",
     ),
 ]

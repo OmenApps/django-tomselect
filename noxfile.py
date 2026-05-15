@@ -147,10 +147,6 @@ def js_build(session: Session) -> None:
     session.run("npm", "run", "buildsmall", external=True)
 
 
-# ---------------------------------------------------------------------------
-# CSS vendoring helpers
-# ---------------------------------------------------------------------------
-
 #: Bootstrap 5 CSS variable fallbacks (Bootstrap 5.3 defaults).
 #: Order matters: longer names must come before shorter ones that are prefixes
 #: (e.g. --bs-border-color-translucent before --bs-border-color).

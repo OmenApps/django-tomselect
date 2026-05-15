@@ -1,0 +1,13 @@
+{% load i18n %}
+<div id="session-panel">
+    <h6 class="text-muted">{% translate "Tags created this session" %}</h6>
+    {% if session_tags %}
+        <ul class="list-unstyled mb-0">
+            {% for tag in session_tags %}
+                <li><span class="badge bg-info text-dark">{{ tag }}</span></li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-muted small mb-0"><em>{% translate "(none yet — try typing a new tag below)" %}</em></p>
+    {% endif %}
+</div>

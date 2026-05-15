@@ -1,6 +1,7 @@
 """Views package for the example project."""
 
 from example_project.example.views.advanced_demos import (
+    article_advanced_token_search_view,
     article_bulk_action_view,
     article_create_view,
     article_detail_view,
@@ -9,10 +10,15 @@ from example_project.example.views.advanced_demos import (
     article_token_search_view,
     article_update_view,
     constant_filter_by_demo,
+    gfk_picker_view,
+    github_user_picker_view,
+    inline_create_tag_demo,
     market_selection_view,
     multiple_filter_by_demo,
+    publication_tag_create_htmx,
     rich_article_select_demo,
     rich_author_multi_select_demo,
+    tag_session_panel_htmx,
 )
 from example_project.example.views.basic_demos import (
     bootstrap4_demo,
@@ -63,6 +69,7 @@ from example_project.example.views.intermediate_demos import (
 
 __all__ = [
     # Advanced demos
+    "article_advanced_token_search_view",
     "article_bulk_action_view",
     "article_token_search_view",
     "article_create_view",
@@ -71,10 +78,15 @@ __all__ = [
     "article_list_view",
     "article_update_view",
     "constant_filter_by_demo",
+    "gfk_picker_view",
+    "github_user_picker_view",
+    "inline_create_tag_demo",
     "market_selection_view",
     "multiple_filter_by_demo",
+    "publication_tag_create_htmx",
     "rich_article_select_demo",
     "rich_author_multi_select_demo",
+    "tag_session_panel_htmx",
     # Basic demos
     "bootstrap4_demo",
     "bootstrap5_demo",

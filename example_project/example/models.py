@@ -2,6 +2,8 @@
 
 import uuid
 
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -509,3 +511,25 @@ class ModelWithPKIDAndUUIDId(models.Model):
     def __str__(self):
         """Return the name of the model."""
         return self.name
+
+
+class Spotlight(models.Model):
+    """A spotlight pointing at any of: Article, Author, or Magazine.
+
+    Used by the Generic Foreign Key picker demo to demonstrate selection
+    across heterogeneous model types in a single autocomplete field.
+    """
+
+    title = models.CharField(max_length=200)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+    featured_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Spotlight"
+        verbose_name_plural = "Spotlights"
+        ordering = ["-featured_at"]
+
+    def __str__(self):
+        return self.title

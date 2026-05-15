@@ -1,15 +1,19 @@
 """Forms package for the example project."""
 
 from example_project.example.forms.advanced_demos import (
+    ArticleAdvancedTokenSearchForm,
     ArticleBulkActionForm,
     ArticleTokenSearchForm,
     ConstantFilterByForm,
     DynamicArticleForm,
     EditionYearForm,
+    GitHubUserPickerForm,
+    InlineCreateTagForm,
     MarketSelectionForm,
     MultipleFilterByForm,
     RichArticleSelectForm,
     RichAuthorMultiSelectForm,
+    SpotlightForm,
     WordCountForm,
 )
 from example_project.example.forms.basic_demos import (
@@ -48,15 +52,19 @@ from example_project.example.forms.oddball_model_forms import (
 
 __all__ = [
     # Advanced demos
+    "ArticleAdvancedTokenSearchForm",
     "ArticleBulkActionForm",
     "ArticleTokenSearchForm",
     "ConstantFilterByForm",
     "DynamicArticleForm",
     "EditionYearForm",
+    "GitHubUserPickerForm",
+    "InlineCreateTagForm",
     "MarketSelectionForm",
     "MultipleFilterByForm",
     "RichArticleSelectForm",
     "RichAuthorMultiSelectForm",
+    "SpotlightForm",
     "WordCountForm",
     # Basic demos
     "Bootstrap4StylingForm",

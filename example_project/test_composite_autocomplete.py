@@ -59,11 +59,6 @@ def composite_class():
     return _ArticleQueryView
 
 
-# ---------------------------------------------------------------------------
-# mode=operators
-# ---------------------------------------------------------------------------
-
-
 def test_mode_operators_returns_metadata(rf, composite_class, db):
     """mode=operators returns operator metadata with multi flags and free_text_lookups."""
     request = rf.get("/q/", {"mode": "operators"})
@@ -77,7 +72,117 @@ def test_mode_operators_returns_metadata(rf, composite_class, db):
     by_key = {op["key"]: op for op in data["operators"]}
     assert by_key["category"]["multi"] is True
     assert by_key["author"]["multi"] is False
+    # filter_lookup operators are not free-form by default.
+    assert by_key["author"]["free_form"] is False
+    assert by_key["status"]["free_form"] is False
     assert data["free_text_lookups"] == ["title__icontains"]
+
+
+def test_mode_operators_marks_q_translator_ops_as_free_form(rf, db):
+    """q_translator-backed operators must surface free_form=True so the JS
+    plugin can commit typed values directly and skip resolve."""
+    from django.db.models import Q
+
+    from django_tomselect.autocompletes import AutocompleteModelView
+
+    class _EmptyView(AutocompleteModelView):
+        """Minimal model view whose queryset is empty - stands in for a
+        free-form operator's bound view without coupling this test to the
+        example_project's NoSuggestionAutocompleteView."""
+
+        model = Author
+
+        def get_queryset(self):
+            return Author.objects.none()
+
+    def _q_after(op, values):
+        return Q(date_published__gte=values[0])
+
+    class _FreeFormView(CompositeAutocompleteView):
+        operators = [
+            Operator(
+                key="author", view=AuthorAutocompleteView,
+                value_field="id", label_field="name",
+                filter_lookup="authors__id",
+            ),
+            Operator(
+                key="published_after", view=_EmptyView,
+                value_field="id", label_field="id",
+                q_translator=_q_after, max_count=1,
+            ),
+            Operator(
+                key="opt_in_free_form", view=AuthorAutocompleteView,
+                value_field="id", label_field="name",
+                filter_lookup="authors__id", free_form=True,
+            ),
+        ]
+
+    request = rf.get("/q/", {"mode": "operators"})
+    response = _FreeFormView.as_view()(request)
+    data = json.loads(response.content)
+    by_key = {op["key"]: op for op in data["operators"]}
+    assert by_key["author"]["free_form"] is False
+    # Auto-derived from q_translator.
+    assert by_key["published_after"]["free_form"] is True
+    # Explicit override on a filter_lookup operator.
+    assert by_key["opt_in_free_form"]["free_form"] is True
+
+
+def test_operator_free_form_defaults_false_without_q_translator():
+    """An Operator with only filter_lookup must default to free_form=False.
+
+    Filter-lookup operators are server-backed; the client should fetch a
+    suggestion list and require a row click to commit. The view-level test
+    asserts the serialized flag; this test pins the dataclass invariant
+    directly so future refactors of __post_init__ can't silently flip it."""
+    op = Operator(
+        key="author", view=AuthorAutocompleteView,
+        value_field="id", label_field="name",
+        filter_lookup="authors__id",
+    )
+    assert op.free_form is False
+
+
+def test_operator_free_form_auto_derived_true_for_q_translator():
+    """When q_translator is set and free_form is left as the default (None),
+    __post_init__ must coerce it to True - the typed value IS the filter,
+    so the client commits without a dropdown row."""
+    from django.db.models import Q
+
+    op = Operator(
+        key="published_after", view=AuthorAutocompleteView,
+        value_field="id", label_field="id",
+        q_translator=lambda op_, values: Q(date_published__gte=values[0]),
+        max_count=1,
+    )
+    assert op.free_form is True
+
+
+def test_operator_explicit_free_form_false_overrides_q_translator_default():
+    """Authors should be able to opt out of free-form even when supplying a
+    q_translator (e.g. a translator that still wants suggestion-only commits).
+    Explicit False must beat the auto-derivation."""
+    from django.db.models import Q
+
+    op = Operator(
+        key="curated_translator", view=AuthorAutocompleteView,
+        value_field="id", label_field="name",
+        q_translator=lambda op_, values: Q(id__in=values),
+        free_form=False,
+    )
+    assert op.free_form is False
+
+
+def test_operator_free_form_never_none_after_init():
+    """free_form is typed bool | None at the field level but must always be
+    a concrete bool after __post_init__, since downstream code (and the
+    serialized meta endpoint) treats it as a bool."""
+    op = Operator(
+        key="author", view=AuthorAutocompleteView,
+        value_field="id", label_field="name",
+        filter_lookup="authors__id",
+    )
+    assert isinstance(op.free_form, bool)
 
 
 def test_mode_operators_default_when_no_mode_param(rf, composite_class, db):
@@ -87,11 +192,6 @@ def test_mode_operators_default_when_no_mode_param(rf, composite_class, db):
     assert response.status_code == 200
     data = json.loads(response.content)
     assert "operators" in data
-
-
-# ---------------------------------------------------------------------------
-# mode=value (delegation)
-# ---------------------------------------------------------------------------
 
 
 def test_mode_value_delegates_to_bound_view(rf, composite_class, db):
@@ -146,11 +246,6 @@ def test_mode_value_search_lookups_override(rf, db):
     # The override is instance-scoped (subclass-per-request) and must not mutate
     # the source class. Confirm _MagazineSearchByName.search_lookups is unchanged.
     assert _MagazineSearchByName.search_lookups == ["name__icontains", "name__startswith"]
-
-
-# ---------------------------------------------------------------------------
-# mode=resolve
-# ---------------------------------------------------------------------------
 
 
 def test_mode_resolve_returns_labels_for_known_ids(rf, composite_class, db):
@@ -278,11 +373,6 @@ def test_mode_resolve_iterables_lookup_by_value_field(rf, composite_class, db):
     assert "missing" not in data["results"][0]
 
 
-# ---------------------------------------------------------------------------
-# resolve_view_class helper
-# ---------------------------------------------------------------------------
-
-
 def test_resolve_view_class_class_ref_returns_class_and_empty_initkwargs():
     """A class reference resolves to the same class with no initkwargs."""
     cls, initkwargs = resolve_view_class(AuthorAutocompleteView)
@@ -303,11 +393,6 @@ def test_resolve_view_class_unknown_url_raises_improperly_configured():
 
     with pytest.raises(ImproperlyConfigured):
         resolve_view_class("nonexistent-url-name-xyz")
-
-
-# ---------------------------------------------------------------------------
-# Method dispatch
-# ---------------------------------------------------------------------------
 
 
 def test_post_method_not_allowed(rf, composite_class, db):

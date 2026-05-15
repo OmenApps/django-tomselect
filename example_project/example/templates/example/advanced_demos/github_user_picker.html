@@ -1,0 +1,104 @@
+{% extends 'example/base_with_bootstrap5.html' %}
+{% load i18n %}
+
+{% block extra_header %}
+    {{ form.media }}
+    <style>
+        .helptext { font-size: 12px; color: #6c757d; }
+        .demo-container { max-width: 980px; margin: 20px auto; }
+        .code-example {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        .api-notice {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 10px 14px;
+            margin: 12px 0;
+            border-radius: 4px;
+        }
+        .submitted-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: #e7f5ff;
+            border: 1px solid #74c0fc;
+            border-radius: 16px;
+            margin-top: 8px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{% translate "External API: GitHub User Picker" %}</h2>
+    </div>
+    <div class="card-body">
+        <div class="pb-3">
+            <p>{% translate "An autocomplete source doesn't have to be the Django ORM. This demo's autocomplete view subclasses <code>AutocompleteIterablesView</code> but overrides <code>get()</code> directly to call GitHub's public <code>/search/users</code> API." %}</p>
+            <p>{% translate "The selected value (a GitHub login) is stored in a plain <code>CharField</code> — no FK, no model required." %}</p>
+
+            <div class="api-notice">
+                <strong>{% translate "About the rate limit:" %}</strong>
+                {% translate "GitHub's unauthenticated Search API is limited (≈10 requests/minute per IP)." %}
+                {% translate "We cache each (query, page) pair for 5 minutes, and back off on <code>403</code>/<code>429</code> using the <code>retry-after</code> header." %}
+                {% translate "Cache uses Django's default <code>LocMemCache</code>, which is per-process — for production use a shared backend (Redis/Memcached)." %}
+            </div>
+
+            <h5 class="mt-4">{% translate "Code Example" %}</h5>
+            <pre class="code-example">class GitHubUserAutocompleteView(AutocompleteIterablesView):
+    skip_authorization = True
+
+    def get(self, request, *args, **kwargs):
+        q = (request.GET.get("q") or "").strip()
+        page = max(int(request.GET.get("p", 1) or 1), 1)
+        if len(q) &lt; 2:
+            return JsonResponse({"results": [], "page": page, "has_more": False})
+        cached = cache.get(f"gh-search:{hash(q)}:{page}")
+        if cached is not None:
+            return JsonResponse(cached)
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get("https://api.github.com/search/users",
+                              params={"q": q, "per_page": 20, "page": page})
+        # ... handle 403/429/retry-after, normalize rows to {value, label, ...} ...
+        return JsonResponse(payload)</pre>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                {{ form.github_user.label_tag }}
+                {{ form.github_user }}
+                {% if form.github_user.help_text %}<div class="helptext">{{ form.github_user.help_text }}</div>{% endif %}
+                {% if form.github_user.errors %}
+                    <div class="text-danger small mt-1">{{ form.github_user.errors }}</div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">{% translate "Submit" %}</button>
+            <a href="{% url 'github-user-picker' %}" class="btn btn-link">{% translate "Reset" %}</a>
+        </form>
+
+        {% if submitted %}
+            <div class="alert alert-info mt-4">
+                <strong>{% translate "Submitted:" %}</strong>
+                {% if selected %}
+                    <span class="submitted-chip">
+                        <code>{{ selected }}</code>
+                        <a href="https://github.com/{{ selected }}" target="_blank" rel="noopener" class="small">
+                            github.com/{{ selected }} &rarr;
+                        </a>
+                    </span>
+                {% else %}
+                    <em>{% translate "(nothing selected)" %}</em>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

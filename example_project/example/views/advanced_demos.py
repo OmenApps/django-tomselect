@@ -18,20 +18,27 @@ from django.core.exceptions import ValidationError as _ValidationError
 
 from django_tomselect.query import parse_query as _parse_query
 
+from example_project.example.autocompletes import (
+    ArticleAdvancedTokenQueryView as _ArticleAdvancedTokenQueryView,
+)
 from example_project.example.autocompletes import ArticleTokenQueryView as _ArticleTokenQueryView
 from example_project.example.forms import (
+    ArticleAdvancedTokenSearchForm,
     ArticleBulkActionForm,
     ArticleTokenSearchForm,
     ConstantFilterByForm,
     DynamicArticleForm,
     EditionYearForm,
+    GitHubUserPickerForm,
+    InlineCreateTagForm,
     MarketSelectionForm,
     MultipleFilterByForm,
     RichArticleSelectForm,
     RichAuthorMultiSelectForm,
+    SpotlightForm,
     WordCountForm,
 )
-from example_project.example.models import Article, ArticleStatus, Author
+from example_project.example.models import Article, ArticleStatus, Author, PublicationTag, Spotlight
 
 logger = logging.getLogger(__name__)
 
@@ -460,3 +467,219 @@ def article_token_search_view(request):
             articles = Article.objects.all().distinct()[:50]
 
     return TemplateResponse(request, template, {"form": form, "articles": articles})
+
+
+def article_advanced_token_search_view(request):
+    """Token-style article filter with date/range/comparison operators.
+
+    Companion to :func:`article_token_search_view`. The simple demo uses only
+    ``filter_lookup`` (equality / ``__in``); this one exercises
+    :attr:`~django_tomselect.autocompletes.Operator.q_translator` callables,
+    which receive ``(op, list[values])`` and return an arbitrary ``Q`` object.
+
+    Comparison/range syntax (``>500``, ``100..2000``, etc.) lives inside the
+    token value because the tokenizer only understands ``key:value``.
+    """
+    template = "example/advanced_demos/article_advanced_token_search.html"
+
+    form = ArticleAdvancedTokenSearchForm(request.GET or None)
+    articles = Article.objects.none()
+
+    if not request.GET:
+        articles = Article.objects.all().distinct()[:50]
+    elif form.is_valid():
+        q = form.cleaned_data.get("q", "") or ""
+        if q:
+            parsed = _parse_query(q, _ArticleAdvancedTokenQueryView)
+            try:
+                qs = parsed.apply(Article.objects.all())
+                articles = qs.distinct()[:50]
+            except _ValidationError as exc:
+                form.add_error("q", exc)
+        else:
+            articles = Article.objects.all().distinct()[:50]
+
+    return TemplateResponse(request, template, {"form": form, "articles": articles})
+
+
+def github_user_picker_view(request: HttpRequest) -> HttpResponse:
+    """External-API-backed autocomplete demo.
+
+    No model, no queryset — the autocomplete view talks directly to GitHub's
+    ``/search/users`` endpoint. Selecting a user stores the login string in a
+    plain ``CharField``.
+    """
+    if request.method == "POST":
+        form = GitHubUserPickerForm(request.POST)
+        if form.is_valid():
+            selected = form.cleaned_data.get("github_user") or ""
+            return TemplateResponse(
+                request,
+                "example/advanced_demos/github_user_picker.html",
+                {"form": form, "selected": selected, "submitted": True},
+            )
+    else:
+        form = GitHubUserPickerForm()
+
+    return TemplateResponse(
+        request,
+        "example/advanced_demos/github_user_picker.html",
+        {"form": form, "selected": None, "submitted": False},
+    )
+
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
+_SESSION_PANEL_KEY = "demo_inline_create_tags"
+
+
+def inline_create_tag_demo(request: HttpRequest) -> HttpResponse:
+    """Page view for the HTMX inline-create demo."""
+    form = InlineCreateTagForm()
+    session_tags: list[str] = list(request.session.get(_SESSION_PANEL_KEY) or [])
+
+    if request.method == "POST":
+        form = InlineCreateTagForm(request.POST)
+        if form.is_valid():
+            chosen = form.cleaned_data.get("tags") or []
+            # No-op persistence at submit time — the HTMX create endpoint already
+            # persisted any new tags. We just clear the session panel.
+            request.session[_SESSION_PANEL_KEY] = []
+            return TemplateResponse(
+                request,
+                "example/advanced_demos/inline_create_tag.html",
+                {"form": InlineCreateTagForm(), "submitted": chosen, "session_tags": []},
+            )
+
+    return TemplateResponse(
+        request,
+        "example/advanced_demos/inline_create_tag.html",
+        {"form": form, "submitted": None, "session_tags": session_tags},
+    )
+
+
+@require_POST
+def publication_tag_create_htmx(request: HttpRequest) -> JsonResponse:
+    """Server-side endpoint for the inline-create flow.
+
+    Validates a slug-safe tag name and ``get_or_create``s the tag. Auto-approves
+    the tag so it appears in subsequent autocomplete responses.
+
+    Response contract (consumed by the demo's JS bridge):
+    - success / duplicate: ``{"action": "select", "value": <name>, "label": <name>, "is_new": <bool>}``
+    - failure:             ``{"action": "error", "error": "<message>"}``
+
+    Both responses use HTTP 200 — the JS bridge inspects ``action`` to decide
+    branches. ``label`` and ``value`` are both the tag name so the value space
+    matches ``PublicationTagAutocompleteView``.
+
+    DEMO NOTE: this endpoint deliberately has no authentication or rate
+    limiting — it's a wiring demo, not a production tag-creation endpoint. In
+    a real app you'd want ``login_required``, a permission check, and
+    throttling (e.g. django-ratelimit or DRF throttles) before turning user
+    input into auto-approved persisted rows.
+    """
+    name = (request.POST.get("name") or "").strip().lower()
+
+    if not name:
+        return JsonResponse({"action": "error", "error": _("Please type a tag name.")})
+
+    # All further validation (min length, allowed chars, consecutive
+    # separators, alphanumeric edges, max length) is delegated to
+    # ``PublicationTag.full_clean()`` below so the endpoint can never
+    # accept a value the model would reject.
+
+    existing = PublicationTag.objects.filter(name=name).first()
+    if existing is not None:
+        # Auto-approve existing unapproved tags so the autocomplete surfaces them
+        # immediately. Demo-only convenience — see the auth/permission note above.
+        if not existing.is_approved:
+            existing.is_approved = True
+            existing.save(update_fields=["is_approved", "updated_at"])
+        return JsonResponse({
+            "action": "select",
+            "value": existing.name,
+            "label": existing.name,
+            "is_new": False,
+        })
+
+    # Brand-new tag: validate via the model's own clean() so we honor its
+    # rules (consecutive separators forbidden, must start/end alphanumeric,
+    # min 2 chars). full_clean() also enforces max_length=50.
+    from django.core.exceptions import ValidationError as DjangoValidationError
+
+    tag = PublicationTag(name=name, is_approved=True, usage_count=0)
+    try:
+        tag.full_clean()
+    except DjangoValidationError as exc:
+        msgs = []
+        # exc.messages exists on most paths; fall back to str(exc) otherwise.
+        msgs.extend(getattr(exc, "messages", None) or [str(exc)])
+        return JsonResponse({"action": "error", "error": msgs[0] if msgs else _("Invalid tag.")})
+    tag.save()
+
+    # Track ONLY newly-created tags in the session. The panel's "Tags
+    # created this session" heading should match its contents — picking an
+    # existing tag is selection, not creation, and the chip in the field
+    # is already its UI affordance.
+    session_tags = list(request.session.get(_SESSION_PANEL_KEY) or [])
+    if name not in session_tags:
+        session_tags.append(name)
+        request.session[_SESSION_PANEL_KEY] = session_tags
+
+    return JsonResponse({
+        "action": "select",
+        "value": tag.name,
+        "label": tag.name,
+        "is_new": True,
+    })
+
+
+def tag_session_panel_htmx(request: HttpRequest) -> HttpResponse:
+    """Returns the HTMX OOB partial showing tags created in this session."""
+    session_tags: list[str] = list(request.session.get(_SESSION_PANEL_KEY) or [])
+    return TemplateResponse(
+        request,
+        "example/advanced_demos/_tag_session_panel.html",
+        {"session_tags": session_tags},
+    )
+
+
+def gfk_picker_view(request: HttpRequest) -> HttpResponse:
+    """Generic Foreign Key picker demo.
+
+    On submit, persists a :class:`Spotlight` row using the resolved
+    ``(content_type, object_id)`` from the form field. The optional
+    ``?scope=`` query param narrows the picker to a single operator key.
+    """
+    scope = (request.GET.get("scope") or "").strip() or None
+    if scope not in (None, "article", "author", "magazine"):
+        scope = None
+
+    if request.method == "POST":
+        form = SpotlightForm(request.POST, scope=scope)
+        if form.is_valid():
+            ct, obj_id, _obj = form.fields["featured"]._gfk_resolved
+            Spotlight.objects.create(
+                title=form.cleaned_data["title"],
+                content_type=ct,
+                object_id=obj_id,
+            )
+            target = reverse("gfk-picker")
+            if scope:
+                target = f"{target}?scope={scope}"
+            return HttpResponseRedirect(target)
+    else:
+        form = SpotlightForm(scope=scope)
+
+    spotlights = (
+        Spotlight.objects.select_related("content_type")
+        .order_by("-featured_at")[:25]
+    )
+
+    return TemplateResponse(
+        request,
+        "example/advanced_demos/gfk_picker.html",
+        {"form": form, "spotlights": spotlights, "scope": scope or ""},
+    )

@@ -1,10 +1,14 @@
 """Autocomplete views for the example app."""
 
+import hashlib
 import logging
+import time
 import zlib
 from datetime import timedelta
 from typing import Any
 
+from django.core.cache import cache as _django_cache
+from django.http import JsonResponse as _JsonResponse
 from django.db.models import (
     Case,
     Count,
@@ -1026,3 +1030,365 @@ class ArticleTokenQueryView(CompositeAutocompleteView):
         ),
     ]
     free_text_lookups = ["title__icontains"]
+
+
+class NoSuggestionAutocompleteView(AutocompleteModelView):
+    """Empty-result autocomplete used as a placeholder ``view`` on operators
+    whose values are not browse-able (dates, numeric comparisons).
+
+    ``Operator`` requires ``view`` to be set, but for operators where the
+    value is free-form (e.g. ``published_after:2024-01-01``) we don't want
+    the token widget to pop a suggestion dropdown of unrelated rows.
+    """
+
+    model = Article
+    value_fields = ["id"]
+    skip_authorization = True
+
+    def get_queryset(self) -> QuerySet:  # type: ignore[override]
+        return Article.objects.none()
+
+
+def _parse_iso_date(values):
+    """Parse a single ISO-8601 date from the operator's value list.
+
+    Raises ``ValueError`` (caught by ``ParsedQuery.apply`` and re-raised as
+    ``ValidationError``) if the value cannot be parsed.
+    """
+    from django.utils.dateparse import parse_date
+
+    raw = (values[0] or "").strip()
+    parsed = parse_date(raw)
+    if not parsed:
+        raise ValueError(_("Invalid date: %(raw)r. Use YYYY-MM-DD.") % {"raw": raw})
+    return parsed
+
+
+def _q_published_after(op, values):
+    """Q-translator for ``published_after:<YYYY-MM-DD>``."""
+    return Q(created_at__date__gte=_parse_iso_date(values))
+
+
+def _q_published_before(op, values):
+    """Q-translator for ``published_before:<YYYY-MM-DD>``."""
+    return Q(created_at__date__lt=_parse_iso_date(values))
+
+
+def _q_word_count(op, values):
+    """Q-translator for ``word_count:<expr>``.
+
+    Accepts ``>500``, ``<2000``, ``>=1000``, ``<=5000``, ``=500``,
+    ``100..2000`` (inclusive range), or a plain integer ``500``.
+    """
+    raw = (values[0] or "").strip()
+    if not raw:
+        raise ValueError(_("word_count: expected a number or comparison (e.g. >500, 100..2000)."))
+    if ".." in raw:
+        lo_s, hi_s = raw.split("..", 1)
+        try:
+            lo, hi = int(lo_s), int(hi_s)
+        except ValueError as exc:
+            raise ValueError(_("word_count range needs two integers: '100..2000'.")) from exc
+        if lo > hi:
+            raise ValueError(_("word_count range is inverted: lo > hi."))
+        return Q(word_count__gte=lo, word_count__lte=hi)
+    for prefix, lookup in ((">=", "gte"), ("<=", "lte"), (">", "gt"), ("<", "lt"), ("=", "exact")):
+        if raw.startswith(prefix):
+            try:
+                value = int(raw[len(prefix):])
+            except ValueError as exc:
+                raise ValueError(
+                    _("word_count %(prefix)s expects an integer.") % {"prefix": prefix}
+                ) from exc
+            return Q(**{f"word_count__{lookup}": value})
+    try:
+        return Q(word_count__exact=int(raw))
+    except ValueError as exc:
+        raise ValueError(_("word_count: %(raw)r is not a number.") % {"raw": raw}) from exc
+
+
+class ArticleAdvancedTokenQueryView(CompositeAutocompleteView):
+    """Token-style article query with date/range/comparison operators.
+
+    Demonstrates ``Operator.q_translator`` (the simple token demo only
+    exercises ``filter_lookup``). Comparison/range syntax lives inside the
+    token value because the tokenizer only understands ``key:value``.
+
+    Operators with no useful value-suggestion dropdown bind to
+    :class:`NoSuggestionAutocompleteView` so typing ``published_after:``
+    doesn't pop unrelated article suggestions.
+    """
+
+    operators = [
+        Operator(
+            key="author",
+            view=AuthorAutocompleteView,
+            value_field="id",
+            label_field="name",
+            filter_lookup="authors__id",
+            label=_("Author"),
+            multi=True,
+        ),
+        Operator(
+            key="status",
+            view=ArticleStatusAutocompleteView,
+            value_field="value",
+            label_field="label",
+            filter_lookup="status",
+            label=_("Status"),
+            multi=True,
+        ),
+        Operator(
+            key="published_after",
+            view=NoSuggestionAutocompleteView,
+            value_field="id",
+            label_field="id",
+            q_translator=_q_published_after,
+            label=_("Published after (YYYY-MM-DD)"),
+            max_count=1,
+        ),
+        Operator(
+            key="published_before",
+            view=NoSuggestionAutocompleteView,
+            value_field="id",
+            label_field="id",
+            q_translator=_q_published_before,
+            label=_("Published before (YYYY-MM-DD)"),
+            max_count=1,
+        ),
+        Operator(
+            key="word_count",
+            view=NoSuggestionAutocompleteView,
+            value_field="id",
+            label_field="id",
+            q_translator=_q_word_count,
+            label=_("Word count (e.g. >500, 100..2000)"),
+            max_count=1,
+        ),
+    ]
+    free_text_lookups = ["title__icontains"]
+
+
+_GITHUB_USER_SEARCH_URL = "https://api.github.com/search/users"
+_GITHUB_CACHE_PREFIX = "demo-github-user-search:"
+_GITHUB_CACHE_TIMEOUT = 300  # seconds
+_GITHUB_THROTTLE_KEY = "demo-github-user-search:throttled-until"
+
+
+class GitHubUserAutocompleteView(AutocompleteIterablesView):
+    """Autocompletes against the GitHub /search/users public API.
+
+    Subclasses ``AutocompleteIterablesView`` but overrides ``get()`` to skip
+    ``get_iterable``/``search``/``paginate_iterable`` — the upstream API does
+    pagination and filtering for us.
+
+    Cache, rate-limit, and error handling notes are intentionally kept inline
+    so the demo template can reference them. Cache is per-process
+    (``LocMemCache`` in the example project), so the protection is partial.
+    """
+
+    skip_authorization = True
+    page_size = 20
+
+    def get(self, request, *args, **kwargs):
+        from django_tomselect.utils import sanitize_dict
+
+        q = (request.GET.get("q") or "").strip()
+        try:
+            page = max(int(request.GET.get("p", 1)), 1)
+        except (TypeError, ValueError):
+            page = 1
+
+        if not q or len(q) < 2:
+            return _JsonResponse({"results": [], "page": page, "has_more": False})
+
+        throttled_until = _django_cache.get(_GITHUB_THROTTLE_KEY)
+        if throttled_until and throttled_until > time.time():
+            wait = int(throttled_until - time.time())
+            return _JsonResponse({
+                "results": [], "page": page, "has_more": False,
+                "error": f"GitHub rate limit reached. Try again in {wait} seconds.",
+            })
+
+        # Hash the cache-key components: the raw query may contain spaces or
+        # non-ASCII characters which are forbidden by some cache backends
+        # (Memcached restricts keys to printable ASCII with no whitespace).
+        # LocMemCache (the example project's default) tolerates anything,
+        # but using a hash keeps the demo backend-portable.
+        q_digest = hashlib.sha1(q.encode("utf-8")).hexdigest()[:16]
+        cache_key = f"{_GITHUB_CACHE_PREFIX}{q_digest}:{page}"
+        cached = _django_cache.get(cache_key)
+        if cached is not None:
+            return _JsonResponse(cached)
+
+        try:
+            payload = self._fetch_github(q, page)
+        except Exception:  # noqa: BLE001 - we deliberately swallow upstream failures
+            logger.exception("GitHub user search failed")
+            # Don't cache transient errors — let the next request retry.
+            return _JsonResponse({
+                "results": [], "page": page, "has_more": False,
+                "error": "Upstream error contacting GitHub.",
+            })
+
+        # Sanitize every row at the boundary — overriding get() means we skip
+        # the package's automatic sanitization pass.
+        payload["results"] = [sanitize_dict(r) for r in payload.get("results", [])]
+        # Only cache successful payloads. Caching rate-limit/error responses
+        # would lock the demo into a 5-minute "stale error" state even after
+        # the throttle window expires.
+        if not payload.get("error"):
+            _django_cache.set(cache_key, payload, _GITHUB_CACHE_TIMEOUT)
+        return _JsonResponse(payload)
+
+    def _fetch_github(self, q: str, page: int) -> dict[str, Any]:
+        """Call the GitHub search API and normalize the response shape."""
+        import httpx  # imported lazily so the rest of the example app loads fine without it
+
+        params = {"q": q, "per_page": self.page_size, "page": page}
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(_GITHUB_USER_SEARCH_URL, params=params, headers={"Accept": "application/json"})
+
+        # Rate-limit hard-stop: mark a throttle window so we stop hitting the API.
+        if resp.status_code in (403, 429):
+            retry_after = resp.headers.get("retry-after")
+            try:
+                wait = int(retry_after) if retry_after else 60
+            except ValueError:
+                wait = 60
+            reset = resp.headers.get("x-ratelimit-reset")
+            try:
+                reset_at = int(reset) if reset else int(time.time() + wait)
+            except ValueError:
+                reset_at = int(time.time() + wait)
+            _django_cache.set(_GITHUB_THROTTLE_KEY, reset_at, max(wait, 30))
+            return {
+                "results": [], "page": page, "has_more": False,
+                "error": f"GitHub rate limit reached. Try again in {wait} seconds.",
+            }
+
+        if resp.status_code >= 400:
+            return {
+                "results": [], "page": page, "has_more": False,
+                "error": f"Upstream error ({resp.status_code}).",
+            }
+
+        # If x-ratelimit-remaining is 0, throttle preemptively.
+        remaining = resp.headers.get("x-ratelimit-remaining")
+        if remaining == "0":
+            reset = resp.headers.get("x-ratelimit-reset")
+            try:
+                reset_at = int(reset) if reset else int(time.time() + 60)
+            except ValueError:
+                reset_at = int(time.time() + 60)
+            _django_cache.set(_GITHUB_THROTTLE_KEY, reset_at, 60)
+
+        data = resp.json()
+        items = data.get("items") or []
+        total = data.get("total_count") or 0
+        results = []
+        for u in items:
+            login = u.get("login") or ""
+            # The row keys MUST match the widget's configured value_field /
+            # label_field (here: "value"/"label"). Returning {"id": ...} would
+            # make Tom Select see data.value === undefined and silently drop
+            # every row to "No results found", even with a 200 response.
+            results.append({
+                "value": login,
+                "label": login,
+                "avatar_url": u.get("avatar_url") or "",
+                "html_url": u.get("html_url") or "",
+                "bio": (u.get("bio") or "")[:140],  # keep dropdown rows compact
+            })
+        has_more = page * self.page_size < total
+        return {
+            "results": results,
+            "page": page,
+            "has_more": has_more,
+            # The package's frontend stores the next-page URL only when both
+            # ``has_more`` AND ``next_page`` are present. Emit it so the
+            # widget can fetch additional pages on scroll.
+            "next_page": page + 1 if has_more else None,
+        }
+
+
+class MultiTypeFeaturedAdapterView(AutocompleteIterablesView):
+    """Multi-type autocomplete adapter for the GFK picker.
+
+    Subclasses ``AutocompleteIterablesView`` but overrides ``get()`` to fan
+    out per-type subviews via Django's ``as_view()`` (mirroring the package's
+    own ``_delegate_value`` pattern in ``CompositeAutocompleteView``). Each
+    subview runs its own ``get_queryset → search → prepare_results →
+    pagination`` flow, so we don't double-search.
+
+    Result row shape: ``{value: "type:id", label: <human>, _type_key, _type_label}``.
+    The ``value`` is prefixed with the operator key so consumers can route the
+    selected value back to a ``ContentType`` and an object id without an
+    extra round-trip.
+    """
+
+    skip_authorization = True
+    page_size = 20
+
+    # (key, human label, bound view class, label-field name)
+    _routes: list[tuple[str, str, type, str]] = [
+        ("article", "Article", None, "title"),   # filled in lazily — see _get_routes
+        ("author", "Author", None, "name"),
+        ("magazine", "Magazine", None, "name"),
+    ]
+
+    def _get_routes(self):
+        # Lazy resolution to avoid forward-reference issues (subviews live in
+        # this module too).
+        return [
+            ("article", "Article", ArticleAutocompleteView, "title"),
+            ("author", "Author", AuthorAutocompleteView, "name"),
+            ("magazine", "Magazine", MagazineAutocompleteView, "name"),
+        ]
+
+    def get(self, request, *args, **kwargs):
+        from django.core.exceptions import PermissionDenied
+        from django_tomselect.utils import sanitize_dict
+        import json as _json
+
+        scope = request.GET.get("scope")
+        rows: list[dict[str, Any]] = []
+        for key, type_label, view_cls, label_field in self._get_routes():
+            if scope and scope != key:
+                continue
+            try:
+                sub_resp = view_cls.as_view()(request)
+            except PermissionDenied:
+                continue
+            if sub_resp.status_code != 200:
+                continue
+            try:
+                sub_payload = _json.loads(sub_resp.content)
+            except ValueError:
+                continue
+            # Defensive: AutocompleteModelView.value_fields defaults to [] when
+            # the subview shapes its rows via prepare_results() instead of
+            # declaring concrete value_fields. The ``or ["id"]`` keeps indexing
+            # safe regardless of whether the subview later changes that default.
+            pk_field = (getattr(view_cls, "value_fields", None) or ["id"])[0]
+            for r in sub_payload.get("results", []):
+                pk = r.get(pk_field, r.get("id", ""))
+                rows.append(sanitize_dict({
+                    "value": f"{key}:{pk}",
+                    "label": str(r.get(label_field, "")),
+                    "_type_key": key,
+                    "_type_label": type_label,
+                }))
+
+        # The adapter genuinely is first-page-only: each subview is called
+        # once (its own first page), results are merged, and we return
+        # everything. No per-type cursoring. Emitting ``has_more=True`` with
+        # ``next_page=None`` would lie to the frontend (which needs BOTH to
+        # paginate) and silently hide rows beyond ``page_size``. Surface all
+        # rows the subviews returned and set ``has_more=False``.
+        return _JsonResponse({
+            "results": rows,
+            "page": 1,
+            "has_more": False,
+            "next_page": None,
+        })

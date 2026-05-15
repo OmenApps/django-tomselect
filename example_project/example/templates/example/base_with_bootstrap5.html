@@ -1,5 +1,6 @@
 {% load static %}
 {% load django_htmx %}
+{% load docs_links %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -34,6 +35,7 @@
             <!-- Main Content Area -->
             <main class="col-md-9 ms-sm-auto col-lg-9 px-md-4">
                 <div class="pt-3 pb-2 mb-3">
+                    {% docs_link %}
                     {% block content %}
                     <p>Welcome to the Django Tom Select Demo!</p>
                     {% endblock %}
