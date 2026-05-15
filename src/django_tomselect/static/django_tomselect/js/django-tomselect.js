@@ -4751,6 +4751,15 @@
     wrapper.appendChild(buildFooter());
     return wrapper;
   }
+  function buildFreeFormHint(opMeta, draft) {
+    const wrapper = document.createDocumentFragment();
+    const heading = opMeta.label || opMeta.key;
+    wrapper.appendChild(el("div", { class: "tw-dropdown-heading", text: heading }));
+    const hintText = draft ? "Press Enter to add " + opMeta.key + ":" + draft : "Type a value and press Enter.";
+    wrapper.appendChild(el("div", { class: "tw-dropdown-hint", text: hintText }));
+    wrapper.appendChild(buildFooter("close"));
+    return wrapper;
+  }
   function buildFooter(variant) {
     const footer = el("div", { class: "tw-dropdown-footer" });
     if (variant === "close") {
@@ -4817,6 +4826,14 @@
     function serializedValue() {
       return hiddenInput.value || "";
     }
+    function serializeTokenSegment(key, value) {
+      const raw = key + ":" + value;
+      if (/[\s'"]/.test(raw)) {
+        const escaped = raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        return '"' + escaped + '"';
+      }
+      return raw;
+    }
     function setSerialized(s) {
       hiddenInput.value = s;
       hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
@@ -4840,7 +4857,9 @@
         const cacheKey = t.key + ":" + valueText;
         const cached = hydration.has(cacheKey) ? hydration.get(cacheKey) : void 0;
         chipsEl.appendChild(buildTokenChip(t, cached));
-        if (cached === void 0 && t.values.length === 1) {
+        const opMeta = operatorMap[t.key];
+        const isFreeForm = !!(opMeta && opMeta.free_form);
+        if (cached === void 0 && t.values.length === 1 && !isFreeForm) {
           scheduleResolve([[t.key, t.values[0]]]);
         }
       }
@@ -4881,6 +4900,13 @@
     async function showValueDropdown(opKey, draft) {
       mode = "value-mode";
       activeOpKey = opKey;
+      const opMeta = operatorMap[opKey] || { key: opKey };
+      if (opMeta.free_form) {
+        clearChildren(dropdownEl);
+        dropdownEl.appendChild(buildFreeFormHint(opMeta, draft));
+        dropdownEl.hidden = false;
+        return;
+      }
       clearChildren(dropdownEl);
       dropdownEl.appendChild(el("div", { class: "tw-dropdown-heading", text: "Loading\u2026" }));
       dropdownEl.hidden = false;
@@ -4897,7 +4923,6 @@
         );
         if (controller && controller.signal.aborted) return;
         if (mode !== "value-mode" || activeOpKey !== opKey) return;
-        const opMeta = operatorMap[opKey];
         clearChildren(dropdownEl);
         dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta));
       } catch (e) {
@@ -4919,13 +4944,22 @@
       const cacheKey = opKey + ":" + id;
       if (label != null) hydration.set(cacheKey, label);
       const existing = serializedValue();
-      const newPart = opKey + ":" + id;
+      const newPart = serializeTokenSegment(opKey, String(id));
       const next = existing ? existing + " " + newPart : newPart;
       setSerialized(next);
       draftEl.value = "";
       closeDropdown();
       activeOpKey = null;
       renderChips();
+    }
+    function commitFreeFormValue() {
+      if (mode !== "value-mode" || !activeOpKey) return false;
+      const value = draftEl.value;
+      if (!value) return false;
+      const opMeta = operatorMap[activeOpKey];
+      if (!opMeta || !opMeta.free_form) return false;
+      commitValueSelection(activeOpKey, value, null);
+      return true;
     }
     function commitFreeText(text) {
       if (!text) return;
@@ -4948,7 +4982,7 @@
       flat.splice(index, 1);
       const parts = flat.map((item) => {
         if (item.kind === "token") {
-          return item.token.key + ":" + item.token.values.join(",");
+          return serializeTokenSegment(item.token.key, item.token.values.join(","));
         }
         return /\s/.test(item.text) ? '"' + item.text.replace(/"/g, '\\"') + '"' : item.text;
       });
@@ -4994,6 +5028,8 @@
         if (active) {
           ev.preventDefault();
           active.click();
+        } else if (commitFreeFormValue()) {
+          ev.preventDefault();
         } else if (ev.key === "Enter" && draftEl.value) {
           ev.preventDefault();
           commitFreeText(draftEl.value);
@@ -5015,6 +5051,10 @@
           removeChipByIndex(chips.length - 1);
         }
       } else if (ev.key === " " && draftEl.value) {
+        if (mode === "value-mode" && activeOpKey) {
+          const opMeta = operatorMap[activeOpKey];
+          if (opMeta && opMeta.free_form) return;
+        }
         const text = draftEl.value;
         if (config.allow_free_text !== false && !text.includes(":")) {
           ev.preventDefault();

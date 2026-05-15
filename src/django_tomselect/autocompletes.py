@@ -1185,6 +1185,10 @@ class Operator:
     search_lookups: list[str] | None = None
     max_count: int | None = None
     min_count: int = 0
+    # When None, auto-derived from ``q_translator``: free-form operators accept
+    # user-typed values without a matching dropdown row. Set explicitly to
+    # override (e.g. a q_translator op that still wants suggestion-only commits).
+    free_form: bool | None = None
 
     def __post_init__(self) -> None:
         """Validate required fields and default ``bound_lookup`` to ``value_field``."""
@@ -1207,6 +1211,8 @@ class Operator:
         # Default bound_lookup to value_field (frozen dataclass; use object.__setattr__).
         if self.bound_lookup is None:
             object.__setattr__(self, "bound_lookup", self.value_field)
+        if self.free_form is None:
+            object.__setattr__(self, "free_form", has_translator)
 
 
 class CompositeAutocompleteView(JSONEncoderMixin, View):
@@ -1312,6 +1318,7 @@ class CompositeAutocompleteView(JSONEncoderMixin, View):
                     "label_field": op.label_field,
                     "max_count": op.max_count,
                     "min_count": op.min_count,
+                    "free_form": bool(op.free_form),
                 }
             )
         return JsonResponse(

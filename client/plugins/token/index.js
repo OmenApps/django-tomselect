@@ -175,6 +175,20 @@ function buildValueDropdown (opKey, results, opMeta) {
   return wrapper
 }
 
+function buildFreeFormHint (opMeta, draft) {
+  // Free-form operators (q_translator-backed) accept arbitrary typed values.
+  // Show the user what they're about to commit instead of "No matches."
+  const wrapper = document.createDocumentFragment()
+  const heading = opMeta.label || opMeta.key
+  wrapper.appendChild(el('div', { class: 'tw-dropdown-heading', text: heading }))
+  const hintText = draft
+    ? 'Press Enter to add ' + opMeta.key + ':' + draft
+    : 'Type a value and press Enter.'
+  wrapper.appendChild(el('div', { class: 'tw-dropdown-hint', text: hintText }))
+  wrapper.appendChild(buildFooter('close'))
+  return wrapper
+}
+
 function buildFooter (variant) {
   const footer = el('div', { class: 'tw-dropdown-footer' })
   if (variant === 'close') {
@@ -262,6 +276,20 @@ function init (root) {
 
   function serializedValue () { return hiddenInput.value || '' }
 
+  // Serialize one `key:value` segment for the hidden input. Quote the segment
+  // when it contains whitespace OR a quote character; the tokenizer treats
+  // both `'` and `"` as quote openers, so an unquoted apostrophe inside a
+  // value would yield UNTERMINATED_QUOTE. Inside the quoted form, escape
+  // backslashes first (so `\\` survives round-tripping) and then `"`.
+  function serializeTokenSegment (key, value) {
+    const raw = key + ':' + value
+    if (/[\s'"]/.test(raw)) {
+      const escaped = raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+      return '"' + escaped + '"'
+    }
+    return raw
+  }
+
   function setSerialized (s) {
     hiddenInput.value = s
     hiddenInput.dispatchEvent(new Event('change', { bubbles: true }))
@@ -290,7 +318,12 @@ function init (root) {
       const cacheKey = t.key + ':' + valueText
       const cached = hydration.has(cacheKey) ? hydration.get(cacheKey) : undefined
       chipsEl.appendChild(buildTokenChip(t, cached))
-      if (cached === undefined && t.values.length === 1) {
+      // Free-form operators (q_translator) have no resolvable label - the
+      // typed string IS the value. Skip the resolve round-trip so the chip
+      // doesn't flicker into "(missing)" when the server has no row for it.
+      const opMeta = operatorMap[t.key]
+      const isFreeForm = !!(opMeta && opMeta.free_form)
+      if (cached === undefined && t.values.length === 1 && !isFreeForm) {
         scheduleResolve([[t.key, t.values[0]]])
       }
     }
@@ -336,6 +369,16 @@ function init (root) {
   async function showValueDropdown (opKey, draft) {
     mode = 'value-mode'
     activeOpKey = opKey
+    const opMeta = operatorMap[opKey] || { key: opKey }
+    // Free-form operators don't have a server-backed suggestion list; the
+    // bound view returns an empty queryset by design. Skip the round-trip
+    // and show a typed-value hint that doubles as a commit affordance.
+    if (opMeta.free_form) {
+      clearChildren(dropdownEl)
+      dropdownEl.appendChild(buildFreeFormHint(opMeta, draft))
+      dropdownEl.hidden = false
+      return
+    }
     clearChildren(dropdownEl)
     dropdownEl.appendChild(el('div', { class: 'tw-dropdown-heading', text: 'Loading…' }))
     dropdownEl.hidden = false
@@ -355,7 +398,6 @@ function init (root) {
       // Mode might have changed (user pressed Esc / committed); only render
       // if we are still in value-mode for the same operator.
       if (mode !== 'value-mode' || activeOpKey !== opKey) return
-      const opMeta = operatorMap[opKey]
       clearChildren(dropdownEl)
       dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta))
     } catch (e) {
@@ -382,13 +424,26 @@ function init (root) {
     const cacheKey = opKey + ':' + id
     if (label != null) hydration.set(cacheKey, label)
     const existing = serializedValue()
-    const newPart = opKey + ':' + id
+    const newPart = serializeTokenSegment(opKey, String(id))
     const next = existing ? existing + ' ' + newPart : newPart
     setSerialized(next)
     draftEl.value = ''
     closeDropdown()
     activeOpKey = null
     renderChips()
+  }
+
+  // Commit the current draft as a free-form `opKey:value` token. Used when
+  // the user types a value for a q_translator-backed operator (e.g.
+  // `published_after:2024-01-01`) where no dropdown row exists to select.
+  function commitFreeFormValue () {
+    if (mode !== 'value-mode' || !activeOpKey) return false
+    const value = draftEl.value
+    if (!value) return false
+    const opMeta = operatorMap[activeOpKey]
+    if (!opMeta || !opMeta.free_form) return false
+    commitValueSelection(activeOpKey, value, null)
+    return true
   }
 
   function commitFreeText (text) {
@@ -413,7 +468,7 @@ function init (root) {
     flat.splice(index, 1)
     const parts = flat.map(item => {
       if (item.kind === 'token') {
-        return item.token.key + ':' + item.token.values.join(',')
+        return serializeTokenSegment(item.token.key, item.token.values.join(','))
       }
       return /\s/.test(item.text) ? '"' + item.text.replace(/"/g, '\\"') + '"' : item.text
     })
@@ -461,6 +516,9 @@ function init (root) {
       if (active) {
         ev.preventDefault()
         active.click()
+      } else if (commitFreeFormValue()) {
+        // value-mode + free-form operator: commit `opKey:draft` as a token.
+        ev.preventDefault()
       } else if (ev.key === 'Enter' && draftEl.value) {
         ev.preventDefault()
         commitFreeText(draftEl.value)
@@ -482,6 +540,14 @@ function init (root) {
         removeChipByIndex(chips.length - 1)
       }
     } else if (ev.key === ' ' && draftEl.value) {
+      // In value-mode for a free-form operator the user may need whitespace
+      // in the value itself (e.g. `published_after:2024 01 01` typo, or an
+      // exact phrase). Let Space type normally and require Enter/Tab to
+      // commit. Outside value-mode, Space still commits free text.
+      if (mode === 'value-mode' && activeOpKey) {
+        const opMeta = operatorMap[activeOpKey]
+        if (opMeta && opMeta.free_form) return
+      }
       const text = draftEl.value
       if (config.allow_free_text !== false && !text.includes(':')) {
         ev.preventDefault()
