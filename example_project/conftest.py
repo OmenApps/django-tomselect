@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.urls import reverse
 
-from example_project.example.models import Edition, Magazine
+from example_project.example.models import Edition, Magazine, ModelWithPKIDAndUUIDId, ModelWithUUIDPk
 
 
 @pytest.fixture(autouse=True)
@@ -109,6 +109,30 @@ def editions(magazines):
 
 
 @pytest.fixture
+def test_editions(db, magazines):
+    """Create a specific set of test editions with known data.
+
+    Creates exactly 9 Edition objects, all linked to the first magazine,
+    with sequential names ("Edition 1"-"Edition 9"), years 2021-2029,
+    pages 10-90, and pub_num "PUB-1"-"PUB-9".
+    """
+    Edition.objects.all().delete()  # Clear any existing editions
+
+    editions = []
+    for i in range(1, 10):  # Create exactly 9 editions
+        edition = Edition.objects.create(
+            name=f"Edition {i}",
+            year=f"202{i}",  # 2021-2029
+            pages=str(i * 10),
+            pub_num=f"PUB-{i}",
+            magazine=magazines[0] if magazines else None,
+        )
+        editions.append(edition)
+
+    return editions
+
+
+@pytest.fixture
 def autocomplete_url():
     """Return the URL for the edition autocomplete view."""
     return reverse("autocomplete-edition")
@@ -140,6 +164,30 @@ def mock_request():
             return "/test/"
 
     return MockRequest()
+
+
+@pytest.fixture
+def sample_uuid_model():
+    """Create a sample ModelWithUUIDPk instance."""
+    return ModelWithUUIDPk.objects.create(name="Test UUID Model")
+
+
+@pytest.fixture
+def sample_pkid_uuid_model():
+    """Create a sample ModelWithPKIDAndUUIDId instance."""
+    return ModelWithPKIDAndUUIDId.objects.create(name="Test PKID UUID Model")
+
+
+@pytest.fixture
+def multiple_uuid_models():
+    """Create multiple ModelWithUUIDPk instances."""
+    return [ModelWithUUIDPk.objects.create(name=f"UUID Model {i}") for i in range(1, 4)]
+
+
+@pytest.fixture
+def multiple_pkid_uuid_models():
+    """Create multiple ModelWithPKIDAndUUIDId instances."""
+    return [ModelWithPKIDAndUUIDId.objects.create(name=f"PKID UUID Model {i}") for i in range(1, 4)]
 
 
 @pytest.fixture

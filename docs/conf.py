@@ -103,6 +103,7 @@ myst_enable_extensions = [
     "substitution",
     "tasklist",
 ]
+myst_heading_anchors = 4
 
 
 def project_django_models(app, what, name, obj, options, lines):  # pylint: disable=W0613 disable=R0913

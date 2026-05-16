@@ -1,42 +1,64 @@
 """Smoke tests for the four new advanced demos.
 
-These tests don't try to be exhaustive — they confirm the demos' wiring
-(URL → view → form → autocomplete view) doesn't crash on the happy path
+These tests don't try to be exhaustive  they confirm the demos' wiring
+(URL >> view >> form >> autocomplete view) doesn't crash on the happy path
 or on common error paths. The package's full behaviour is covered elsewhere.
+
+On Python 3.14 combined with Django 4.2 / 5.1, Django's ``Context.__copy__``
+raises ``AttributeError: 'super' object has no attribute 'dicts' and no
+__dict__`` when the test framework's ``store_rendered_templates`` signal
+copies the context - this is a Django bug fixed in 5.2. We skip the whole
+module on the affected matrix to match the precedent in
+``test_token_widget_integration.py``; coverage is preserved on every other
+supported combination.
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from unittest import mock
 
+import django
 import pytest
 from django.test import Client
 from django.urls import reverse
 
 
-pytestmark = pytest.mark.django_db
+_skip_py314_django_lt_52 = pytest.mark.skipif(
+    sys.version_info >= (3, 14) and django.VERSION < (5, 2),
+    reason=(
+        "Django <5.2 Context.__copy__ is incompatible with Python 3.14 "
+        "(AttributeError: 'super' object has no attribute 'dicts'). Fixed in Django 5.2."
+    ),
+)
+pytestmark = [pytest.mark.django_db, _skip_py314_django_lt_52]
 
 
 @pytest.fixture
 def client() -> Client:
+    """Return a fresh Django test client for each test."""
     return Client()
 
 
 class TestGitHubUserPicker:
+    """Smoke tests for the GitHub user picker demo."""
+
     def test_page_renders(self, client):
+        """The picker page renders and contains its heading."""
         resp = client.get(reverse("github-user-picker"))
         assert resp.status_code == 200
         assert b"GitHub User Picker" in resp.content
 
     def test_autocomplete_empty_query(self, client):
+        """Empty query returns an empty result envelope with no upstream call."""
         resp = client.get(reverse("autocomplete-github-user"), {"q": ""})
         assert resp.status_code == 200
         body = json.loads(resp.content)
         assert body == {"results": [], "page": 1, "has_more": False}
 
     def test_autocomplete_short_query(self, client):
-        # minimum_query_length=2 — single chars should short-circuit.
+        """Single-character queries fall under minimum_query_length=2 and return nothing."""
         resp = client.get(reverse("autocomplete-github-user"), {"q": "a"})
         body = json.loads(resp.content)
         assert body["results"] == []
@@ -59,8 +81,8 @@ class TestGitHubUserPicker:
 
         # httpx is imported lazily inside _fetch_github, so patch on the
         # httpx module itself, not on the example autocompletes module.
-        with mock.patch("httpx.Client") as ClientMock:
-            instance = ClientMock.return_value.__enter__.return_value
+        with mock.patch("httpx.Client") as httpx_client_mock:
+            instance = httpx_client_mock.return_value.__enter__.return_value
             instance.get.return_value = fake_resp
             resp = client.get(reverse("autocomplete-github-user"), {"q": "octo"})
 
@@ -78,6 +100,7 @@ class TestGitHubUserPicker:
         assert all(r["value"] == r["label"] for r in body["results"])
 
     def test_form_post_round_trips_login(self, client):
+        """A POSTed login is echoed back in the rendered response."""
         resp = client.post(reverse("github-user-picker"), {"github_user": "octocat"})
         assert resp.status_code == 200
         assert b"octocat" in resp.content
@@ -93,8 +116,8 @@ class TestGitHubUserPicker:
         fake_resp.headers = {"x-ratelimit-remaining": "10"}
         fake_resp.json.return_value = fake_payload
 
-        with mock.patch("httpx.Client") as ClientMock:
-            instance = ClientMock.return_value.__enter__.return_value
+        with mock.patch("httpx.Client") as httpx_client_mock:
+            instance = httpx_client_mock.return_value.__enter__.return_value
             instance.get.return_value = fake_resp
             resp = client.get(reverse("autocomplete-github-user"), {"q": "user"})
 
@@ -103,9 +126,11 @@ class TestGitHubUserPicker:
         assert body["next_page"] == 2
 
     def test_error_responses_are_not_cached(self, client):
-        """A 403/429 throttle path must not stick in the per-query cache —
-        otherwise the next refresh keeps serving the stale error message even
-        after the throttle window expires."""
+        """Throttle responses must not be memoized by the per-query cache.
+
+        Otherwise the next refresh keeps serving the stale error message even
+        after the throttle window expires.
+        """
         from django.core.cache import cache as django_cache
 
         django_cache.clear()
@@ -113,8 +138,8 @@ class TestGitHubUserPicker:
         fake_resp.status_code = 403
         fake_resp.headers = {"retry-after": "30"}
 
-        with mock.patch("httpx.Client") as ClientMock:
-            instance = ClientMock.return_value.__enter__.return_value
+        with mock.patch("httpx.Client") as httpx_client_mock:
+            instance = httpx_client_mock.return_value.__enter__.return_value
             instance.get.return_value = fake_resp
             resp = client.get(reverse("autocomplete-github-user"), {"q": "octo"})
         body = json.loads(resp.content)
@@ -126,23 +151,27 @@ class TestGitHubUserPicker:
         fake_resp_ok.status_code = 200
         fake_resp_ok.headers = {"x-ratelimit-remaining": "10"}
         fake_resp_ok.json.return_value = {"total_count": 1, "items": [{"login": "octocat", "bio": ""}]}
-        with mock.patch("httpx.Client") as ClientMock:
-            instance = ClientMock.return_value.__enter__.return_value
+        with mock.patch("httpx.Client") as httpx_client_mock:
+            instance = httpx_client_mock.return_value.__enter__.return_value
             instance.get.return_value = fake_resp_ok
             resp2 = client.get(reverse("autocomplete-github-user"), {"q": "octo"})
         body2 = json.loads(resp2.content)
-        # Cache miss → second response is the success payload, not stale error.
+        # Cache miss >> second response is the success payload, not stale error.
         assert "error" not in body2
         assert body2["results"][0]["value"] == "octocat"
 
 
 class TestInlineCreateTag:
+    """Smoke tests for the HTMX-powered inline tag creation demo."""
+
     def test_page_renders(self, client):
+        """The inline-create page renders with its expected heading."""
         resp = client.get(reverse("inline-create-tag"))
         assert resp.status_code == 200
         assert b"Inline Create with HTMX" in resp.content
 
     def test_create_endpoint_success(self, client):
+        """A brand-new tag is created and the endpoint reports is_new=True."""
         from example_project.example.models import PublicationTag
 
         assert not PublicationTag.objects.filter(name="smoke-new").exists()
@@ -159,6 +188,7 @@ class TestInlineCreateTag:
         assert tag.is_approved is True
 
     def test_create_endpoint_duplicate(self, client):
+        """Submitting an existing tag selects it instead of erroring and auto-approves it."""
         from example_project.example.models import PublicationTag
 
         PublicationTag.objects.create(name="dup-tag", is_approved=False)
@@ -182,6 +212,7 @@ class TestInlineCreateTag:
         "double__under",                      # consecutive special chars
     ])
     def test_create_endpoint_validation_failure(self, client, bad):
+        """Invalid tag names are rejected by full_clean() and surface as error responses."""
         # The endpoint delegates to PublicationTag.full_clean(), so these
         # tests track the model's own rules in models.py.
         resp = client.post(reverse("htmx-create-publication-tag"), {"name": bad})
@@ -191,8 +222,11 @@ class TestInlineCreateTag:
         assert "error" in body
 
     def test_session_panel_partial_only_tracks_new_creations(self, client):
-        """Sidebar heading is 'Tags created this session' — re-typing an existing
-        tag should NOT add a panel entry, even though it's a successful 'select'.
+        """Only genuine creations appear in the 'Tags created this session' panel.
+
+        Re-typing an existing tag is a successful 'select' but must not add
+        another panel entry, and re-typing a pre-existing tag must not appear
+        at all.
         """
         from example_project.example.models import PublicationTag
 
@@ -207,13 +241,13 @@ class TestInlineCreateTag:
         assert b"panel-new" in resp.content
 
         # Re-creating the same tag is now a duplicate (is_new=False) and must
-        # NOT duplicate the panel entry — but the existing entry stays.
+        # NOT duplicate the panel entry  but the existing entry stays.
         client.post(reverse("htmx-create-publication-tag"), {"name": "panel-new"})
         resp = client.get(reverse("htmx-tag-session-panel"))
         assert resp.content.count(b"panel-new") == 1
 
         # An existing-but-not-yet-in-panel tag re-typed should not appear in
-        # the panel — only true creations land there.
+        # the panel  only true creations land there.
         PublicationTag.objects.create(name="preexisting", is_approved=False)
         client.post(reverse("htmx-create-publication-tag"), {"name": "preexisting"})
         resp = client.get(reverse("htmx-tag-session-panel"))
@@ -221,12 +255,16 @@ class TestInlineCreateTag:
 
 
 class TestGfkPicker:
+    """Smoke tests for the generic foreign key (GFK) picker demo."""
+
     def test_page_renders(self, client):
+        """The GFK picker page renders with its expected heading."""
         resp = client.get(reverse("gfk-picker"))
         assert resp.status_code == 200
         assert b"Generic Foreign Key Picker" in resp.content
 
     def test_adapter_empty_query(self, client):
+        """Empty queries route through every subview and return a valid envelope."""
         resp = client.get(reverse("autocomplete-multi-type-featured"), {"q": ""})
         assert resp.status_code == 200
         body = json.loads(resp.content)
@@ -235,6 +273,7 @@ class TestGfkPicker:
         assert isinstance(body["results"], list)
 
     def test_adapter_scoped_to_article(self, client):
+        """A scope=article query only returns rows from the article subview."""
         from example_project.example.models import Article
 
         if not Article.objects.exists():
@@ -246,6 +285,7 @@ class TestGfkPicker:
             assert r["_type_key"] == "article"
 
     def test_form_creates_spotlight(self, client):
+        """A valid type:pk submission creates a Spotlight tied to the right object."""
         from example_project.example.models import Article, Spotlight
 
         article = Article.objects.first()
@@ -265,6 +305,7 @@ class TestGfkPicker:
         assert sp.content_object == article
 
     def test_form_rejects_invalid_value(self, client):
+        """A malformed featured value re-renders the form with an 'Invalid value' error."""
         resp = client.post(reverse("gfk-picker"), {
             "title": "Bad",
             "featured": "not-a-pair",
@@ -273,7 +314,7 @@ class TestGfkPicker:
         assert b"Invalid value" in resp.content
 
     def test_scope_param_threads_into_widget_autocomplete_url(self, client):
-        """?scope=article on the page → widget's autocomplete URL includes ?scope=article.
+        """?scope=article on the page >> widget's autocomplete URL includes ?scope=article.
 
         The package frontend appends the widget's ``autocomplete_params``
         string to every fetch URL, so this is the wire-level proof that the
@@ -301,10 +342,11 @@ class TestGfkPicker:
         assert b"autocompleteParams: 'scope\\u003D" not in resp_none.content
 
     def test_adapter_handles_subview_permission_denied(self, client):
-        """If a routed subview raises PermissionDenied, the adapter must skip
-        it and continue with the remaining types — not 500."""
+        """A PermissionDenied from one subview must be skipped, not bubbled as a 500.
+
+        The adapter should continue collecting rows from the remaining types.
+        """
         from django.core.exceptions import PermissionDenied
-        from example_project.example.autocompletes import MultiTypeFeaturedAdapterView
 
         # Force one of the subviews to raise PermissionDenied by patching
         # its as_view() to return a callable that raises.
@@ -326,12 +368,16 @@ class TestGfkPicker:
 
 
 class TestAdvancedTokenSearch:
+    """Smoke tests for the advanced token-search article demo."""
+
     def test_page_renders(self, client):
+        """The advanced token-search page renders with its expected heading."""
         resp = client.get(reverse("article-advanced-token-search"))
         assert resp.status_code == 200
         assert b"Article Token Search (Advanced)" in resp.content
 
     def test_composite_operators_listing(self, client):
+        """?mode=operators returns the configured token operators in expected order."""
         resp = client.get(reverse("autocomplete-article-advanced-token"), {"mode": "operators"})
         body = json.loads(resp.content)
         keys = [op["key"] for op in body["operators"]]
@@ -341,6 +387,7 @@ class TestAdvancedTokenSearch:
         ]
 
     def test_no_suggestion_view_is_empty(self, client):
+        """The 'no suggestion' autocomplete view always returns an empty result list."""
         resp = client.get(reverse("autocomplete-no-suggestion"), {"q": "anything"})
         body = json.loads(resp.content)
         assert body["results"] == []
@@ -355,6 +402,7 @@ class TestAdvancedTokenSearch:
         ("word_count:5000..100", True),  # inverted range
     ])
     def test_q_translator_paths(self, client, q, expect_error):
+        """Valid token expressions render cleanly; invalid ones surface an error hint."""
         resp = client.get(reverse("article-advanced-token-search"), {"q": q})
         assert resp.status_code == 200
         if expect_error:

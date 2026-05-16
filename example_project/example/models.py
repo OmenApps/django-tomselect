@@ -527,9 +527,12 @@ class Spotlight(models.Model):
     featured_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Model metadata for the ``Spotlight`` model."""
+
         verbose_name = "Spotlight"
         verbose_name_plural = "Spotlights"
         ordering = ["-featured_at"]
 
     def __str__(self):
+        """Return the spotlight title as the human-readable representation."""
         return self.title

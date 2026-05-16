@@ -79,16 +79,20 @@ def test_mode_operators_returns_metadata(rf, composite_class, db):
 
 
 def test_mode_operators_marks_q_translator_ops_as_free_form(rf, db):
-    """q_translator-backed operators must surface free_form=True so the JS
-    plugin can commit typed values directly and skip resolve."""
+    """q_translator-backed operators must surface free_form=True.
+
+    The JS plugin can commit typed values directly and skip resolve.
+    """
     from django.db.models import Q
 
     from django_tomselect.autocompletes import AutocompleteModelView
 
     class _EmptyView(AutocompleteModelView):
-        """Minimal model view whose queryset is empty - stands in for a
-        free-form operator's bound view without coupling this test to the
-        example_project's NoSuggestionAutocompleteView."""
+        """Minimal model view whose queryset is empty.
+
+        Stands in for a free-form operator's bound view without coupling
+        this test to the example_project's NoSuggestionAutocompleteView.
+        """
 
         model = Author
 
@@ -134,7 +138,8 @@ def test_operator_free_form_defaults_false_without_q_translator():
     Filter-lookup operators are server-backed; the client should fetch a
     suggestion list and require a row click to commit. The view-level test
     asserts the serialized flag; this test pins the dataclass invariant
-    directly so future refactors of __post_init__ can't silently flip it."""
+    directly so future refactors of __post_init__ can't silently flip it.
+    """
     op = Operator(
         key="author", view=AuthorAutocompleteView,
         value_field="id", label_field="name",
@@ -144,9 +149,11 @@ def test_operator_free_form_defaults_false_without_q_translator():
 
 
 def test_operator_free_form_auto_derived_true_for_q_translator():
-    """When q_translator is set and free_form is left as the default (None),
+    """When q_translator is set and free_form defaults to None, coerce to True.
+
     __post_init__ must coerce it to True - the typed value IS the filter,
-    so the client commits without a dropdown row."""
+    so the client commits without a dropdown row.
+    """
     from django.db.models import Q
 
     op = Operator(
@@ -159,9 +166,11 @@ def test_operator_free_form_auto_derived_true_for_q_translator():
 
 
 def test_operator_explicit_free_form_false_overrides_q_translator_default():
-    """Authors should be able to opt out of free-form even when supplying a
-    q_translator (e.g. a translator that still wants suggestion-only commits).
-    Explicit False must beat the auto-derivation."""
+    """Authors can opt out of free-form even when supplying a q_translator.
+
+    For example, a translator that still wants suggestion-only commits.
+    Explicit False must beat the auto-derivation.
+    """
     from django.db.models import Q
 
     op = Operator(
@@ -174,9 +183,11 @@ def test_operator_explicit_free_form_false_overrides_q_translator_default():
 
 
 def test_operator_free_form_never_none_after_init():
-    """free_form is typed bool | None at the field level but must always be
-    a concrete bool after __post_init__, since downstream code (and the
-    serialized meta endpoint) treats it as a bool."""
+    """free_form must always be a concrete bool after __post_init__.
+
+    It is typed bool | None at the field level, but downstream code (and
+    the serialized meta endpoint) treats it as a bool.
+    """
     op = Operator(
         key="author", view=AuthorAutocompleteView,
         value_field="id", label_field="name",

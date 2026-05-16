@@ -1033,12 +1033,13 @@ class ArticleTokenQueryView(CompositeAutocompleteView):
 
 
 class NoSuggestionAutocompleteView(AutocompleteModelView):
-    """Empty-result autocomplete used as a placeholder ``view`` on operators
-    whose values are not browse-able (dates, numeric comparisons).
+    """Empty-result autocomplete used as a placeholder for free-form operators.
 
-    ``Operator`` requires ``view`` to be set, but for operators where the
-    value is free-form (e.g. ``published_after:2024-01-01``) we don't want
-    the token widget to pop a suggestion dropdown of unrelated rows.
+    Used as the ``view`` for operators whose values are not browse-able
+    (dates, numeric comparisons). ``Operator`` requires ``view`` to be set,
+    but for operators where the value is free-form (e.g.
+    ``published_after:2024-01-01``) we don't want the token widget to pop a
+    suggestion dropdown of unrelated rows.
     """
 
     model = Article
@@ -1046,6 +1047,7 @@ class NoSuggestionAutocompleteView(AutocompleteModelView):
     skip_authorization = True
 
     def get_queryset(self) -> QuerySet:  # type: ignore[override]
+        """Return an empty queryset so no suggestions appear in the dropdown."""
         return Article.objects.none()
 
 
@@ -1074,7 +1076,7 @@ def _q_published_before(op, values):
     return Q(created_at__date__lt=_parse_iso_date(values))
 
 
-def _q_word_count(op, values):
+def _q_word_count(op, values):  # noqa: C901
     """Q-translator for ``word_count:<expr>``.
 
     Accepts ``>500``, ``<2000``, ``>=1000``, ``<=5000``, ``=500``,
@@ -1191,6 +1193,7 @@ class GitHubUserAutocompleteView(AutocompleteIterablesView):
     page_size = 20
 
     def get(self, request, *args, **kwargs):
+        """Handle the autocomplete request by querying the GitHub search API."""
         from django_tomselect.utils import sanitize_dict
 
         q = (request.GET.get("q") or "").strip()
@@ -1241,7 +1244,7 @@ class GitHubUserAutocompleteView(AutocompleteIterablesView):
             _django_cache.set(cache_key, payload, _GITHUB_CACHE_TIMEOUT)
         return _JsonResponse(payload)
 
-    def _fetch_github(self, q: str, page: int) -> dict[str, Any]:
+    def _fetch_github(self, q: str, page: int) -> dict[str, Any]:  # noqa: C901
         """Call the GitHub search API and normalize the response shape."""
         import httpx  # imported lazily so the rest of the example app loads fine without it
 
@@ -1347,6 +1350,7 @@ class MultiTypeFeaturedAdapterView(AutocompleteIterablesView):
         ]
 
     def get(self, request, *args, **kwargs):
+        """Fan out the request to each per-type subview and merge results."""
         from django.core.exceptions import PermissionDenied
         from django_tomselect.utils import sanitize_dict
         import json as _json

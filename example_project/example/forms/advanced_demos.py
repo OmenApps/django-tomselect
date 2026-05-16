@@ -1076,9 +1076,10 @@ from example_project.example.forms.intermediate_demos import DynamicTagField  # 
 
 
 class InlineCreateTagForm(forms.Form):
-    """HTMX-create demo: the tags field accepts brand-new tag names that are
-    persisted server-side instantly via :func:`publication_tag_create_htmx`,
-    not at form submit.
+    """HTMX-create demo accepting brand-new tag names persisted on the fly.
+
+    The tags field accepts brand-new tag names that are persisted server-side
+    instantly via :func:`publication_tag_create_htmx`, not at form submit.
 
     Reuses :class:`DynamicTagField` (a ``TomSelectMultipleChoiceField`` subclass)
     so submitted values are a list of tag-name strings — sidestepping the
@@ -1104,7 +1105,6 @@ class InlineCreateTagForm(forms.Form):
     )
 
 
-
 _GFK_TYPE_MAP = {
     "article": "article",
     "author": "author",
@@ -1128,10 +1128,12 @@ class TomSelectGFKWidget(TomSelectIterablesWidget):
     """
 
     def __init__(self, *args, scope: str | None = None, **kwargs):
+        """Capture the optional ``scope`` kwarg before delegating to the widget."""
         self.scope = (scope or "").strip() or None
         super().__init__(*args, **kwargs)
 
     def get_autocomplete_params(self):  # type: ignore[override]
+        """Append ``scope=<key>`` to the autocomplete URL's query string."""
         base = super().get_autocomplete_params() or ""
         if not self.scope:
             return base
@@ -1144,6 +1146,7 @@ class TomSelectGFKWidget(TomSelectIterablesWidget):
         return f"{base}{sep}{suffix}"
 
     def get_autocomplete_context(self):  # type: ignore[override]
+        """Expose ``autocomplete_params`` so the iterables template renders it."""
         # The iterables widget's get_autocomplete_context does NOT call
         # get_autocomplete_params (only the model widget does). Add the key
         # ourselves so the template can render ``autocompleteParams:``.
@@ -1209,10 +1212,12 @@ class TomSelectGenericForeignKeyField(forms.CharField):
     """
 
     def __init__(self, *args, **kwargs):
+        """Initialize the field and reset the resolved-pair cache."""
         super().__init__(*args, **kwargs)
         self._gfk_resolved = None
 
     def clean(self, value):
+        """Validate the ``"type:id"`` string and resolve it to a real instance."""
         raw = super().clean(value)
         self._gfk_resolved = None
         if not raw:
@@ -1287,6 +1292,7 @@ class SpotlightForm(forms.Form):
     scope = forms.ChoiceField(choices=SCOPE_CHOICES, required=False)
 
     def __init__(self, *args, scope: str | None = None, **kwargs):
+        """Propagate the optional ``scope`` kwarg to the GFK widget."""
         super().__init__(*args, **kwargs)
         if scope:
             # Set scope on the already-instantiated widget so

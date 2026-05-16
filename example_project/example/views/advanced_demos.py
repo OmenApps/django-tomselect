@@ -7,12 +7,12 @@ from django.contrib import messages
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import models
 from django.db.models import Count
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import HttpResponseRedirect, get_object_or_404, reverse
 from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.utils.translation import gettext as _
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from django.core.exceptions import ValidationError as _ValidationError
 
@@ -528,9 +528,6 @@ def github_user_picker_view(request: HttpRequest) -> HttpResponse:
     )
 
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-
 _SESSION_PANEL_KEY = "demo_inline_create_tags"
 
 
@@ -563,8 +560,8 @@ def inline_create_tag_demo(request: HttpRequest) -> HttpResponse:
 def publication_tag_create_htmx(request: HttpRequest) -> JsonResponse:
     """Server-side endpoint for the inline-create flow.
 
-    Validates a slug-safe tag name and ``get_or_create``s the tag. Auto-approves
-    the tag so it appears in subsequent autocomplete responses.
+    Validates a slug-safe tag name and calls ``get_or_create`` for the tag.
+    Auto-approves the tag so it appears in subsequent autocomplete responses.
 
     Response contract (consumed by the demo's JS bridge):
     - success / duplicate: ``{"action": "select", "value": <name>, "label": <name>, "is_new": <bool>}``
