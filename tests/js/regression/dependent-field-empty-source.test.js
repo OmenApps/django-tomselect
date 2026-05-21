@@ -316,7 +316,9 @@ describe('regression: dependent dropdown must be empty when upstream source is e
     })
 
     // Capture any error UI writes that the in-flight catch might attempt.
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Spy on JSDOM's console -- the IIFE runs in that context (test-runner
+    // global console is a separate object).
+    const consoleErrorSpy = vi.spyOn(realWindow.console, 'error').mockImplementation(() => {})
 
     // 1. First load with upstream populated -- fetch starts and hangs.
     const firstCb = vi.fn()
