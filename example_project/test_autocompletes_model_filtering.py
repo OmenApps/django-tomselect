@@ -47,17 +47,37 @@ class TestAutocompleteModelViewFiltering:
         assert filtered_qs.count() == expected_qs.count()
         assert list(filtered_qs) == list(expected_qs)
 
-    def test_apply_filters_missing_dependent_value(self, rf, test_editions):
-        """Test filter_by behavior when dependent field has no value."""
+    def test_apply_filters_with_no_filter_param_in_request(self, rf, test_editions):
+        """Direct API hit with no `f` param at all: backend returns unfiltered queryset.
+
+        The widget's dependent-field contract (empty parent => empty dropdown) is
+        enforced in the JS load() short-circuit; the backend cannot know a view
+        is *configured* as dependent without a filter param to inspect.
+        """
         view = AutocompleteModelView()
         view.model = Edition
-        view.filter_by = ("magazine", "id")
         request = rf.get("")
         view.setup(request)
 
         filtered_qs = view.apply_filters(Edition.objects.all())
-        # Should return full queryset when no filter value provided
         assert filtered_qs.count() == Edition.objects.count()
+
+    @pytest.mark.parametrize("param_key", ["f", "e"], ids=["filter_by", "exclude_by"])
+    def test_apply_filters_with_empty_value_returns_empty(self, rf, test_editions, param_key):
+        """`field__lookup=` (empty value, valid format) hits the empty-value guard.
+
+        Distinct from `field=` (invalid format, caught in _parse_filter_string's
+        ValueError path): this format parses successfully, so it reaches the
+        ``not value or not value.strip()`` guard in _apply_single_filter. Pinning
+        both branches separately keeps either guard from being silently dropped.
+        """
+        view = AutocompleteModelView()
+        view.model = Edition
+        request = rf.get("", {param_key: "magazine__magazine_id="})
+        view.setup(request)
+
+        filtered_qs = view.apply_filters(Edition.objects.all())
+        assert filtered_qs.count() == 0
 
     def test_apply_filters_invalid_tuple(self, rf, test_editions):
         """Test handling of invalid filter_by tuple."""

@@ -120,6 +120,40 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                 return `${url}&${paramName}=${encodeURIComponent(paramValue)}`;
             }
 
+            // True when any field-type filter or exclude has an empty source
+            // value -- contract from docs/example_app/filter_by_magazine.md and
+            // exclude_by_primary_author.md ("dependent dropdown remains empty").
+            // Constants (sourceType === 'const') have no DOM source and always apply.
+            function hasUnsatisfiedDependency(prefix, filterCfg) {
+                if (!filterCfg) return false;
+
+                function fieldIsEmpty(source, levelsUp) {
+                    const effectivePrefix = window.djangoTomSelect.truncatePrefix(prefix, levelsUp || 0);
+                    const el = document.getElementById('id_' + effectivePrefix + source);
+                    return !(el && el.value);
+                }
+
+                function entryUnsatisfied(entry) {
+                    return entry.sourceType === 'field' && fieldIsEmpty(entry.source, entry.levelsUp);
+                }
+
+                if (filterCfg.filters) {
+                    if (filterCfg.filters.some(entryUnsatisfied)) return true;
+                } else if (filterCfg.dependentField) {
+                    // Legacy single-source path: levelsUp is not represented
+                    // (the legacy attributes pre-date formset nesting support).
+                    if (fieldIsEmpty(filterCfg.dependentField, 0)) return true;
+                }
+
+                if (filterCfg.excludes) {
+                    if (filterCfg.excludes.some(entryUnsatisfied)) return true;
+                } else if (filterCfg.excludeField) {
+                    if (fieldIsEmpty(filterCfg.excludeField, 0)) return true;
+                }
+
+                return false;
+            }
+
             {% block tomselect_url_setup %}
                 // URL parameter constants
                 const SEARCH_PARAM = '{{ widget.search_param|escapejs }}';
@@ -443,6 +477,35 @@ You can also extend and call `{{ block.super }}` to augment existing logic.
                         // would point at the wrong row's reset flag and URL builder).
                         const resetVar = self.settings && self.settings.resetVarName;
                         const originalFirstUrlFn = self.settings && self.settings.originalFirstUrl;
+
+                        // Enforce the dependent-field contract documented in
+                        // docs/example_app/filter_by_magazine.md and
+                        // exclude_by_primary_author.md: if any field-type filter or
+                        // exclude has an empty source value, the dropdown must remain
+                        // empty. Read prefix/config from settings (not closure) so
+                        // cloned formset configs honour their own row's DOM state.
+                        const settingsPrefix = self.settings && self.settings.formPrefix;
+                        const settingsFilterCfg = self.settings && self.settings.filterConfig;
+                        if (hasUnsatisfiedDependency(settingsPrefix, settingsFilterCfg)) {
+                            // Null the controller slot so the in-flight catch
+                            // below takes its `_currentLoadController !== controller`
+                            // supersede path and skips the error UI.
+                            if (self._currentLoadController) {
+                                self._currentLoadController.abort();
+                                self._currentLoadController = null;
+                            }
+                            if (self.settings.pagination && query in self.settings.pagination) {
+                                delete self.settings.pagination[query];
+                            }
+                            // Clear the reset flag if we got here via reset-triggered
+                            // load(''); next user interaction starts fresh.
+                            if (resetVar && window[resetVar] === true) {
+                                window[resetVar] = false;
+                            }
+                            callback([]);
+                            return;
+                        }
+
                         var url = this.getUrl(query);
                         if (resetVar && window[resetVar] === true) {
                             if (typeof originalFirstUrlFn === 'function') {
