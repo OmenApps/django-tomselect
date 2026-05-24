@@ -101,4 +101,35 @@ describe('token widget ARIA combobox pattern', () => {
     expect(input.getAttribute('aria-expanded')).toBe('false')
     expect(input.hasAttribute('aria-activedescendant')).toBe(false)
   })
+
+  it('options carry role=option and the active one is wired via aria-activedescendant', async () => {
+    const { root } = mountWidget()
+    await flushAsync()
+    const input = root.querySelector('.tw-input')
+    typeInto(input, '')
+    const opts = root.querySelectorAll('.tw-dropdown .tw-opt')
+    expect(opts.length).toBeGreaterThan(0)
+    opts.forEach(o => expect(o.getAttribute('role')).toBe('option'))
+    const active = root.querySelector('.tw-opt.active')
+    expect(active.id).toBeTruthy()
+    expect(active.getAttribute('aria-selected')).toBe('true')
+    expect(input.getAttribute('aria-activedescendant')).toBe(active.id)
+  })
+
+  it('moves aria-activedescendant with arrow-key navigation', async () => {
+    // Two operators so ArrowDown has somewhere to move.
+    const SECOND_OP = { ...STATUS_OP, key: 'author', label: 'Author' }
+    const { root } = mountWidget({ operators: [STATUS_OP, SECOND_OP] })
+    await flushAsync()
+    const input = root.querySelector('.tw-input')
+    typeInto(input, '')
+    const opts = Array.from(root.querySelectorAll('.tw-dropdown .tw-opt'))
+    expect(opts.length).toBe(2)
+    expect(input.getAttribute('aria-activedescendant')).toBe(opts[0].id)
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+    expect(opts[1].classList.contains('active')).toBe(true)
+    expect(opts[1].getAttribute('aria-selected')).toBe('true')
+    expect(opts[0].getAttribute('aria-selected')).toBe('false')
+    expect(input.getAttribute('aria-activedescendant')).toBe(opts[1].id)
+  })
 })

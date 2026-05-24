@@ -133,6 +133,9 @@ function buildOperatorMenu (operators, draft) {
   filtered.forEach((op, i) => {
     const opt = el('div', {
       class: 'tw-opt' + (i === 0 ? ' active' : ''),
+      role: 'option',
+      id: 'tw-opt-op-' + i,
+      'aria-selected': i === 0 ? 'true' : 'false',
       'data-action': 'select-operator',
       'data-key': op.key
     }, [
@@ -162,6 +165,9 @@ function buildValueDropdown (opKey, results, opMeta) {
     const label = row[opMeta.label_field]
     section.appendChild(el('div', {
       class: 'tw-opt' + (i === 0 ? ' active' : ''),
+      role: 'option',
+      id: 'tw-opt-val-' + i,
+      'aria-selected': i === 0 ? 'true' : 'false',
       'data-action': 'select-value',
       'data-id': id,
       'data-label': label
@@ -309,6 +315,20 @@ function init (root) {
     while (node.firstChild) node.removeChild(node.firstChild)
   }
 
+  // Single source of truth for the active option: keep the `.active` CSS
+  // class, `aria-selected`, and the input's `aria-activedescendant` in sync so
+  // screen readers track keyboard navigation through the listbox.
+  function setActiveOption (opt) {
+    if (!opt) return
+    for (const other of dropdownEl.querySelectorAll('.tw-opt')) {
+      other.classList.remove('active')
+      other.setAttribute('aria-selected', 'false')
+    }
+    opt.classList.add('active')
+    opt.setAttribute('aria-selected', 'true')
+    draftEl.setAttribute('aria-activedescendant', opt.id)
+  }
+
   function renderChips () {
     const parsed = parseQuery(serializedValue(), operatorRegistryForParser(), {
       max_raw_length: config.max_query_length || 4096,
@@ -375,6 +395,7 @@ function init (root) {
     dropdownEl.appendChild(buildOperatorMenu(operatorList, draft))
     dropdownEl.hidden = false
     draftEl.setAttribute('aria-expanded', 'true')
+    setActiveOption(dropdownEl.querySelector('.tw-opt.active'))
   }
 
   async function showValueDropdown (opKey, draft) {
@@ -413,6 +434,7 @@ function init (root) {
       if (mode !== 'value-mode' || activeOpKey !== opKey) return
       clearChildren(dropdownEl)
       dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta))
+      setActiveOption(dropdownEl.querySelector('.tw-opt.active'))
     } catch (e) {
       // AbortError fires when we superseded; silent drop.
       if (e && e.name === 'AbortError') return
@@ -546,8 +568,7 @@ function init (root) {
       let next = ev.key === 'ArrowDown' ? cur + 1 : cur - 1
       if (next < 0) next = opts.length - 1
       if (next >= opts.length) next = 0
-      opts.forEach(elt => elt.classList.remove('active'))
-      opts[next].classList.add('active')
+      setActiveOption(opts[next])
     } else if (ev.key === 'Backspace' && draftEl.value === '') {
       const chips = chipsEl.querySelectorAll('.tw-tok')
       if (chips.length > 0) {
