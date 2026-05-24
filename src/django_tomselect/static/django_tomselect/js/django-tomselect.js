@@ -4441,8 +4441,69 @@
   TomSelect.define("virtual_scroll", plugin14);
   var tom_select_complete_default = TomSelect;
 
-  // client/plugins/dropdown_footer/plugin.ts
+  // client/plugins/remove_button_accessible/plugin.js
+  function getDom8(query) {
+    if (query && query.jquery) return query[0];
+    if (query instanceof HTMLElement) return query;
+    if (typeof query === "string" && query.indexOf("<") > -1) {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = query.trim();
+      return tpl.content.firstChild;
+    }
+    return document.querySelector(query);
+  }
+  function decodeLabel(raw) {
+    return new DOMParser().parseFromString(String(raw), "text/html").documentElement.textContent || "";
+  }
+  function preventDefault7(evt, stop) {
+    if (evt) {
+      evt.preventDefault();
+      if (stop) evt.stopPropagation();
+    }
+  }
   function plugin_default(userOptions) {
+    const options = Object.assign({
+      label: "&times;",
+      title: "Remove",
+      className: "remove",
+      append: true
+    }, userOptions);
+    const self = this;
+    if (!options.append) return;
+    self.hook("after", "setupTemplates", () => {
+      const orig_render_item = self.settings.render.item;
+      self.settings.render.item = (data, escape) => {
+        const item = getDom8(orig_render_item.call(self, data, escape));
+        const labelField = self.settings.labelField;
+        const valueField = self.settings.valueField;
+        let itemLabel = data && labelField != null && data[labelField] != null ? data[labelField] : data && valueField != null ? data[valueField] : "";
+        itemLabel = itemLabel == null ? "" : String(itemLabel);
+        const close_button = document.createElement("button");
+        close_button.type = "button";
+        close_button.className = options.className;
+        if (options.title) close_button.title = options.title;
+        close_button.setAttribute("aria-label", ("Remove " + itemLabel).trim());
+        close_button.textContent = decodeLabel(options.label);
+        item.appendChild(close_button);
+        close_button.addEventListener("mousedown", (evt) => {
+          preventDefault7(evt, true);
+        });
+        close_button.addEventListener("click", (evt) => {
+          if (self.isLocked) return;
+          preventDefault7(evt, true);
+          if (self.isLocked) return;
+          if (!self.shouldDelete([item], evt)) return;
+          self.removeItem(item);
+          self.refreshOptions(false);
+          self.inputState();
+        });
+        return item;
+      };
+    });
+  }
+
+  // client/plugins/dropdown_footer/plugin.ts
+  function plugin_default2(userOptions) {
     const self = this;
     const options = Object.assign({
       title: "Autocomplete Footer",
@@ -4678,7 +4739,12 @@
           labelMarkup ? document.createTextNode(" ") : null,
           labelMarkup
         ]),
-        el("button", { type: "button", class: "tw-tok-x", "aria-label": "Remove", text: "\xD7" })
+        el("button", {
+          type: "button",
+          class: "tw-tok-x",
+          "aria-label": "Remove " + token.key + ":" + valueText,
+          text: "\xD7"
+        })
       ]
     );
   }
@@ -4686,7 +4752,7 @@
     return el("span", { class: "tw-tok tw-tok-freetext", "data-freetext": text }, [
       el("span", { class: "tw-tok-k", text: '"' }),
       el("span", { class: "tw-tok-v" }, [el("span", { class: "tw-tok-label", text })]),
-      el("button", { type: "button", class: "tw-tok-x", "aria-label": "Remove", text: "\xD7" })
+      el("button", { type: "button", class: "tw-tok-x", "aria-label": 'Remove "' + text + '"', text: "\xD7" })
     ]);
   }
   function buildErrorChip(text) {
@@ -4711,6 +4777,9 @@
     filtered.forEach((op, i) => {
       const opt = el("div", {
         class: "tw-opt" + (i === 0 ? " active" : ""),
+        role: "option",
+        id: "tw-opt-op-" + i,
+        "aria-selected": i === 0 ? "true" : "false",
         "data-action": "select-operator",
         "data-key": op.key
       }, [
@@ -4739,6 +4808,9 @@
       const label = row[opMeta.label_field];
       section.appendChild(el("div", {
         class: "tw-opt" + (i === 0 ? " active" : ""),
+        role: "option",
+        id: "tw-opt-val-" + i,
+        "aria-selected": i === 0 ? "true" : "false",
         "data-action": "select-value",
         "data-id": id,
         "data-label": label
@@ -4810,14 +4882,40 @@
     const chipsEl = el("div", { class: "tw-chips" });
     chipsEl.style.display = "contents";
     root.appendChild(chipsEl);
-    const draftEl = el("input", { class: "tw-input", type: "text" });
+    const dropdownId = "tw-dropdown-" + targetName;
+    const draftEl = el("input", {
+      class: "tw-input",
+      type: "text",
+      role: "combobox",
+      "aria-autocomplete": "list",
+      "aria-expanded": "false",
+      "aria-controls": dropdownId,
+      "aria-label": config.placeholder || hiddenInput.placeholder || "Search"
+    });
     draftEl.placeholder = hiddenInput.placeholder || "";
     root.appendChild(draftEl);
-    const dropdownEl = el("div", { class: "tw-dropdown", hidden: true });
+    const dropdownEl = el("div", { class: "tw-dropdown", role: "listbox", hidden: true });
+    dropdownEl.id = dropdownId;
     root.appendChild(dropdownEl);
     const errorEl = el("div", { class: "tw-error-msg" });
     errorEl.style.display = "none";
     root.parentNode.insertBefore(errorEl, root.nextSibling);
+    const statusEl = el("span", {
+      class: "tw-sr-status",
+      "data-tw-status": "",
+      role: "status",
+      "aria-live": "polite"
+    });
+    statusEl.style.position = "absolute";
+    statusEl.style.width = "1px";
+    statusEl.style.height = "1px";
+    statusEl.style.overflow = "hidden";
+    statusEl.style.clip = "rect(0 0 0 0)";
+    statusEl.style.whiteSpace = "nowrap";
+    root.parentNode.insertBefore(statusEl, root.nextSibling);
+    function announce(message) {
+      statusEl.textContent = message;
+    }
     function operatorRegistryForParser() {
       const out = {};
       for (const op of operatorList) out[op.key] = { multi: !!op.multi };
@@ -4840,6 +4938,16 @@
     }
     function clearChildren(node) {
       while (node.firstChild) node.removeChild(node.firstChild);
+    }
+    function setActiveOption(opt) {
+      if (!opt) return;
+      for (const other of dropdownEl.querySelectorAll(".tw-opt")) {
+        other.classList.remove("active");
+        other.setAttribute("aria-selected", "false");
+      }
+      opt.classList.add("active");
+      opt.setAttribute("aria-selected", "true");
+      draftEl.setAttribute("aria-activedescendant", opt.id);
     }
     function renderChips() {
       const parsed = parseQuery(serializedValue(), operatorRegistryForParser(), {
@@ -4896,6 +5004,8 @@
       clearChildren(dropdownEl);
       dropdownEl.appendChild(buildOperatorMenu(operatorList, draft));
       dropdownEl.hidden = false;
+      draftEl.setAttribute("aria-expanded", "true");
+      setActiveOption(dropdownEl.querySelector(".tw-opt.active"));
     }
     async function showValueDropdown(opKey, draft) {
       mode = "value-mode";
@@ -4905,11 +5015,13 @@
         clearChildren(dropdownEl);
         dropdownEl.appendChild(buildFreeFormHint(opMeta, draft));
         dropdownEl.hidden = false;
+        draftEl.setAttribute("aria-expanded", "true");
         return;
       }
       clearChildren(dropdownEl);
       dropdownEl.appendChild(el("div", { class: "tw-dropdown-heading", text: "Loading\u2026" }));
       dropdownEl.hidden = false;
+      draftEl.setAttribute("aria-expanded", "true");
       if (valueFetchController) valueFetchController.abort();
       const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
       valueFetchController = controller;
@@ -4925,6 +5037,7 @@
         if (mode !== "value-mode" || activeOpKey !== opKey) return;
         clearChildren(dropdownEl);
         dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta));
+        setActiveOption(dropdownEl.querySelector(".tw-opt.active"));
       } catch (e) {
         if (e && e.name === "AbortError") return;
         if (mode !== "value-mode" || activeOpKey !== opKey) return;
@@ -4935,6 +5048,8 @@
     function closeDropdown() {
       mode = "closed";
       dropdownEl.hidden = true;
+      draftEl.setAttribute("aria-expanded", "false");
+      draftEl.removeAttribute("aria-activedescendant");
     }
     function commitOperatorAndEnterValueMode(opKey) {
       draftEl.value = "";
@@ -4951,6 +5066,7 @@
       closeDropdown();
       activeOpKey = null;
       renderChips();
+      announce(opKey + " filter added");
     }
     function commitFreeFormValue() {
       if (mode !== "value-mode" || !activeOpKey) return false;
@@ -4970,6 +5086,7 @@
       draftEl.value = "";
       closeDropdown();
       renderChips();
+      announce("Text filter added");
     }
     function removeChipByIndex(index) {
       const parsed = parseQuery(serializedValue(), operatorRegistryForParser(), {
@@ -4988,6 +5105,7 @@
       });
       setSerialized(parts.join(" "));
       renderChips();
+      announce("Filter removed");
     }
     draftEl.addEventListener("input", () => {
       const draft = draftEl.value;
@@ -5042,8 +5160,7 @@
         let next = ev.key === "ArrowDown" ? cur + 1 : cur - 1;
         if (next < 0) next = opts.length - 1;
         if (next >= opts.length) next = 0;
-        opts.forEach((elt) => elt.classList.remove("active"));
-        opts[next].classList.add("active");
+        setActiveOption(opts[next]);
       } else if (ev.key === "Backspace" && draftEl.value === "") {
         const chips = chipsEl.querySelectorAll(".tw-tok");
         if (chips.length > 0) {
@@ -5108,9 +5225,9 @@
   tom_select_complete_default.define("clear_button", plugin3);
   tom_select_complete_default.define("dropdown_header", plugin5);
   tom_select_complete_default.define("dropdown_input", plugin7);
-  tom_select_complete_default.define("remove_button", plugin12);
+  tom_select_complete_default.define("remove_button", plugin_default);
   tom_select_complete_default.define("virtual_scroll", plugin14);
-  tom_select_complete_default.define("dropdown_footer", plugin_default);
+  tom_select_complete_default.define("dropdown_footer", plugin_default2);
   if (typeof tom_select_complete_default === "function") {
     window.TomSelect = tom_select_complete_default;
   } else {
