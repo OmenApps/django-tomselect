@@ -4496,6 +4496,9 @@
           self.removeItem(item);
           self.refreshOptions(false);
           self.inputState();
+          if (self.control_input && typeof self.control_input.focus === "function") {
+            self.control_input.focus();
+          }
         });
         return item;
       };
@@ -4759,10 +4762,10 @@
     return el("span", { class: "tw-tok tw-tok-error" }, [
       el("span", { class: "tw-tok-k", text: "!" }),
       el("span", { class: "tw-tok-v" }, [el("span", { class: "tw-tok-label", text })]),
-      el("button", { type: "button", class: "tw-tok-x", "aria-label": "Remove", text: "\xD7" })
+      el("button", { type: "button", class: "tw-tok-x", "aria-label": "Remove error: " + text, text: "\xD7" })
     ]);
   }
-  function buildOperatorMenu(operators, draft) {
+  function buildOperatorMenu(operators, draft, listboxId) {
     const filtered = operators.filter(
       (o) => !draft || o.key.toLowerCase().startsWith(draft.toLowerCase())
     );
@@ -4774,11 +4777,17 @@
     const section = el("div", { class: "tw-dropdown-section" }, [
       el("div", { class: "tw-dropdown-heading", text: "Operators" })
     ]);
+    const listbox = el("div", {
+      class: "tw-listbox",
+      role: "listbox",
+      id: listboxId,
+      "aria-label": "Filter operators"
+    });
     filtered.forEach((op, i) => {
       const opt = el("div", {
         class: "tw-opt" + (i === 0 ? " active" : ""),
         role: "option",
-        id: "tw-opt-op-" + i,
+        id: listboxId + "-op-" + i,
         "aria-selected": i === 0 ? "true" : "false",
         "data-action": "select-operator",
         "data-key": op.key
@@ -4787,13 +4796,14 @@
         el("span", { class: "tw-opt-text", text: op.label || op.key }),
         op.multi ? el("span", { class: "tw-opt-hint", text: "multi" }) : null
       ]);
-      section.appendChild(opt);
+      listbox.appendChild(opt);
     });
+    section.appendChild(listbox);
     wrapper.appendChild(section);
     wrapper.appendChild(buildFooter());
     return wrapper;
   }
-  function buildValueDropdown(opKey, results, opMeta) {
+  function buildValueDropdown(opKey, results, opMeta, listboxId) {
     const wrapper = document.createDocumentFragment();
     if (!results || results.length === 0) {
       wrapper.appendChild(el("div", { class: "tw-dropdown-heading", text: "No matches." }));
@@ -4803,13 +4813,19 @@
     const section = el("div", { class: "tw-dropdown-section" }, [
       el("div", { class: "tw-dropdown-heading", text: opMeta.label || opKey })
     ]);
+    const listbox = el("div", {
+      class: "tw-listbox",
+      role: "listbox",
+      id: listboxId,
+      "aria-label": (opMeta.label || opKey) + " values"
+    });
     results.forEach((row, i) => {
       const id = row[opMeta.value_field];
       const label = row[opMeta.label_field];
-      section.appendChild(el("div", {
+      listbox.appendChild(el("div", {
         class: "tw-opt" + (i === 0 ? " active" : ""),
         role: "option",
-        id: "tw-opt-val-" + i,
+        id: listboxId + "-val-" + i,
         "aria-selected": i === 0 ? "true" : "false",
         "data-action": "select-value",
         "data-id": id,
@@ -4819,6 +4835,7 @@
         el("span", { class: "tw-opt-text", text: String(label) })
       ]));
     });
+    section.appendChild(listbox);
     wrapper.appendChild(section);
     wrapper.appendChild(buildFooter());
     return wrapper;
@@ -4877,6 +4894,7 @@
     const hydration = window[HYDRATION_CACHE_KEY] = window[HYDRATION_CACHE_KEY] || /* @__PURE__ */ new Map();
     let mode = "operator-menu";
     let activeOpKey = null;
+    let suppressFocusOpen = false;
     let valueFetchController = null;
     while (root.firstChild) root.removeChild(root.firstChild);
     const chipsEl = el("div", { class: "tw-chips" });
@@ -4894,8 +4912,7 @@
     });
     draftEl.placeholder = hiddenInput.placeholder || "";
     root.appendChild(draftEl);
-    const dropdownEl = el("div", { class: "tw-dropdown", role: "listbox", hidden: true });
-    dropdownEl.id = dropdownId;
+    const dropdownEl = el("div", { class: "tw-dropdown", id: dropdownId, hidden: true });
     root.appendChild(dropdownEl);
     const errorEl = el("div", { class: "tw-error-msg" });
     errorEl.style.display = "none";
@@ -4911,6 +4928,7 @@
     statusEl.style.height = "1px";
     statusEl.style.overflow = "hidden";
     statusEl.style.clip = "rect(0 0 0 0)";
+    statusEl.style.clipPath = "inset(50%)";
     statusEl.style.whiteSpace = "nowrap";
     root.parentNode.insertBefore(statusEl, root.nextSibling);
     function announce(message) {
@@ -4940,7 +4958,10 @@
       while (node.firstChild) node.removeChild(node.firstChild);
     }
     function setActiveOption(opt) {
-      if (!opt) return;
+      if (!opt) {
+        draftEl.removeAttribute("aria-activedescendant");
+        return;
+      }
       for (const other of dropdownEl.querySelectorAll(".tw-opt")) {
         other.classList.remove("active");
         other.setAttribute("aria-selected", "false");
@@ -5002,7 +5023,8 @@
     function showOperatorMenu(draft) {
       mode = "operator-menu";
       clearChildren(dropdownEl);
-      dropdownEl.appendChild(buildOperatorMenu(operatorList, draft));
+      draftEl.removeAttribute("aria-activedescendant");
+      dropdownEl.appendChild(buildOperatorMenu(operatorList, draft, dropdownId + "-listbox"));
       dropdownEl.hidden = false;
       draftEl.setAttribute("aria-expanded", "true");
       setActiveOption(dropdownEl.querySelector(".tw-opt.active"));
@@ -5010,6 +5032,7 @@
     async function showValueDropdown(opKey, draft) {
       mode = "value-mode";
       activeOpKey = opKey;
+      draftEl.removeAttribute("aria-activedescendant");
       const opMeta = operatorMap[opKey] || { key: opKey };
       if (opMeta.free_form) {
         clearChildren(dropdownEl);
@@ -5036,7 +5059,7 @@
         if (controller && controller.signal.aborted) return;
         if (mode !== "value-mode" || activeOpKey !== opKey) return;
         clearChildren(dropdownEl);
-        dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta));
+        dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta, dropdownId + "-listbox"));
         setActiveOption(dropdownEl.querySelector(".tw-opt.active"));
       } catch (e) {
         if (e && e.name === "AbortError") return;
@@ -5130,6 +5153,7 @@
     });
     draftEl.addEventListener("focus", () => {
       root.classList.add("focused");
+      if (suppressFocusOpen) return;
       if (mode === "closed") showOperatorMenu(draftEl.value);
     });
     draftEl.addEventListener("blur", () => {
@@ -5195,7 +5219,12 @@
       if (!x) return;
       const chips = Array.from(chipsEl.querySelectorAll(".tw-tok"));
       const idx = chips.indexOf(x.closest(".tw-tok"));
-      if (idx >= 0) removeChipByIndex(idx);
+      if (idx >= 0) {
+        removeChipByIndex(idx);
+        suppressFocusOpen = true;
+        draftEl.focus();
+        suppressFocusOpen = false;
+      }
     });
     root.addEventListener("click", (ev) => {
       if (ev.target === root || ev.target === chipsEl) {
