@@ -79,16 +79,33 @@ describe('token widget ARIA combobox pattern', () => {
     delete window.__djangoTomSelectTokenHydrationCache
   })
 
-  it('marks the draft input as a combobox controlling the listbox', () => {
+  it('marks the draft input as a combobox controlling the popup container', async () => {
     const { root } = mountWidget()
     const input = root.querySelector('.tw-input')
     expect(input.getAttribute('role')).toBe('combobox')
     expect(input.getAttribute('aria-expanded')).toBe('false')
     expect(input.getAttribute('aria-autocomplete')).toBe('list')
+
+    // aria-controls references the always-present popup container, so it
+    // resolves even before first open and in the empty/loading/error states
+    // where the inner listbox isn't rendered.
     const dropdown = root.querySelector('.tw-dropdown')
-    expect(input.getAttribute('aria-controls')).toBe(dropdown.id)
     expect(dropdown.id).toBeTruthy()
-    expect(dropdown.getAttribute('role')).toBe('listbox')
+    expect(input.getAttribute('aria-controls')).toBe(dropdown.id)
+    expect(document.getElementById(input.getAttribute('aria-controls'))).toBe(dropdown)
+
+    // Opening the dropdown materializes a named listbox that owns only options.
+    await flushAsync()
+    typeInto(input, '')
+    const listbox = dropdown.querySelector('[role="listbox"]')
+    expect(listbox).toBeTruthy()
+    expect(listbox.id).toBeTruthy()
+    expect(listbox.id).not.toBe(dropdown.id)
+    expect(listbox.getAttribute('aria-label')).toBeTruthy()
+    expect(listbox.children.length).toBeGreaterThan(0)
+    Array.from(listbox.children).forEach(child => {
+      expect(child.getAttribute('role')).toBe('option')
+    })
   })
 
   it('toggles aria-expanded when the dropdown opens and closes', async () => {
@@ -148,5 +165,41 @@ describe('token widget ARIA combobox pattern', () => {
     expect(btn).toBeTruthy()
     expect(btn.getAttribute('aria-label')).toContain('status')
     expect(btn.getAttribute('aria-label')).toContain('open')
+  })
+
+  it('announces into the live region when a token is committed', async () => {
+    const { root } = mountWidget({ config: { allow_free_text: true } })
+    await flushAsync()
+    const input = root.querySelector('.tw-input')
+    const status = root.parentNode.querySelector('[data-tw-status]')
+    // 'foo' matches no operator, so Enter commits it as a free-text filter.
+    typeInto(input, 'foo')
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    expect(status.textContent).toBe('Text filter added')
+  })
+
+  it('restores focus without reopening the menu after a chip is removed', async () => {
+    const { root } = mountWidget({ initialValue: 'status:open' })
+    await flushAsync()
+    const input = root.querySelector('.tw-input')
+    const dropdown = root.querySelector('.tw-dropdown')
+    // Start from a closed dropdown so a spurious focus-open would be observable.
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(dropdown.hidden).toBe(true)
+    root.querySelector('.tw-tok .tw-tok-x').click()
+    expect(document.activeElement).toBe(input)
+    expect(dropdown.hidden).toBe(true)
+  })
+
+  it('clears aria-activedescendant when the dropdown shows no options', async () => {
+    const { root } = mountWidget()
+    await flushAsync()
+    const input = root.querySelector('.tw-input')
+    typeInto(input, '')
+    expect(input.hasAttribute('aria-activedescendant')).toBe(true)
+    // A draft matching no operator yields the "No operators match." state with
+    // no option to point at; the stale pointer must be dropped.
+    typeInto(input, 'zzz-no-such-op')
+    expect(input.hasAttribute('aria-activedescendant')).toBe(false)
   })
 })

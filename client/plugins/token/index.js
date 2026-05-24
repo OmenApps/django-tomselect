@@ -119,11 +119,11 @@ function buildErrorChip (text) {
   return el('span', { class: 'tw-tok tw-tok-error' }, [
     el('span', { class: 'tw-tok-k', text: '!' }),
     el('span', { class: 'tw-tok-v' }, [el('span', { class: 'tw-tok-label', text })]),
-    el('button', { type: 'button', class: 'tw-tok-x', 'aria-label': 'Remove', text: '×' })
+    el('button', { type: 'button', class: 'tw-tok-x', 'aria-label': 'Remove error: ' + text, text: '×' })
   ])
 }
 
-function buildOperatorMenu (operators, draft) {
+function buildOperatorMenu (operators, draft, listboxId) {
   const filtered = operators.filter(o =>
     !draft || o.key.toLowerCase().startsWith(draft.toLowerCase())
   )
@@ -135,11 +135,17 @@ function buildOperatorMenu (operators, draft) {
   const section = el('div', { class: 'tw-dropdown-section' }, [
     el('div', { class: 'tw-dropdown-heading', text: 'Operators' })
   ])
+  const listbox = el('div', {
+    class: 'tw-listbox',
+    role: 'listbox',
+    id: listboxId,
+    'aria-label': 'Filter operators'
+  })
   filtered.forEach((op, i) => {
     const opt = el('div', {
       class: 'tw-opt' + (i === 0 ? ' active' : ''),
       role: 'option',
-      id: 'tw-opt-op-' + i,
+      id: listboxId + '-op-' + i,
       'aria-selected': i === 0 ? 'true' : 'false',
       'data-action': 'select-operator',
       'data-key': op.key
@@ -148,14 +154,15 @@ function buildOperatorMenu (operators, draft) {
       el('span', { class: 'tw-opt-text', text: op.label || op.key }),
       op.multi ? el('span', { class: 'tw-opt-hint', text: 'multi' }) : null
     ])
-    section.appendChild(opt)
+    listbox.appendChild(opt)
   })
+  section.appendChild(listbox)
   wrapper.appendChild(section)
   wrapper.appendChild(buildFooter())
   return wrapper
 }
 
-function buildValueDropdown (opKey, results, opMeta) {
+function buildValueDropdown (opKey, results, opMeta, listboxId) {
   const wrapper = document.createDocumentFragment()
   if (!results || results.length === 0) {
     wrapper.appendChild(el('div', { class: 'tw-dropdown-heading', text: 'No matches.' }))
@@ -165,13 +172,19 @@ function buildValueDropdown (opKey, results, opMeta) {
   const section = el('div', { class: 'tw-dropdown-section' }, [
     el('div', { class: 'tw-dropdown-heading', text: opMeta.label || opKey })
   ])
+  const listbox = el('div', {
+    class: 'tw-listbox',
+    role: 'listbox',
+    id: listboxId,
+    'aria-label': (opMeta.label || opKey) + ' values'
+  })
   results.forEach((row, i) => {
     const id = row[opMeta.value_field]
     const label = row[opMeta.label_field]
-    section.appendChild(el('div', {
+    listbox.appendChild(el('div', {
       class: 'tw-opt' + (i === 0 ? ' active' : ''),
       role: 'option',
-      id: 'tw-opt-val-' + i,
+      id: listboxId + '-val-' + i,
       'aria-selected': i === 0 ? 'true' : 'false',
       'data-action': 'select-value',
       'data-id': id,
@@ -181,6 +194,7 @@ function buildValueDropdown (opKey, results, opMeta) {
       el('span', { class: 'tw-opt-text', text: String(label) })
     ]))
   })
+  section.appendChild(listbox)
   wrapper.appendChild(section)
   wrapper.appendChild(buildFooter())
   return wrapper
@@ -257,6 +271,11 @@ function init (root) {
   const hydration = (window[HYDRATION_CACHE_KEY] = window[HYDRATION_CACHE_KEY] || new Map())
   let mode = 'operator-menu'
   let activeOpKey = null
+  // Set transiently when we programmatically restore focus to the draft input
+  // after removing a chip, so the focus handler doesn't pop the operator menu
+  // open (keyboard Backspace removal leaves the dropdown state untouched; the
+  // click-removal path should match it).
+  let suppressFocusOpen = false
   // AbortController for the in-flight value-mode fetch. Each new keystroke
   // aborts the prior request so a slow response can't overwrite a faster
   // newer one (race condition).
@@ -281,8 +300,13 @@ function init (root) {
   draftEl.placeholder = (hiddenInput.placeholder || '')
   root.appendChild(draftEl)
 
-  const dropdownEl = el('div', { class: 'tw-dropdown', role: 'listbox', hidden: true })
-  dropdownEl.id = dropdownId
+  // The dropdown is a plain popup container; the listbox role lives on an inner
+  // element (built per render) that owns *only* option elements, so headings,
+  // hints, and the keyboard-legend footer are not mis-owned by the listbox.
+  // aria-controls references this container (always present once init runs), so
+  // the relationship never dangles in the loading/empty/error states where the
+  // inner listbox isn't rendered.
+  const dropdownEl = el('div', { class: 'tw-dropdown', id: dropdownId, hidden: true })
   root.appendChild(dropdownEl)
 
   const errorEl = el('div', { class: 'tw-error-msg' })
@@ -302,6 +326,7 @@ function init (root) {
   statusEl.style.height = '1px'
   statusEl.style.overflow = 'hidden'
   statusEl.style.clip = 'rect(0 0 0 0)'
+  statusEl.style.clipPath = 'inset(50%)'
   statusEl.style.whiteSpace = 'nowrap'
   root.parentNode.insertBefore(statusEl, root.nextSibling)
 
@@ -342,7 +367,12 @@ function init (root) {
   // class, `aria-selected`, and the input's `aria-activedescendant` in sync so
   // screen readers track keyboard navigation through the listbox.
   function setActiveOption (opt) {
-    if (!opt) return
+    // No option (empty/loading/hint/error states): drop the stale pointer so
+    // a screen reader never announces a removed element.
+    if (!opt) {
+      draftEl.removeAttribute('aria-activedescendant')
+      return
+    }
     for (const other of dropdownEl.querySelectorAll('.tw-opt')) {
       other.classList.remove('active')
       other.setAttribute('aria-selected', 'false')
@@ -415,7 +445,8 @@ function init (root) {
   function showOperatorMenu (draft) {
     mode = 'operator-menu'
     clearChildren(dropdownEl)
-    dropdownEl.appendChild(buildOperatorMenu(operatorList, draft))
+    draftEl.removeAttribute('aria-activedescendant')
+    dropdownEl.appendChild(buildOperatorMenu(operatorList, draft, dropdownId + '-listbox'))
     dropdownEl.hidden = false
     draftEl.setAttribute('aria-expanded', 'true')
     setActiveOption(dropdownEl.querySelector('.tw-opt.active'))
@@ -424,6 +455,9 @@ function init (root) {
   async function showValueDropdown (opKey, draft) {
     mode = 'value-mode'
     activeOpKey = opKey
+    // Entering value-mode clears any prior active option until results render;
+    // the loading/free-form states below have no options to point at.
+    draftEl.removeAttribute('aria-activedescendant')
     const opMeta = operatorMap[opKey] || { key: opKey }
     // Free-form operators don't have a server-backed suggestion list; the
     // bound view returns an empty queryset by design. Skip the round-trip
@@ -456,7 +490,7 @@ function init (root) {
       // if we are still in value-mode for the same operator.
       if (mode !== 'value-mode' || activeOpKey !== opKey) return
       clearChildren(dropdownEl)
-      dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta))
+      dropdownEl.appendChild(buildValueDropdown(opKey, data.results || [], opMeta, dropdownId + '-listbox'))
       setActiveOption(dropdownEl.querySelector('.tw-opt.active'))
     } catch (e) {
       // AbortError fires when we superseded; silent drop.
@@ -563,6 +597,7 @@ function init (root) {
 
   draftEl.addEventListener('focus', () => {
     root.classList.add('focused')
+    if (suppressFocusOpen) return
     if (mode === 'closed') showOperatorMenu(draftEl.value)
   })
 
@@ -635,7 +670,16 @@ function init (root) {
     if (!x) return
     const chips = Array.from(chipsEl.querySelectorAll('.tw-tok'))
     const idx = chips.indexOf(x.closest('.tw-tok'))
-    if (idx >= 0) removeChipByIndex(idx)
+    if (idx >= 0) {
+      removeChipByIndex(idx)
+      // The activated remove button was just destroyed by the re-render; move
+      // focus to the draft input so keyboard users aren't dropped onto <body>.
+      // Suppress the focus handler's auto-open so removal doesn't spuriously
+      // pop the operator menu (focus() fires the handler synchronously).
+      suppressFocusOpen = true
+      draftEl.focus()
+      suppressFocusOpen = false
+    }
   })
 
   root.addEventListener('click', (ev) => {

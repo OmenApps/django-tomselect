@@ -96,6 +96,12 @@ export default function (userOptions) {
         self.removeItem(item)
         self.refreshOptions(false)
         self.inputState()
+        // removeItem() destroys the focused button without moving focus, so a
+        // keyboard user would be dropped onto <body>. Return focus to the
+        // control input (Tom Select's text entry) instead.
+        if (self.control_input && typeof self.control_input.focus === 'function') {
+          self.control_input.focus()
+        }
       })
 
       return item

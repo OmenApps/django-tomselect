@@ -54,6 +54,18 @@ describe('accessible remove_button plugin', () => {
     expect(btn.getAttribute('aria-label')).toBe('Remove North Lateral 4A')
   })
 
+  it('is tab-reachable (default button tab index, not excluded)', () => {
+    const { self, hooks } = makeInstance()
+    accessibleRemoveButton.call(self, {})
+    hooks.setupTemplates()
+
+    const item = self.settings.render.item({ name: 'Gate 12' }, (s) => s)
+    const btn = item.querySelector('button')
+    // A <button> with no explicit tabindex has tabIndex 0; the bundled <a>
+    // used tabindex="-1", which removed it from the tab order.
+    expect(btn.tabIndex).toBe(0)
+  })
+
   it('removes the item when the button is activated', () => {
     const { self, hooks } = makeInstance()
     accessibleRemoveButton.call(self, {})
@@ -63,6 +75,52 @@ describe('accessible remove_button plugin', () => {
     const btn = item.querySelector('button')
     btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
     expect(self._removed).toBe(true)
+  })
+
+  it('does not remove the item when the instance is locked', () => {
+    const { self, hooks } = makeInstance()
+    self.isLocked = true
+    accessibleRemoveButton.call(self, {})
+    hooks.setupTemplates()
+
+    const item = self.settings.render.item({ name: 'Gate 12' }, (s) => s)
+    item.querySelector('button').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(self._removed).toBeUndefined()
+  })
+
+  it('does not remove the item when shouldDelete returns false', () => {
+    const { self, hooks } = makeInstance()
+    self.shouldDelete = () => false
+    accessibleRemoveButton.call(self, {})
+    hooks.setupTemplates()
+
+    const item = self.settings.render.item({ name: 'Gate 12' }, (s) => s)
+    item.querySelector('button').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(self._removed).toBeUndefined()
+  })
+
+  it('restores focus to the control input after removal', () => {
+    const { self, hooks } = makeInstance()
+    let focused = false
+    self.control_input = { focus () { focused = true } }
+    accessibleRemoveButton.call(self, {})
+    hooks.setupTemplates()
+
+    const item = self.settings.render.item({ name: 'Gate 12' }, (s) => s)
+    item.querySelector('button').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(focused).toBe(true)
+  })
+
+  it('decodes an HTML-entity label to its glyph without injecting markup', () => {
+    const { self, hooks } = makeInstance()
+    accessibleRemoveButton.call(self, { label: '&times;' })
+    hooks.setupTemplates()
+
+    const item = self.settings.render.item({ name: 'Gate 12' }, (s) => s)
+    const btn = item.querySelector('button')
+    expect(btn.textContent).toBe('×')
+    expect(btn.innerHTML).not.toContain('&times;')
+    expect(btn.querySelector('*')).toBeNull()
   })
 
   it('falls back to the value field when the label field is absent', () => {
