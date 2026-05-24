@@ -9,6 +9,8 @@
 - Standardize README badges
 - Allow `Const(value, lookup)` to accept a list/tuple value (comma-joined into the URL param) so it works with list-valued lookups like `__in` and `__range`; the autocomplete view now splits these values back into a list before applying the filter
 - Accept tuples (not just lists) of `FilterSpec`/2-tuples in `filter_by` and `exclude_by`; previously a 2-tuple of `FilterSpec` was misinterpreted as the legacy `(field, lookup)` form and any other tuple length was rejected outright
+- Token widget (`TomSelectTokenWidget`): implement the ARIA combobox/listbox pattern — `role="combobox"` with `aria-expanded`/`aria-controls`/`aria-autocomplete` on the input, `role="listbox"` on the dropdown, `role="option"` + `aria-selected` on options, `aria-activedescendant` tracking during keyboard navigation, context-specific remove-button labels, and a polite live region announcing token add/remove
+- `remove_button` plugin: render a focusable `<button type="button">` with an item-specific `aria-label` instead of `<a tabindex="-1">`, so selected items can be removed by keyboard
 
 ## 2026.1.3
 

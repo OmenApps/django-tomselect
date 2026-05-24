@@ -21,7 +21,7 @@
 // internal getDom for the cases this plugin encounters.
 function getDom (query) {
   if (query && query.jquery) return query[0]
-  if (query instanceof HTMLElement) return query
+  if (query instanceof window.HTMLElement) return query
   if (typeof query === 'string' && query.indexOf('<') > -1) {
     const tpl = document.createElement('template')
     tpl.innerHTML = query.trim()
@@ -35,7 +35,7 @@ function getDom (query) {
 // so the visible content only needs to be the rendered character - extracting
 // textContent via DOMParser keeps this XSS-safe.
 function decodeLabel (raw) {
-  return new DOMParser().parseFromString(String(raw), 'text/html').documentElement.textContent || ''
+  return new window.DOMParser().parseFromString(String(raw), 'text/html').documentElement.textContent || ''
 }
 
 function preventDefault (evt, stop) {

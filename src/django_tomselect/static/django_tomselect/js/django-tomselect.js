@@ -4444,7 +4444,7 @@
   // client/plugins/remove_button_accessible/plugin.js
   function getDom8(query) {
     if (query && query.jquery) return query[0];
-    if (query instanceof HTMLElement) return query;
+    if (query instanceof window.HTMLElement) return query;
     if (typeof query === "string" && query.indexOf("<") > -1) {
       const tpl = document.createElement("template");
       tpl.innerHTML = query.trim();
@@ -4453,7 +4453,7 @@
     return document.querySelector(query);
   }
   function decodeLabel(raw) {
-    return new DOMParser().parseFromString(String(raw), "text/html").documentElement.textContent || "";
+    return new window.DOMParser().parseFromString(String(raw), "text/html").documentElement.textContent || "";
   }
   function preventDefault7(evt, stop) {
     if (evt) {
