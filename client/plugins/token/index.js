@@ -257,11 +257,21 @@ function init (root) {
   chipsEl.style.display = 'contents'
   root.appendChild(chipsEl)
 
-  const draftEl = el('input', { class: 'tw-input', type: 'text' })
+  const dropdownId = 'tw-dropdown-' + targetName
+  const draftEl = el('input', {
+    class: 'tw-input',
+    type: 'text',
+    role: 'combobox',
+    'aria-autocomplete': 'list',
+    'aria-expanded': 'false',
+    'aria-controls': dropdownId,
+    'aria-label': (config.placeholder || hiddenInput.placeholder || 'Search')
+  })
   draftEl.placeholder = (hiddenInput.placeholder || '')
   root.appendChild(draftEl)
 
-  const dropdownEl = el('div', { class: 'tw-dropdown', hidden: true })
+  const dropdownEl = el('div', { class: 'tw-dropdown', role: 'listbox', hidden: true })
+  dropdownEl.id = dropdownId
   root.appendChild(dropdownEl)
 
   const errorEl = el('div', { class: 'tw-error-msg' })
@@ -364,6 +374,7 @@ function init (root) {
     clearChildren(dropdownEl)
     dropdownEl.appendChild(buildOperatorMenu(operatorList, draft))
     dropdownEl.hidden = false
+    draftEl.setAttribute('aria-expanded', 'true')
   }
 
   async function showValueDropdown (opKey, draft) {
@@ -377,11 +388,13 @@ function init (root) {
       clearChildren(dropdownEl)
       dropdownEl.appendChild(buildFreeFormHint(opMeta, draft))
       dropdownEl.hidden = false
+      draftEl.setAttribute('aria-expanded', 'true')
       return
     }
     clearChildren(dropdownEl)
     dropdownEl.appendChild(el('div', { class: 'tw-dropdown-heading', text: 'Loading…' }))
     dropdownEl.hidden = false
+    draftEl.setAttribute('aria-expanded', 'true')
 
     // Abort any prior in-flight fetch. The new keystroke supersedes it; we
     // never want a slow stale response to overwrite a fresh one.
@@ -413,6 +426,8 @@ function init (root) {
   function closeDropdown () {
     mode = 'closed'
     dropdownEl.hidden = true
+    draftEl.setAttribute('aria-expanded', 'false')
+    draftEl.removeAttribute('aria-activedescendant')
   }
 
   function commitOperatorAndEnterValueMode (opKey) {
