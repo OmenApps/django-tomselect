@@ -1,16 +1,53 @@
 # Changelog
 
-## 2026.3.1 (unreleased)
+## 2026.5.4 (unreleased)
+
+- Token widget (`TomSelectTokenWidget`): implement the ARIA combobox/listbox pattern — `role="combobox"` with `aria-expanded`/`aria-controls`/`aria-autocomplete` on the input, an inner `role="listbox"` (named per mode) that owns only `role="option"` elements with `aria-selected`, `aria-activedescendant` tracking during keyboard navigation, context-specific remove-button labels, focus restoration after chip removal, and a polite live region announcing token add/remove
+- `remove_button` plugin: render a focusable `<button type="button">` with an item-specific `aria-label` instead of `<a tabindex="-1">`, so selected items can be removed by keyboard (focus returns to the control input after removal). **Potentially breaking for custom CSS/JS:** the remove control is now a `<button>` rather than an `<a>` — selectors that match the element type (e.g. `a.remove`) no longer match; use the class (`.remove`) or `button.remove`. The configured class name is unchanged.
+
+## 2026.5.3
+
+- Fix regression #61 that affected `filter_by` and `exclude_by`
+- Implement more advanced token-search functionality and add demos of extended/advanced functionality
+- Break up large test files and add more regression tests in vitest
+
+## 2026.5.2
+
+- Fix options jumping to page 2 of results in certain cases
+- Fix double-escaping of characters in the tabular dropdown
+- Fix cloned/nested formset rows leaking controller state (per-instance `currentLoadController`/`previousQuery`, `findSimilarConfig` closures, cross-level `filterFields` URL desync)
+- Allow `Const(value, lookup)` to accept a list/tuple value (comma-joined into the URL param) so it works with list-valued lookups like `__in` and `__range`; the autocomplete view now splits these values back into a list before applying the filter
+- Accept tuples (not just lists) of `FilterSpec`/2-tuples in `filter_by` and `exclude_by`; previously a 2-tuple of `FilterSpec` was misinterpreted as the legacy `(field, lookup)` form and any other tuple length was rejected outright
+- Add vitest for more consistent JS testing
+
+## 2026.5.1
 
 - Add `CompositeAutocompleteView` to wrap multiple `Autocomplete*View` instances behind a single endpoint, dispatching by source name for unified token-style search across heterogeneous datasets
 - Add `TomSelectTokenField` and `TomSelectTokenWidget` for token-based search inputs with a structured query parser (field-scoped tokens, quoted phrases, boolean logic) backed by a new Tom Select token plugin
+- Fixes for the two bugs in #59
+
+## 2026.4.1
+
+- Fix htmx outerHTML swaps
+- Fix `clear_button` HTML template overwrite not working
+- Pass `loading_class` config to TomSelect's `loadingClass` JS option (#53)
+- Correct annotations, wrap hard-coded strings with `gettext`, and add translations (#54)
+- Add a nox session to patch CSS with backup values; test improvements
+
+## 2026.3.3
+
+- Minor htmx reinitialize cleanup; prevent a redundant `reinitialize()` call
+
+## 2026.3.2
+
+- Skip `reinitialize()` when a live TomSelect instance already exists, fixing htmx double-init (#51)
+- Add pt and ru locales; expand de/es coverage (#50)
+
+## 2026.3.1
+
 - Suppress spurious URL warnings when `show_list` or `show_create` are `False` (#46)
 - Remove docker compose (not needed for this project) and update tooling
 - Standardize README badges
-- Allow `Const(value, lookup)` to accept a list/tuple value (comma-joined into the URL param) so it works with list-valued lookups like `__in` and `__range`; the autocomplete view now splits these values back into a list before applying the filter
-- Accept tuples (not just lists) of `FilterSpec`/2-tuples in `filter_by` and `exclude_by`; previously a 2-tuple of `FilterSpec` was misinterpreted as the legacy `(field, lookup)` form and any other tuple length was rejected outright
-- Token widget (`TomSelectTokenWidget`): implement the ARIA combobox/listbox pattern — `role="combobox"` with `aria-expanded`/`aria-controls`/`aria-autocomplete` on the input, `role="listbox"` on the dropdown, `role="option"` + `aria-selected` on options, `aria-activedescendant` tracking during keyboard navigation, context-specific remove-button labels, and a polite live region announcing token add/remove
-- `remove_button` plugin: render a focusable `<button type="button">` with an item-specific `aria-label` instead of `<a tabindex="-1">`, so selected items can be removed by keyboard
 
 ## 2026.1.3
 
