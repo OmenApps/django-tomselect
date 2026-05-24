@@ -97,7 +97,12 @@ function buildTokenChip (token, label) {
         labelMarkup ? document.createTextNode(' ') : null,
         labelMarkup
       ]),
-      el('button', { type: 'button', class: 'tw-tok-x', 'aria-label': 'Remove', text: '×' })
+      el('button', {
+        type: 'button',
+        class: 'tw-tok-x',
+        'aria-label': 'Remove ' + token.key + ':' + valueText,
+        text: '×'
+      })
     ]
   )
 }
@@ -106,7 +111,7 @@ function buildFreeTextChip (text) {
   return el('span', { class: 'tw-tok tw-tok-freetext', 'data-freetext': text }, [
     el('span', { class: 'tw-tok-k', text: '"' }),
     el('span', { class: 'tw-tok-v' }, [el('span', { class: 'tw-tok-label', text })]),
-    el('button', { type: 'button', class: 'tw-tok-x', 'aria-label': 'Remove', text: '×' })
+    el('button', { type: 'button', class: 'tw-tok-x', 'aria-label': 'Remove "' + text + '"', text: '×' })
   ])
 }
 
@@ -283,6 +288,24 @@ function init (root) {
   const errorEl = el('div', { class: 'tw-error-msg' })
   errorEl.style.display = 'none'
   root.parentNode.insertBefore(errorEl, root.nextSibling)
+
+  // Visually-hidden polite live region. Token add/remove are DOM-only
+  // mutations a screen reader would otherwise miss; announce() narrates them.
+  const statusEl = el('span', {
+    class: 'tw-sr-status',
+    'data-tw-status': '',
+    role: 'status',
+    'aria-live': 'polite'
+  })
+  statusEl.style.position = 'absolute'
+  statusEl.style.width = '1px'
+  statusEl.style.height = '1px'
+  statusEl.style.overflow = 'hidden'
+  statusEl.style.clip = 'rect(0 0 0 0)'
+  statusEl.style.whiteSpace = 'nowrap'
+  root.parentNode.insertBefore(statusEl, root.nextSibling)
+
+  function announce (message) { statusEl.textContent = message }
 
   function operatorRegistryForParser () {
     const out = {}
@@ -468,6 +491,7 @@ function init (root) {
     closeDropdown()
     activeOpKey = null
     renderChips()
+    announce(opKey + ' filter added')
   }
 
   // Commit the current draft as a free-form `opKey:value` token. Used when
@@ -492,6 +516,7 @@ function init (root) {
     draftEl.value = ''
     closeDropdown()
     renderChips()
+    announce('Text filter added')
   }
 
   function removeChipByIndex (index) {
@@ -511,6 +536,7 @@ function init (root) {
     })
     setSerialized(parts.join(' '))
     renderChips()
+    announce('Filter removed')
   }
 
   draftEl.addEventListener('input', () => {

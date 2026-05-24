@@ -132,4 +132,21 @@ describe('token widget ARIA combobox pattern', () => {
     expect(opts[0].getAttribute('aria-selected')).toBe('false')
     expect(input.getAttribute('aria-activedescendant')).toBe(opts[1].id)
   })
+
+  it('exposes a polite live region for token add/remove announcements', () => {
+    const { root } = mountWidget()
+    const status = root.parentNode.querySelector('[data-tw-status]')
+    expect(status).toBeTruthy()
+    expect(status.getAttribute('role')).toBe('status')
+    expect(status.getAttribute('aria-live')).toBe('polite')
+  })
+
+  it('names each token in its remove-button aria-label', async () => {
+    const { root } = mountWidget({ initialValue: 'status:open' })
+    await flushAsync()
+    const btn = root.querySelector('.tw-tok .tw-tok-x')
+    expect(btn).toBeTruthy()
+    expect(btn.getAttribute('aria-label')).toContain('status')
+    expect(btn.getAttribute('aria-label')).toContain('open')
+  })
 })
