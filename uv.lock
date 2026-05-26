@@ -373,7 +373,7 @@ wheels = [
 
 [[package]]
 name = "django-tomselect"
-version = "2026.5.4"
+version = "2026.5.5"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
