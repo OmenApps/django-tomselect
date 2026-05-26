@@ -367,6 +367,66 @@ class TestVirtualFields:
         assert "display_name" not in fields
         assert set(fields) == {"id", "name"}
 
+    def test_declared_virtual_fields_do_not_log_non_concrete_warning(self, rf, caplog):
+        """Test that declared virtual fields do not produce setup warnings."""
+
+        class CustomAutocompleteView(AutocompleteModelView):
+            """Custom autocomplete view with an explicitly declared virtual field."""
+
+            model = Edition
+            value_fields = ["id", "name", "display_name"]
+            virtual_fields = ["display_name"]
+
+        view = CustomAutocompleteView()
+        request = rf.get("")
+
+        with caplog.at_level(logging.WARNING, logger="django_tomselect.autocompletes"):
+            view.setup(request)
+
+        messages = [record.getMessage() for record in caplog.records]
+        assert all("not concrete database columns" not in message for message in messages)
+
+    def test_unhandled_non_concrete_fields_warn_and_become_virtual(self, rf, caplog):
+        """Test that undeclared non-concrete value fields still warn and auto-register."""
+
+        class CustomAutocompleteView(AutocompleteModelView):
+            """Custom autocomplete view with an undeclared virtual field."""
+
+            model = Edition
+            value_fields = ["id", "name", "display_name"]
+
+        view = CustomAutocompleteView()
+        request = rf.get("")
+
+        with caplog.at_level(logging.WARNING, logger="django_tomselect.autocompletes"):
+            view.setup(request)
+
+        assert "display_name" in view.virtual_fields
+        assert "value_fields ['display_name'] are not concrete database columns" in caplog.text
+
+    def test_warning_lists_only_unhandled_non_concrete_fields(self, rf, caplog):
+        """Test that setup warnings omit non-concrete fields already declared virtual."""
+
+        class CustomAutocompleteView(AutocompleteModelView):
+            """Custom autocomplete view with mixed declared and undeclared virtual fields."""
+
+            model = Edition
+            value_fields = ["id", "name", "display_name", "computed_label"]
+            virtual_fields = ["display_name"]
+
+        view = CustomAutocompleteView()
+        request = rf.get("")
+
+        with caplog.at_level(logging.WARNING, logger="django_tomselect.autocompletes"):
+            view.setup(request)
+
+        messages = [record.getMessage() for record in caplog.records]
+        non_concrete_messages = [message for message in messages if "not concrete database columns" in message]
+        assert len(non_concrete_messages) == 1
+        assert "computed_label" in non_concrete_messages[0]
+        assert "display_name" not in non_concrete_messages[0]
+        assert view.virtual_fields == ["display_name", "computed_label"]
+
     def test_hook_prepare_results_with_virtual_field(self, rf, test_editions):
         """Test that hook_prepare_results can add virtual fields."""
 

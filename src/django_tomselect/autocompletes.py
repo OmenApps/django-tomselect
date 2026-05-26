@@ -322,19 +322,21 @@ class AutocompleteModelView(JSONEncoderMixin, View):
             except FieldDoesNotExist:
                 non_concrete.append(field_path)
 
-        if non_concrete:
+        current_virtual = list(getattr(self, "virtual_fields", []))
+        unhandled_non_concrete = [field_name for field_name in non_concrete if field_name not in current_virtual]
+
+        if unhandled_non_concrete:
             logger.warning(
                 "%s: value_fields %s are not concrete database columns on %s. "
                 "These will be automatically excluded from .values() queries. "
                 "Consider adding them to virtual_fields and populating them "
                 "in prepare_results() or hook_prepare_results().",
                 self.__class__.__name__,
-                non_concrete,
+                unhandled_non_concrete,
                 self.model.__name__,
             )
             # Auto-mitigate: add to virtual_fields so get_value_fields() excludes them
-            current_virtual = list(getattr(self, "virtual_fields", []))
-            for field_name in non_concrete:
+            for field_name in unhandled_non_concrete:
                 if field_name not in current_virtual:
                     current_virtual.append(field_name)
             self.virtual_fields = current_virtual
