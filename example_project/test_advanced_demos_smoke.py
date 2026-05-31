@@ -272,25 +272,22 @@ class TestGfkPicker:
         # their default (unfiltered) page.
         assert isinstance(body["results"], list)
 
-    def test_adapter_scoped_to_article(self, client):
+    def test_adapter_scoped_to_article(self, client, sample_magazine):
         """A scope=article query only returns rows from the article subview."""
         from example_project.example.models import Article
 
-        if not Article.objects.exists():
-            pytest.skip("no articles in fixtures to scope against")
+        Article.objects.create(title="Smoke Article", word_count=100, magazine=sample_magazine)
         resp = client.get(reverse("autocomplete-multi-type-featured"), {"scope": "article"})
         body = json.loads(resp.content)
         for r in body["results"]:
             assert r["value"].startswith("article:")
             assert r["_type_key"] == "article"
 
-    def test_form_creates_spotlight(self, client):
+    def test_form_creates_spotlight(self, client, sample_magazine):
         """A valid type:pk submission creates a Spotlight tied to the right object."""
         from example_project.example.models import Article, Spotlight
 
-        article = Article.objects.first()
-        if article is None:
-            pytest.skip("no article available")
+        article = Article.objects.create(title="Smoke Article", word_count=100, magazine=sample_magazine)
         prior = Spotlight.objects.count()
         resp = client.post(reverse("gfk-picker"), {
             "title": "Smoke Spotlight",
