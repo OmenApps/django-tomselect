@@ -1,9 +1,17 @@
 # Changelog
 
-## 2026.5.4 (unreleased)
+## 2026.5.6
 
-- Token widget (`TomSelectTokenWidget`): implement the ARIA combobox/listbox pattern — `role="combobox"` with `aria-expanded`/`aria-controls`/`aria-autocomplete` on the input, an inner `role="listbox"` (named per mode) that owns only `role="option"` elements with `aria-selected`, `aria-activedescendant` tracking during keyboard navigation, context-specific remove-button labels, focus restoration after chip removal, and a polite live region announcing token add/remove
-- `remove_button` plugin: render a focusable `<button type="button">` with an item-specific `aria-label` instead of `<a tabindex="-1">`, so selected items can be removed by keyboard (focus returns to the control input after removal). **Potentially breaking for custom CSS/JS:** the remove control is now a `<button>` rather than an `<a>` — selectors that match the element type (e.g. `a.remove`) no longer match; use the class (`.remove`) or `button.remove`. The configured class name is unchanged.
+- `TomSelectConfig` now raises `ImproperlyConfigured` when `label_field` is a Python dunder (e.g. `label_field="__str__"`). A dunder is not selectable via `QuerySet.values()`, so it silently rendered empty labels. **Potentially breaking:** configs that relied on a dunder `label_field` must switch to a real field, a relation lookup (e.g. `"author__name"`), or a queryable annotation exposed in the view's `hook_queryset()` - see the autocomplete views docs
+
+## 2026.5.5
+
+- Suppress warnings for declared virtual autocomplete fields
+
+## 2026.5.4
+
+- Token widget (`TomSelectTokenWidget`): implement the ARIA combobox/listbox pattern - `role="combobox"` with `aria-expanded`/`aria-controls`/`aria-autocomplete` on the input, an inner `role="listbox"` (named per mode) that owns only `role="option"` elements with `aria-selected`, `aria-activedescendant` tracking during keyboard navigation, context-specific remove-button labels, focus restoration after chip removal, and a polite live region announcing token add/remove
+- `remove_button` plugin: render a focusable `<button type="button">` with an item-specific `aria-label` instead of `<a tabindex="-1">`, so selected items can be removed by keyboard (focus returns to the control input after removal). **Potentially breaking for custom CSS/JS:** the remove control is now a `<button>` rather than an `<a>` - selectors that match the element type (e.g. `a.remove`) no longer match; use the class (`.remove`) or `button.remove`. The configured class name is unchanged.
 
 ## 2026.5.3
 
