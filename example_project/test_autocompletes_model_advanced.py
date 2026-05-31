@@ -344,6 +344,44 @@ class TestVirtualFields:
         assert SecondAutocompleteView.value_fields == ["id", "year"]
         assert AutocompleteModelView.value_fields == []
 
+    def test_ensure_label_field_does_not_mutate_view_class_state(self):
+        """Regression: augmenting a missing label field must not mutate the view's
+        class-level value_fields/virtual_fields in place.
+
+        _ensure_label_field_in_view runs on a throwaway per-call view instance, but
+        value_fields/virtual_fields are class attributes. Appending in place leaked
+        into every other instance/request/test sharing the view class (an
+        order-dependent failure). It must rebind to fresh, instance-scoped lists.
+        """
+        from django_tomselect.app_settings import TomSelectConfig
+        from django_tomselect.widgets import TomSelectModelWidget
+
+        class LabelAutocompleteView(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "name"]
+
+        original_value_fields = LabelAutocompleteView.value_fields
+        original_virtual_fields = list(getattr(LabelAutocompleteView, "virtual_fields", []))
+
+        # A dunder label (e.g. a model's __str__) is not a queryable column.
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition", value_field="id", label_field="__str__"),
+        )
+        widget.model = Edition
+        view = LabelAutocompleteView()
+
+        widget._ensure_label_field_in_view(view)
+
+        # The shared class lists are untouched (the bug appended in place).
+        assert LabelAutocompleteView.value_fields == ["id", "name"]
+        assert LabelAutocompleteView.value_fields is original_value_fields
+        assert list(getattr(LabelAutocompleteView, "virtual_fields", [])) == original_virtual_fields
+
+        # The throwaway instance got the label, and the dunder was routed to
+        # virtual_fields so it is excluded from the .values() query.
+        assert "__str__" in view.value_fields
+        assert "__str__" in view.virtual_fields
+
     def test_virtual_fields_excluded_from_query(self, rf):
         """Test that virtual fields are excluded from database queries."""
 

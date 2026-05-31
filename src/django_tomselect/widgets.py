@@ -1069,7 +1069,7 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
         return view
 
     def _ensure_label_field_in_view(self, view: AutocompleteModelView) -> None:
-        """Ensure label field is in the view's value_fields."""
+        """Ensure the label field is exposed by the view's serialized values."""
         if not self.label_field or self.label_field in view.value_fields:
             return
 
@@ -1077,7 +1077,8 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
             "Label field '%s' is not in the autocomplete view's value_fields. This may result in 'undefined' labels.",
             self.label_field,
         )
-        view.value_fields.append(self.label_field)
+        # Rebind rather than append: never mutate the shared class-level list.
+        view.value_fields = [*view.value_fields, self.label_field]
 
         # Check if it's a model field
         if self.model is None:
@@ -1085,17 +1086,22 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         try:
             model_fields = [f.name for f in self.model._meta.fields]  # type: ignore[union-attr]
-            is_related_field = "__" in self.label_field  # Allow double-underscore pattern
+            # A real ORM relation lookup separates field names with "__" in the
+            # middle (e.g. "field__name"). A Python dunder such as "__str__" has
+            # leading/trailing "__" and is NOT a queryable relation, so strip those
+            # before testing, otherwise the dunder is wrongly kept in value_fields
+            # and .values("__str__") raises a FieldError.
+            is_related_field = "__" in self.label_field.strip("_")
 
-            # If it's not a real field or relation, add to virtual_fields
+            # If it's not a real field or relation, add to virtual_fields so it is
+            # excluded from the .values() query. The view is responsible for
+            # supplying the value in prepare_results()/hook_prepare_results().
             if not (self.label_field in model_fields or is_related_field):
-                # Initialize virtual_fields if needed
-                if not hasattr(view, "virtual_fields"):
-                    view.virtual_fields = []
-
-                # Add to virtual_fields
-                if self.label_field not in view.virtual_fields:
-                    view.virtual_fields.append(self.label_field)
+                current_virtual = list(getattr(view, "virtual_fields", None) or [])
+                if self.label_field not in current_virtual:
+                    current_virtual.append(self.label_field)
+                    # Rebind rather than append: never mutate the shared class list.
+                    view.virtual_fields = current_virtual
                     logger.info(
                         "Label field '%s' added to virtual_fields: %s",
                         self.label_field,
