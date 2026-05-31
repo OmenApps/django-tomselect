@@ -377,7 +377,6 @@ version = "2026.5.5"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
-    { name = "nox" },
 ]
 
 [package.optional-dependencies]
@@ -432,7 +431,6 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "linkify-it-py", marker = "extra == 'dev'", specifier = ">=2.0.3" },
     { name = "myst-parser", marker = "extra == 'dev'", specifier = ">=4.0.1" },
-    { name = "nox", specifier = ">=2025.11.12" },
     { name = "nox", marker = "extra == 'dev'", specifier = ">=2025.11.12" },
     { name = "pep8-naming", marker = "extra == 'dev'", specifier = ">=0.15.1" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7.3" },
