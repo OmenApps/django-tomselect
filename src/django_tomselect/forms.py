@@ -11,7 +11,7 @@ __all__ = [
 from typing import Any
 
 from django import forms
-from django.core.exceptions import FieldError, ValidationError
+from django.core.exceptions import FieldError, ImproperlyConfigured, ValidationError
 from django.db.models import QuerySet
 from django.forms.widgets import Widget
 
@@ -124,7 +124,7 @@ class BaseTomSelectMixin:
             self._create_widget(kwargs)
 
             super().__init__(*args, **kwargs)
-        except (TypeError, ValueError, AttributeError) as e:
+        except (TypeError, ValueError, AttributeError, ImproperlyConfigured) as e:
             logger.error("Error initializing %s: %s", self.__class__.__name__, e, exc_info=True)
             raise
 
@@ -161,30 +161,33 @@ class BaseTomSelectModelMixin:
         for k in [k for k in kwargs if hasattr(TomSelectConfig, k) and not hasattr(self.field_base_class, k)]:
             kwargs.pop(k, None)
 
-        self.config = BaseTomSelectMixin._resolve_config(config, raise_type_error=True)
-        logger.debug("Final config to be passed to widget: %s", self.config)
-
-        self._lazy_view = None
-
-        # Create widget with merged attrs
-        BaseTomSelectMixin._create_widget(self, kwargs)
-
-        # Set to_field_name based on value_field configuration to aid ModelChoiceField validation
-        if hasattr(self.config, "value_field") and self.config.value_field:
-            if self.config.value_field != "pk":
-                kwargs["to_field_name"] = self.config.value_field
-                logger.debug("Set to_field_name to: %s", self.config.value_field)
-
-        # Use EmptyModel queryset initially - the actual queryset will be resolved lazily
-        # when needed (during clean/validation). This avoids circular imports that occur
-        # when URL resolution is triggered during form class definition.
-        if queryset is None:
-            queryset = EmptyModel.objects.none()
-
+        # Resolve config, build the widget, and call parent init under one guard so
+        # configuration errors (e.g. ImproperlyConfigured from an invalid label_field)
+        # are logged consistently before propagating, matching BaseTomSelectMixin.
         try:
+            self.config = BaseTomSelectMixin._resolve_config(config, raise_type_error=True)
+            logger.debug("Final config to be passed to widget: %s", self.config)
+
+            self._lazy_view = None
+
+            # Create widget with merged attrs
+            BaseTomSelectMixin._create_widget(self, kwargs)
+
+            # Set to_field_name based on value_field configuration to aid ModelChoiceField validation
+            if hasattr(self.config, "value_field") and self.config.value_field:
+                if self.config.value_field != "pk":
+                    kwargs["to_field_name"] = self.config.value_field
+                    logger.debug("Set to_field_name to: %s", self.config.value_field)
+
+            # Use EmptyModel queryset initially - the actual queryset will be resolved lazily
+            # when needed (during clean/validation). This avoids circular imports that occur
+            # when URL resolution is triggered during form class definition.
+            if queryset is None:
+                queryset = EmptyModel.objects.none()
+
             super().__init__(queryset, *args, **kwargs)  # type: ignore[call-arg]
-        except (TypeError, ValueError, AttributeError) as e:
-            logger.error("Error in parent initialization of %s: %s", self.__class__.__name__, e, exc_info=True)
+        except (TypeError, ValueError, AttributeError, ImproperlyConfigured) as e:
+            logger.error("Error initializing %s: %s", self.__class__.__name__, e, exc_info=True)
             raise
 
     def clean(self, value: Any) -> Any:

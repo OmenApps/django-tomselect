@@ -3,7 +3,7 @@
 import logging
 
 import pytest
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 
 from django_tomselect.app_settings import (
     PluginCheckboxOptions,
@@ -124,6 +124,22 @@ class TestTomSelectModelChoiceField:
         """Test that field raises ValueError with invalid config type."""
         with pytest.raises(TypeError):
             TomSelectModelChoiceField(config={"url": "autocomplete-edition", "invalid": "config"})
+
+    def test_field_with_dunder_label_field_is_rejected_and_logged(self, caplog):
+        """A dunder label_field is rejected by TomSelectConfig. The field init handlers
+        log the configuration error before re-raising it (rather than letting it
+        propagate unlogged), for both the model and non-model field paths.
+        """
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(ImproperlyConfigured):
+                TomSelectModelChoiceField(config={"url": "autocomplete-edition", "label_field": "__str__"})
+        assert any("Error initializing" in record.getMessage() for record in caplog.records)
+
+        caplog.clear()
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(ImproperlyConfigured):
+                TomSelectChoiceField(config={"url": "autocomplete-edition", "label_field": "__str__"})
+        assert any("Error initializing" in record.getMessage() for record in caplog.records)
 
     def test_field_with_config_and_kwargs_precedence(self):
         """Test that kwargs override config values."""

@@ -27,7 +27,7 @@ from enum import Enum
 from typing import Literal, TypeAlias, TypeVar
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.utils.functional import Promise
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
@@ -587,6 +587,21 @@ class TomSelectConfig(BaseConfig):
                 raise ValidationError(
                     f"css_framework must be one of {sorted(allowed_frameworks)}, got {self.css_framework!r}"
                 )
+
+        # label_field must be a queryable column/relation/annotation, not a Python
+        # dunder. A dunder such as "__str__" exists on every instance (hasattr is
+        # always True), but it is not selectable via QuerySet.values(), so options
+        # would render with empty (or bound-method) labels. Fail loudly with guidance
+        # rather than silently producing blank labels.
+        if self.label_field.startswith("__") and self.label_field.endswith("__"):
+            raise ImproperlyConfigured(
+                f"label_field={self.label_field!r} is a Python dunder, not a queryable model field. "
+                "django-tomselect serializes options with QuerySet.values(), so a dunder like "
+                "'__str__' cannot be selected and the label would render empty. Use a real field "
+                "(e.g. label_field='name'), a relation lookup (e.g. label_field='author__name'), or "
+                "annotate a display field in the autocomplete view's hook_queryset() and point "
+                "label_field at that annotation."
+            )
 
     def _normalize_filter_input(self, value: FilterByInput) -> list[FilterSpec]:  # noqa: C901
         """Normalize filter_by or exclude_by input to a list of FilterSpec objects."""

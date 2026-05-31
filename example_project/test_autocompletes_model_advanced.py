@@ -363,9 +363,11 @@ class TestVirtualFields:
         original_value_fields = LabelAutocompleteView.value_fields
         original_virtual_fields = list(getattr(LabelAutocompleteView, "virtual_fields", []))
 
-        # A dunder label (e.g. a model's __str__) is not a queryable column.
+        # A non-column label (e.g. an annotated/computed display field) is not a
+        # real database column. Dunders like "__str__" are rejected at config time,
+        # so use a representative virtual label here.
         widget = TomSelectModelWidget(
-            config=TomSelectConfig(url="autocomplete-edition", value_field="id", label_field="__str__"),
+            config=TomSelectConfig(url="autocomplete-edition", value_field="id", label_field="display_name"),
         )
         widget.model = Edition
         view = LabelAutocompleteView()
@@ -377,10 +379,38 @@ class TestVirtualFields:
         assert LabelAutocompleteView.value_fields is original_value_fields
         assert list(getattr(LabelAutocompleteView, "virtual_fields", [])) == original_virtual_fields
 
-        # The throwaway instance got the label, and the dunder was routed to
-        # virtual_fields so it is excluded from the .values() query.
-        assert "__str__" in view.value_fields
+        # The throwaway instance got the label, and the non-column field was routed
+        # to virtual_fields so it is excluded from the .values() query.
+        assert "display_name" in view.value_fields
+        assert "display_name" in view.virtual_fields
+
+    def test_dunder_label_set_on_widget_is_routed_to_virtual_fields(self):
+        """Defense-in-depth: TomSelectConfig rejects dunder label_fields, but a dunder
+        can still reach the widget by bypassing config validation (a subclass or caller
+        setting widget.label_field directly). _ensure_label_field_in_view must route it
+        to virtual_fields so it is excluded from .values() and never raises FieldError.
+        """
+        from django_tomselect.app_settings import TomSelectConfig
+        from django_tomselect.widgets import TomSelectModelWidget
+
+        class LabelAutocompleteView(AutocompleteModelView):
+            model = Edition
+            value_fields = ["id", "name"]
+
+        widget = TomSelectModelWidget(
+            config=TomSelectConfig(url="autocomplete-edition", value_field="id", label_field="name"),
+        )
+        widget.model = Edition
+        # Bypass config validation the way a subclass/caller could.
+        widget.label_field = "__str__"
+        view = LabelAutocompleteView()
+
+        widget._ensure_label_field_in_view(view)
+
+        # Routed to virtual_fields and therefore excluded from the .values() field
+        # list, so the query cannot raise FieldError on the non-column dunder.
         assert "__str__" in view.virtual_fields
+        assert "__str__" not in view.get_value_fields()
 
     def test_virtual_fields_excluded_from_query(self, rf):
         """Test that virtual fields are excluded from database queries."""

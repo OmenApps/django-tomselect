@@ -194,6 +194,50 @@ config=TomSelectConfig(label_field="name")
 ```
 Then your autocomplete view should include "name" in its `value_fields` list.
 
+````{warning}
+**Do not use `label_field="__str__"`** (or any Python dunder). django-tomselect
+serializes options with `QuerySet.values()`, and `__str__` is not a selectable
+column, so option labels would render empty. This now raises `ImproperlyConfigured`
+at configuration time.
+
+When you are tempted to reach for the model's `__str__`, use a **real field** or an
+**annotation** instead. For a composite/computed label, reproduce it as a queryable
+annotation in `hook_queryset()` and point `label_field` at that annotation:
+
+```python
+from django.db.models import CharField, Value
+from django.db.models.functions import Concat
+
+class SubscriptionAutocomplete(AutocompleteModelView):
+    model = Subscription
+    value_fields = ["id", "display_name"]
+    search_lookups = ["monitor__name__icontains"]
+
+    def hook_queryset(self, queryset):
+        # Reproduce the model's __str__ as a queryable annotation. Pass an
+        # explicit output_field so Django can resolve the type even when a
+        # concatenated part is not itself text (an int/date column otherwise
+        # raises FieldError: unknown output_field).
+        return queryset.annotate(
+            display_name=Concat(
+                "monitor__name", Value(" - "), "metric",
+                output_field=CharField(),
+            ),
+        )
+
+# Widget config:
+config = TomSelectConfig(url="subscription-autocomplete", label_field="display_name")
+```
+
+Because `display_name` is a real annotation it flows through both the AJAX results
+(`.values()`) and the pre-selected option rendering, and it stays searchable and
+sortable. If a single column already captures the label, just use it directly
+(e.g. `label_field="name"`) - no annotation needed. (The annotation's relation
+traversal, `monitor__name`, is JOINed automatically; only add `select_related`
+in `hook_queryset()` if you also access the related object on the result
+instances for other reasons.)
+````
+
 4. **Queryset Customization**
 
 Use `hook_queryset` to optimize or customize the queryset:

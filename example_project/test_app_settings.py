@@ -5,7 +5,7 @@ import json
 
 import pytest
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 
 import django_tomselect.app_settings as app_settings
 from django_tomselect.app_settings import (
@@ -121,6 +121,29 @@ class TestAppSettings:
         # Test that None is passed through
         config = TomSelectConfig(css_framework=None)
         assert config.css_framework is None
+
+    def test_label_field_dunder_rejected(self):
+        """label_field must be a queryable field, not a Python dunder like __str__.
+
+        A dunder exists on every instance (hasattr is always True) but is not
+        selectable via QuerySet.values(), so it would render an empty label. The
+        config rejects it loudly and points the implementer at a real field or an
+        annotation.
+        """
+        with pytest.raises(ImproperlyConfigured) as exc_info:
+            TomSelectConfig(label_field="__str__")
+        message = str(exc_info.value)
+        assert "__str__" in message
+        assert "annotate" in message  # guidance points at a real field / annotation
+
+        # Any dunder shares the same non-queryable failure mode and is rejected.
+        with pytest.raises(ImproperlyConfigured):
+            TomSelectConfig(label_field="__repr__")
+
+        # Real fields, relation lookups, and the default all remain valid.
+        assert TomSelectConfig(label_field="name").label_field == "name"
+        assert TomSelectConfig(label_field="author__name").label_field == "author__name"
+        assert TomSelectConfig().label_field == "name"
 
     def test_plugin_dropdown_header_extra_columns_empty(self):
         """Test PluginDropdownHeader with empty extra columns."""
