@@ -29,7 +29,8 @@ class PermissionCache:
     """Caches and manages user permissions for TomSelect fields.
 
     Caching is disabled by default and must be explicitly enabled by setting
-    TOMSELECT_PERMISSION_CACHE_TIMEOUT.
+    a ``TIMEOUT`` in the top-level ``PERMISSION_CACHE`` Django setting
+    (e.g. ``PERMISSION_CACHE = {"TIMEOUT": 300}``).
     """
 
     def __init__(self):
@@ -45,7 +46,7 @@ class PermissionCache:
 
         if self.enabled and not hasattr(cache, "get"):
             logger.warning(
-                "TOMSELECT_PERMISSION_CACHE_TIMEOUT is set but caching appears to be disabled. "
+                'PERMISSION_CACHE["TIMEOUT"] is set but caching appears to be disabled. '
                 "Permission caching will be disabled."
             )
             self.enabled = False
