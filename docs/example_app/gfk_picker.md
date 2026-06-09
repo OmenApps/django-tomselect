@@ -3,8 +3,8 @@
 ## Example Overview
 
 The **Generic Foreign Key Picker** example demonstrates a single autocomplete
-field that can pick *any* row from multiple model types — an Article, an
-Author, or a Magazine — and store the choice as a `GenericForeignKey`.
+field that can pick *any* row from multiple model types - an Article, an
+Author, or a Magazine - and store the choice as a `GenericForeignKey`.
 
 The widget is wired to a small **adapter view** (`MultiTypeFeaturedAdapterView`)
 that fans out to the per-type autocomplete views and merges their results into
@@ -14,7 +14,7 @@ a single response, prefixing each row's `value` with the type key
 **Objective**:
 - Show how to back a single tomselect widget with multiple heterogeneous
   autocomplete sources without modifying the package.
-- Pin down the adapter pattern using Django's `as_view()` dispatch — the same
+- Pin down the adapter pattern using Django's `as_view()` dispatch - the same
   approach the package's own `CompositeAutocompleteView._delegate_value` uses,
   so per-type permissions, search, pagination, and `prepare_results` continue
   to run normally per subview.
@@ -24,12 +24,12 @@ a single response, prefixing each row's `value` with the type key
 **Use Case**:
 - "Featured item" widgets (spotlights, attachments, mentions) where any
   model can be the subject.
-- Audit-log row pickers — pick the object the log entry is about.
+- Audit-log row pickers - pick the object the log entry is about.
 - "Tag any of N kinds of thing" workflows in admin / triage tools.
 
 **Visual Examples**
 
-![Screenshot: GFK picker — dropdown with mixed types and color pills](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/gfk-picker.png)
+![Screenshot: GFK picker - dropdown with mixed types and color pills](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/gfk-picker.png)
 
 ---
 
@@ -137,7 +137,7 @@ class TomSelectGFKWidget(TomSelectIterablesWidget):
 The package's `tomselect.html` template only serializes `value` + `label` +
 action-URLs into `allOptions`, so any `_type_*` metadata you return is
 dropped. Instead, the demo's Tom Select `option`/`item` render templates
-derive the type pill *client-side* from `data.value.split(':')[0]` — keeping
+derive the type pill *client-side* from `data.value.split(':')[0]` - keeping
 the metadata coupled to the value, not to widget-side serialization tricks.
 
 ```html
@@ -172,7 +172,7 @@ class TomSelectGenericForeignKeyField(forms.CharField):
         return raw
 ```
 
-### View — persisting a Spotlight
+### View - persisting a Spotlight
 
 ```python
 def gfk_picker_view(request):
@@ -195,7 +195,7 @@ def gfk_picker_view(request):
 
 ### Form widget config
 
-The widget MUST configure `value_field="value"` and `label_field="label"` —
+The widget MUST configure `value_field="value"` and `label_field="label"` -
 `TomSelectConfig` defaults are `id`/`name` (`app_settings.py:482`), but the
 adapter emits `value`/`label`, so a mismatch would break the round-trip.
 
@@ -249,7 +249,7 @@ drop-in:
    its autocomplete view is an `AutocompleteModelView` subclass with a single
    model/queryset. The composite view does not satisfy that.
 2. **Default AJAX uses `?q=`.** The widget's default fetch hits `?q=<query>`.
-   The composite view defaults to `?mode=operators` for that path — different
+   The composite view defaults to `?mode=operators` for that path - different
    protocol entirely.
 
 The adapter sits in between: it exposes the standard `?q=` API the widget
@@ -260,6 +260,6 @@ ships a built-in adapter, this demo is a reference implementation.
 
 ## Related
 
-- {doc}`article_token_search` — the other consumer of multi-type routing.
+- {doc}`article_token_search` - the other consumer of multi-type routing.
 - API reference: `AutocompleteIterablesView`, `TomSelectIterablesWidget`,
   `sanitize_dict`.

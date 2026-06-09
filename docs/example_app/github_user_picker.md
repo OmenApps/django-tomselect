@@ -8,7 +8,7 @@ does not have to be backed by the Django ORM. Any view that returns a
 `has_more`) can drive a Tom Select widget.
 
 This demo subclasses `AutocompleteIterablesView` but overrides `get()`
-directly — bypassing `get_iterable`, `search`, and `paginate_iterable`. The
+directly - bypassing `get_iterable`, `search`, and `paginate_iterable`. The
 view then proxies GitHub's public `/search/users` REST endpoint via `httpx`,
 caching results to soften the rate-limit hit.
 
@@ -16,11 +16,11 @@ caching results to soften the rate-limit hit.
 - Show how to swap the autocomplete data source for an external HTTP API.
 - Demonstrate rate-limit-aware fetch behaviour (`403`/`429`, `retry-after`,
   `x-ratelimit-remaining`).
-- Show that you can store the selected value in a plain `CharField` — no
+- Show that you can store the selected value in a plain `CharField` - no
   model, no foreign key.
 
 **Use Case**:
-- "Pick a GitHub user" / "Tag a Twitter handle" / "Look up an ISBN" — any
+- "Pick a GitHub user" / "Tag a Twitter handle" / "Look up an ISBN" - any
   reference to an external system whose canonical id you want to remember.
 - Vendor / partner pickers backed by an internal microservice instead of a
   shared database.
@@ -29,7 +29,7 @@ caching results to soften the rate-limit hit.
 
 **Visual Examples**
 
-![Screenshot: GitHub user picker — typing 'omenapps'](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/github-user-picker.png)
+![Screenshot: GitHub user picker - typing 'omenapps'](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/github-user-picker.png)
 
 ---
 
@@ -78,7 +78,7 @@ class GitHubUserAutocompleteView(AutocompleteIterablesView):
             payload = {"results": [], "page": page, "has_more": False,
                        "error": "Upstream error contacting GitHub."}
 
-        # Override-get skips the package's automatic sanitization pass —
+        # Override-get skips the package's automatic sanitization pass -
         # sanitize at the boundary.
         payload["results"] = [sanitize_dict(r) for r in payload.get("results", [])]
         cache.set(cache_key, payload, 300)
@@ -112,7 +112,7 @@ def _fetch_github(self, q, page):
     # Row keys MUST be "value"/"label" (not "id") to match the widget's
     # configured value_field / label_field. Returning "id" would make Tom
     # Select see data.value === undefined and silently treat every row as
-    # "No results found" — a 200 status with rows the UI never displays.
+    # "No results found" - a 200 status with rows the UI never displays.
     results = [
         {"value": u["login"], "label": u["login"],
          "avatar_url": u.get("avatar_url", ""),
@@ -133,7 +133,7 @@ def _fetch_github(self, q, page):
 The form stores the GitHub login string in a plain `CharField`. Because the
 login is emitted as both `value` and `label` in the dropdown rows, the
 `TomSelectIterablesWidget`'s default `value == label` fallback renders the
-selected chip correctly on form re-submit — no custom widget needed.
+selected chip correctly on form re-submit - no custom widget needed.
 
 ```python
 from django_tomselect.app_settings import TomSelectConfig, PluginDropdownHeader
@@ -148,7 +148,7 @@ class GitHubUserPickerForm(forms.Form):
                 url="autocomplete-github-user",
                 value_field="value",
                 label_field="label",
-                placeholder=_("Type a GitHub username — e.g. octo"),
+                placeholder=_("Type a GitHub username - e.g. octo"),
                 minimum_query_length=2,
                 load_throttle=400,
                 plugin_dropdown_header=PluginDropdownHeader(
@@ -210,7 +210,7 @@ path("demo-github-user-picker/", views.github_user_picker_view, name="github-use
 
 ## Related
 
-- {doc}`tagging` — the in-database equivalent of "pick a value from a
+- {doc}`tagging` - the in-database equivalent of "pick a value from a
   dynamic source."
 - API reference: `AutocompleteIterablesView`, `TomSelectIterablesWidget`,
   `PluginDropdownHeader`.

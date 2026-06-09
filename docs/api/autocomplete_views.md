@@ -447,6 +447,35 @@ Autocompletes can be customized to modify formatting by overriding the `get_iter
 
 For an example where we use this to display tuples as ranges, see the [autcompletes.py code](https://github.com/OmenApps/django-tomselect/blob/main/example_project/example/autocompletes.py#L66) in the example app.
 
+#### Dependent (filter_by) and exclude_by Filtering
+
+`AutocompleteIterablesView` supports the same `filter_by` and `exclude_by` configuration as
+model views, so iterables-backed fields (`TomSelectChoiceField` / `TomSelectMultipleChoiceField`)
+can act as dependent dropdowns or exclude already-chosen values.
+
+Because an iterable item is just `{"value", "label"}` with no model behind it, the lookup must
+target the `value` or `label` key (not a model field). Configure the lookup accordingly:
+
+```python
+# Only show statuses whose value matches the selected parent field's value
+filter_by = ("parent_field", "value")          # -> value=<parent value>
+filter_by = ("parent_field", "value__in")      # -> value in <comma list>
+exclude_by = ("other_field", "value")          # drop the value chosen elsewhere
+```
+
+Supported lookups: `exact` (default), `iexact`, `in`, `contains`, `icontains`, `startswith`,
+`istartswith`, `endswith`, `iendswith`. Multiple `filter_by` entries are AND-ed; multiple
+`exclude_by` entries drop the union. Invalid configuration (a key other than `value`/`label`,
+an unsupported lookup, or an empty/whitespace value) fails closed and returns no results,
+matching the dependent-dropdown contract.
+
+```{note}
+A lookup whose key is a model field name (e.g. `("category", "category_id")`, which works for
+model views) targets `category_id` and will not match an iterable item, so it returns an empty
+list. For iterables, always target `value` or `label`. Also note that values containing single
+quotes cannot be matched exactly, since the URL parser strips quotes.
+```
+
 ## Response Format
 
 Both view types return JSON responses in this format:

@@ -7,8 +7,8 @@ The **Article Token Search (Advanced)** example is the companion to the
 `TomSelectTokenWidget` against a `CompositeAutocompleteView`; the difference is
 which extension point of `Operator` each one exercises.
 
-- The basic demo uses `Operator.filter_lookup` — exact / `__in` matching only.
-- This advanced demo uses `Operator.q_translator` — a callable that receives
+- The basic demo uses `Operator.filter_lookup` - exact / `__in` matching only.
+- This advanced demo uses `Operator.q_translator` - a callable that receives
   `(op, list[values])` and returns an arbitrary `Q` object, unlocking date
   comparisons, numeric ranges, and any other ORM lookup you can express in `Q`.
 
@@ -27,9 +27,9 @@ which extension point of `Operator` each one exercises.
 
 **Visual Examples**
 
-![Screenshot: Advanced token search — date and range operators](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-advanced-token-search-published.png)
-![Screenshot: Advanced token search — word count](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-advanced-token-search-word-count.png)
-![Screenshot: Advanced token search — filtered results](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-advanced-token-search.png)
+![Screenshot: Advanced token search - date and range operators](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-advanced-token-search-published.png)
+![Screenshot: Advanced token search - word count](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-advanced-token-search-word-count.png)
+![Screenshot: Advanced token search - filtered results](https://raw.githubusercontent.com/OmenApps/django-tomselect/refs/heads/main/docs/images/article-advanced-token-search.png)
 
 ---
 
@@ -39,7 +39,7 @@ which extension point of `Operator` each one exercises.
 
 The translator receives the `Operator` and the parsed list of token values
 (length 1 for `multi=False`, length N for `multi=True`). It must return a `Q`
-object. Raising `ValueError` is the supported way to signal a bad value — the
+object. Raising `ValueError` is the supported way to signal a bad value - the
 parser wraps it into a `ValidationError` for the form.
 
 ```python
@@ -216,6 +216,6 @@ path(
 
 ## Related
 
-- {doc}`article_token_search` — the basic version that uses only `filter_lookup`.
+- {doc}`article_token_search` - the basic version that uses only `filter_lookup`.
 - API reference: `TomSelectTokenWidget`, `TomSelectTokenField`,
   `CompositeAutocompleteView`, `Operator`, `parse_query`.

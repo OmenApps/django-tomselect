@@ -5,10 +5,10 @@
 The **Inline Create with HTMX** example shows how to wire an instant
 "create new value" flow into a Tom Select field: type a name that doesn't
 exist, click the **Add &lt;name&gt;…** option Tom Select renders in the
-dropdown, and the server persists the new value — all without a form submit
+dropdown, and the server persists the new value - all without a form submit
 or page reload. The created chip appears in the field and in a sidebar list
 of "Tags created this session". Picking an existing tag from the dropdown
-adds a chip but does not land in the sidebar — only fresh creations do.
+adds a chip but does not land in the sidebar - only fresh creations do.
 
 It also documents a workaround. The package's `create_with_htmx=True` flag
 produces an `option_create.html` markup that currently:
@@ -51,7 +51,7 @@ to talk to a JSON endpoint. The pattern below is the recommended recipe today.
 
 Reuses `DynamicTagField` from the simple tagging demo. `DynamicTagField`
 subclasses `TomSelectMultipleChoiceField` (not `TomSelectModelMultipleChoiceField`),
-so it doesn't set `to_field_name` from `config.value_field` — which would
+so it doesn't set `to_field_name` from `config.value_field` - which would
 otherwise reject `name`-valued options.
 
 ```python
@@ -65,7 +65,7 @@ class InlineCreateTagForm(forms.Form):
             url="autocomplete-publication-tag",
             value_field="value",
             label_field="label",
-            placeholder="Type a tag — e.g. quantum-computing",
+            placeholder="Type a tag - e.g. quantum-computing",
             create=True,
             highlight=True,
             minimum_query_length=1,
@@ -76,7 +76,7 @@ class InlineCreateTagForm(forms.Form):
 
 ### Server response contract
 
-The view consumes structured JSON. `value` is the tag's `name`, not its id —
+The view consumes structured JSON. `value` is the tag's `name`, not its id -
 this keeps the value space consistent with `PublicationTagAutocompleteView`,
 which emits `{value: tag.name, label: tag.name}`.
 
@@ -136,7 +136,7 @@ after a successful create so the OOB session-panel refresh runs.
 document.addEventListener('DOMContentLoaded', function attachCreateHandler() {
     var el = document.getElementById('id_tags');
     if (!el || !el.tomselect) {
-        // Tom Select also initializes on DOMContentLoaded — retry next frame.
+        // Tom Select also initializes on DOMContentLoaded - retry next frame.
         requestAnimationFrame(attachCreateHandler);
         return;
     }
@@ -207,7 +207,7 @@ path(
 |---|---|
 | Type a new tag (e.g. `quantum-computing`) | Dropdown shows "Add **quantum-computing**…". Click → chip appears, no reload, and the sidebar updates. |
 | Type an existing tag and click its "Add" option | Same chip is selected; no duplicate row; sidebar does NOT update (the heading is "Tags **created** this session" and the entry already existed). |
-| Pick an existing tag directly from the autocomplete suggestions | Chip appears in the field. Sidebar does NOT update — only fresh creations land there. |
+| Pick an existing tag directly from the autocomplete suggestions | Chip appears in the field. Sidebar does NOT update - only fresh creations land there. |
 | Type an invalid name (`has spaces!`, `--bad--`, `-x`) | Inline error appears under the field via the model's `clean()` rules; no chip added. |
 | Watch the sidebar | Refreshes via OOB swap each time a tag is genuinely created. |
 | Submit the form | The view receives `cleaned_data["tags"]` as a list of tag-name strings. |
@@ -234,6 +234,6 @@ starting point.
 
 ## Related
 
-- {doc}`tagging` — the simpler version that persists tags only at form submit
+- {doc}`tagging` - the simpler version that persists tags only at form submit
   via `get_or_create` in the field's `clean()`.
 - API reference: `TomSelectConfig`, `TomSelectMultipleChoiceField`.

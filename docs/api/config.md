@@ -148,7 +148,7 @@ spec = FilterSpec(source='published', lookup='status', source_type='const')
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `source` | `str` | required | Form field name (for `source_type='field'`) or constant value (for `source_type='const'`). |
-| `lookup` | `str` | required | Django ORM lookup applied on the autocomplete side (e.g. `category_id`, `status`). |
+| `lookup` | `str` | required | The lookup applied on the autocomplete side. For model views this is a Django ORM lookup (e.g. `category_id`, `status`). For iterables views (`AutocompleteIterablesView`) it targets the item's `value` or `label` key plus an optional lookup suffix (e.g. `value`, `value__in`, `label__icontains`). |
 | `source_type` | `'field' \| 'const'` | `'field'` | Whether `source` names a form field or holds a literal value. |
 | `levels_up` | `int` | `0` | Number of formset levels to walk up from the select to find the source field. Only valid for `source_type='field'`. See [Cross-level filters in nested formsets](#cross-level-filters-in-nested-formsets). |
 
@@ -484,6 +484,14 @@ When using multiple filters, the autocomplete URL will include multiple `f` (fil
 - Field filters: `?f='fieldname__lookup=value'`
 - Constant filters: `?f='__const__lookup=value'`
 - Multiple: `?f='...'&f='...'&f='...'`
+
+```{note}
+These options also apply to iterables-backed fields (`TomSelectChoiceField` /
+`TomSelectMultipleChoiceField` served by an `AutocompleteIterablesView`). Because an iterable
+item has only `value` and `label` keys, the `lookup` must target `value` or `label` (e.g.
+`('parent_field', 'value')`, `Const('published', 'value')`) rather than a model field. See the
+[AutocompleteIterablesView docs](autocomplete_views.md) for supported lookups and behavior.
+```
 
 (creating-new-items)=
 ### Creating New Items
