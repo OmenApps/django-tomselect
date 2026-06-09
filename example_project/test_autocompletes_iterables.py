@@ -715,3 +715,205 @@ class TestAutocompleteIterablesViewVirtualScrollCompatibility:
         assert data["page"] == data["total_pages"], "Should be on the last page"
         assert data["has_more"] is False
         assert data["next_page"] is None
+
+
+@pytest.mark.django_db
+class TestAutocompleteIterablesViewFiltering:
+    """filter_by / exclude_by support for AutocompleteIterablesView.
+
+    Iterable items are plain dicts {"value", "label"} with no ORM, so the
+    parsed lookup_field (everything after the first ``__`` in the param) is
+    interpreted against the item's ``value``/``label`` keys plus an optional
+    Django-style lookup suffix. Behavior mirrors AutocompleteModelView:
+    multiple filters AND, multiple excludes drop the union, and invalid or
+    empty config fails closed (empty results), matching the dependent-dropdown
+    contract.
+    """
+
+    class Status(TextChoices):
+        """Small deterministic choice set for filtering assertions."""
+
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        ARCHIVED = "archived", "Archived"
+        PUBLISHED = "published", "Published"
+
+    def _view(self, rf, query):
+        view = AutocompleteIterablesView()
+        view.iterable = self.Status
+        request = rf.get("", query)
+        view.setup(request)
+        return view
+
+    @staticmethod
+    def _values(items):
+        return [item["value"] for item in items]
+
+    def test_filter_by_value_exact_narrows(self, rf):
+        """``value=active`` keeps only the item whose value equals 'active'."""
+        view = self._view(rf, {"f": "status__value=active"})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["active"]
+
+    def test_filter_by_value_in(self, rf):
+        """``value__in=draft,published`` keeps the listed values."""
+        view = self._view(rf, {"f": "status__value__in=draft,published"})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["draft", "published"]
+
+    def test_filter_by_label_icontains(self, rf):
+        """``label__icontains=arch`` matches the 'Archived' label case-insensitively."""
+        view = self._view(rf, {"f": "status__label__icontains=arch"})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["archived"]
+
+    def test_exclude_by_value_drops_item(self, rf):
+        """``e=value=draft`` drops the matching item, keeps the rest."""
+        view = self._view(rf, {"e": "status__value=draft"})
+        result = view.apply_filters(view.get_iterable())
+        assert "draft" not in self._values(result)
+        assert len(result) == 3
+
+    def test_multiple_excludes_drop_union(self, rf):
+        """Two excludes drop items matching ANY exclude (OR-drop), mirroring
+        the model's ``.exclude(A).exclude(B)``.
+        """
+        view = self._view(rf, {"e": ["status__value=draft", "status__value=active"]})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["archived", "published"]
+
+    def test_multiple_filters_and(self, rf):
+        """Two filters AND together: value__in narrows to 3, label__icontains=act
+        leaves only 'active'.
+        """
+        view = self._view(rf, {"f": ["status__value__in=draft,active,archived", "status__label__icontains=act"]})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["active"]
+
+    def test_combined_filter_and_exclude(self, rf):
+        """filter_by keeps a set, exclude_by removes one of them."""
+        view = self._view(rf, {"f": "status__value__in=draft,active,published", "e": "status__value=active"})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["draft", "published"]
+
+    def test_constant_filter(self, rf):
+        """``__const__value=published`` always narrows to that value."""
+        view = self._view(rf, {"f": "__const__value=published"})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["published"]
+
+    def test_constant_exclude(self, rf):
+        """``__const__value__in=draft,active`` always drops those values."""
+        view = self._view(rf, {"e": "__const__value__in=draft,active"})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["archived", "published"]
+
+    @pytest.mark.parametrize("param_key", ["f", "e"], ids=["filter_by", "exclude_by"])
+    def test_empty_value_returns_empty(self, rf, param_key):
+        """``value=`` (valid format, empty value) fails closed to empty results."""
+        view = self._view(rf, {param_key: "status__value="})
+        result = view.apply_filters(view.get_iterable())
+        assert result == []
+
+    @pytest.mark.parametrize("param_key", ["f", "e"], ids=["filter_by", "exclude_by"])
+    def test_invalid_key_returns_empty(self, rf, param_key):
+        """A lookup whose base key is neither 'value' nor 'label' cannot apply to
+        an iterable item, so it fails closed (mirrors model invalid-field => none).
+        """
+        view = self._view(rf, {param_key: "status__category_id=5"})
+        result = view.apply_filters(view.get_iterable())
+        assert result == []
+
+    def test_in_drops_empty_tokens(self, rf):
+        """``value__in=draft,,published`` ignores the empty token between commas."""
+        view = self._view(rf, {"f": "status__value__in=draft,,published"})
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["draft", "published"]
+
+    @pytest.mark.parametrize("param_key", ["f", "e"], ids=["filter_by", "exclude_by"])
+    def test_in_all_empty_tokens_returns_empty(self, rf, param_key):
+        """``value__in=,`` yields an empty token list and fails closed."""
+        view = self._view(rf, {param_key: "status__value__in=,"})
+        result = view.apply_filters(view.get_iterable())
+        assert result == []
+
+    @pytest.mark.parametrize("param_key", ["f", "e"], ids=["filter_by", "exclude_by"])
+    def test_whitespace_only_value_returns_empty(self, rf, param_key):
+        """A whitespace-only scalar value fails closed (not just empty string).
+
+        Regression guard: without ``value.strip()``, an exclude with a blank-ish
+        value matched nothing and leaked the full unexcluded set.
+        """
+        view = self._view(rf, {param_key: "status__value=   "})
+        result = view.apply_filters(view.get_iterable())
+        assert result == []
+
+    @pytest.mark.parametrize("param_key", ["f", "e"], ids=["filter_by", "exclude_by"])
+    def test_in_whitespace_only_tokens_returns_empty(self, rf, param_key):
+        """``value__in= , `` (all whitespace tokens) fails closed too."""
+        view = self._view(rf, {param_key: "status__value__in= , "})
+        result = view.apply_filters(view.get_iterable())
+        assert result == []
+
+    def test_no_filter_params_returns_unchanged(self, rf):
+        """No f/e params: items pass through untouched (regression guard)."""
+        view = self._view(rf, {})
+        items = view.get_iterable()
+        result = view.apply_filters(items)
+        assert result == items
+
+    def test_legacy_direct_assignment_filter(self, rf):
+        """Legacy direct string assignment to ``filter_by`` (no request param)
+        still applies, mirroring the model view's backwards-compat fallback.
+        """
+        view = AutocompleteIterablesView()
+        view.iterable = self.Status
+        view.filter_by = "status__value=archived"
+        request = rf.get("")
+        view.setup(request)
+        result = view.apply_filters(view.get_iterable())
+        assert self._values(result) == ["archived"]
+
+    def test_apostrophe_value_stripped_known_limitation(self, rf):
+        """The shared parser strips all single quotes (JS wraps params in them),
+        so an item value/label containing an apostrophe cannot be exact-matched.
+        Documented limitation - asserted so the behavior is intentional.
+        """
+
+        class Quoted(TextChoices):
+            MENS = "men's", "Men's"
+            KIDS = "kids", "Kids"
+
+        view = AutocompleteIterablesView()
+        view.iterable = Quoted
+        request = rf.get("", {"f": "cat__value=men's"})
+        view.setup(request)
+        result = view.apply_filters(view.get_iterable())
+        # "men's" becomes "mens" after quote-stripping -> matches nothing -> fail closed.
+        assert result == []
+
+    def test_get_applies_filter_end_to_end(self, rf):
+        """A GET with an ``f`` param returns JSON narrowed to the filtered items."""
+        view = AutocompleteIterablesView()
+        view.iterable = self.Status
+        request = rf.get("", {"f": "status__value__in=draft,published"})
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode("utf-8"))
+        assert [r["value"] for r in data["results"]] == ["draft", "published"]
+
+    def test_get_filter_then_search_compose(self, rf):
+        """filter_by runs before search(), so both narrow the result set.
+
+        Without filtering, ``q='e'`` would also match 'published'; the filter
+        excludes it, proving filter_by runs and composes with search.
+        """
+        view = AutocompleteIterablesView()
+        view.iterable = self.Status
+        request = rf.get("", {"f": "status__value__in=draft,active,archived", "q": "e"})
+        view.setup(request)
+
+        response = view.get(request)
+        data = json.loads(response.content.decode("utf-8"))
+        assert [r["value"] for r in data["results"]] == ["active", "archived"]

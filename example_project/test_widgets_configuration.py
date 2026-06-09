@@ -380,6 +380,38 @@ class TestWidgetValidation:
         assert hasattr(view, "get_iterable")
         assert callable(view.get_iterable)
 
+    def test_filter_by_emits_dependent_field_context(self):
+        """filter_by on an iterables widget must reach get_context so chained
+        (dependent) dropdowns work for TomSelectChoiceField, not only model fields."""
+        widget = TomSelectIterablesWidget(
+            config=TomSelectConfig(
+                url="autocomplete-article-status",
+                value_field="value",
+                label_field="label",
+                filter_by=("category", "category_id"),
+            )
+        )
+        context = widget.get_context("test", None, {})
+        assert context["widget"]["dependent_field"] == "category"
+        assert context["widget"]["dependent_field_lookup"] == "category_id"
+        assert context["widget"]["filters"] == [
+            {"source": "category", "lookup": "category_id", "source_type": "field", "levels_up": 0}
+        ]
+
+    def test_exclude_by_emits_exclude_field_context(self):
+        """exclude_by on an iterables widget must reach get_context as well."""
+        widget = TomSelectIterablesWidget(
+            config=TomSelectConfig(
+                url="autocomplete-article-status",
+                value_field="value",
+                label_field="label",
+                exclude_by=("author", "author_id"),
+            )
+        )
+        context = widget.get_context("test", None, {})
+        assert context["widget"]["exclude_field"] == "author"
+        assert context["widget"]["exclude_field_lookup"] == "author_id"
+
 
 @pytest.mark.django_db
 class TestWidgetAttributeHandling:

@@ -1220,6 +1220,52 @@ class TomSelectIterablesWidget(TomSelectWidgetMixin, forms.Select):
             "csp_nonce": self.get_csp_nonce(),
         }
 
+        # Add filter/exclude configuration - pass normalized lists. Mirrors
+        # TomSelectModelWidget.get_context so dependent (filter_by) and exclude_by
+        # dropdowns also work for iterables-backed fields (TomSelectChoiceField /
+        # TomSelectMultipleChoiceField), not only model-backed ones.
+        if self.filters:
+            context["widget"]["filters"] = [
+                {
+                    "source": f.source,
+                    "lookup": f.lookup,
+                    "source_type": f.source_type,
+                    "levels_up": f.levels_up,
+                }
+                for f in self.filters
+            ]
+            # Keep for backwards compatibility with custom templates
+            # Uses first field-type filter for legacy dependent_field
+            field_filters = [f for f in self.filters if f.source_type == "field"]
+            if field_filters:
+                context["widget"].update(
+                    {
+                        "dependent_field": field_filters[0].source,
+                        "dependent_field_lookup": field_filters[0].lookup,
+                    }
+                )
+
+        if self.excludes:
+            context["widget"]["excludes"] = [
+                {
+                    "source": e.source,
+                    "lookup": e.lookup,
+                    "source_type": e.source_type,
+                    "levels_up": e.levels_up,
+                }
+                for e in self.excludes
+            ]
+            # Keep for backwards compatibility with custom templates
+            # Uses first field-type exclude for legacy exclude_field
+            field_excludes = [e for e in self.excludes if e.source_type == "field"]
+            if field_excludes:
+                context["widget"].update(
+                    {
+                        "exclude_field": field_excludes[0].source,
+                        "exclude_field_lookup": field_excludes[0].lookup,
+                    }
+                )
+
         if value is not None:
             context["widget"]["selected_options"] = self._get_selected_options(value)
 

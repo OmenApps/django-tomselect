@@ -46,6 +46,39 @@ IterableType = list[Any] | tuple[Any, ...] | dict[Any, Any] | type
 
 MAX_PAGE_SIZE = 200  # Maximum allowed page size to prevent DoS
 
+# Lookups whose value is a comma-separated list on the URL side (split before use).
+LIST_VALUED_LOOKUPS = frozenset({"in", "range"})
+
+
+def parse_filter_string(filter_str: str) -> tuple[str, str, bool]:
+    """Parse a filter/exclude URL param into ``(lookup_field, value, is_constant)``.
+
+    Shared by both AutocompleteModelView (ORM filtering) and
+    AutocompleteIterablesView (dict filtering) so the cross-view URL contract
+    stays in one place. Handles field-based filters ('field__lookup=value') and
+    constant filters ('__const__lookup=value'). The JS wraps params in single
+    quotes, so those are stripped here (a known limitation for values that
+    legitimately contain apostrophes).
+
+    Args:
+        filter_str: The raw filter string from the URL parameter.
+
+    Returns:
+        A tuple of (lookup_field, value, is_constant). ``lookup_field`` is
+        everything after the first ``__`` (field form) or after ``__const__``
+        (constant form).
+    """
+    cleaned = unquote(filter_str).replace("'", "")
+    lookup, value = cleaned.split("=", 1)
+
+    # Constant filter format: __const__lookup=value
+    if lookup.startswith("__const__"):
+        return (lookup[9:], value, True)  # Remove '__const__' prefix
+
+    # Regular field filter: field__lookup=value
+    _dependent_field, lookup_field = lookup.split("__", 1)
+    return (lookup_field, value, False)
+
 
 class JSONEncoderMixin:
     """Mixin providing custom JSON encoder support for autocomplete views."""
@@ -441,17 +474,7 @@ class AutocompleteModelView(JSONEncoderMixin, View):
         Returns:
             A tuple of (lookup_field, value, is_constant).
         """
-        cleaned = unquote(filter_str).replace("'", "")
-        lookup, value = cleaned.split("=", 1)
-
-        # Check for constant filter format: __const__lookup=value
-        if lookup.startswith("__const__"):
-            lookup_field = lookup[9:]  # Remove '__const__' prefix
-            return (lookup_field, value, True)
-
-        # Regular field filter: field__lookup=value
-        _dependent_field, lookup_field = lookup.split("__", 1)
-        return (lookup_field, value, False)
+        return parse_filter_string(filter_str)
 
     def _apply_single_filter(self, queryset: QuerySet, filter_str: str, is_exclude: bool = False) -> QuerySet | None:
         """Apply a single filter or exclude to the queryset.
@@ -1003,6 +1026,11 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
     iterable: IterableType | None = None
     page_size: int = 20
 
+    # Only these item keys can be targeted by filter_by/exclude_by, since an
+    # iterable item is just {"value", "label"} with no ORM behind it. Strict
+    # allowlist: any other base key fails closed (empty results).
+    _FILTERABLE_KEYS = frozenset({"value", "label"})
+
     # Instance variables
     query: str
     page: str | int
@@ -1014,6 +1042,19 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
         query = unquote(str(request.GET.get(SEARCH_VAR, "")))
         self.query = query if not query == "undefined" else ""
         self.page = request.GET.get(PAGE_VAR, 1)  # type: ignore[assignment]
+
+        # filter_by / exclude_by params (mirror AutocompleteModelView.setup).
+        # Multiple values combine: filters AND, excludes drop the union.
+        # Handle both QueryDict (has getlist) and plain dict (proxy requests from
+        # lazy_utils and some test scenarios).
+        if hasattr(request.GET, "getlist"):
+            self.filters_by = request.GET.getlist(FILTERBY_VAR) or []
+            self.excludes_by = request.GET.getlist(EXCLUDEBY_VAR) or []
+        else:
+            filter_val = request.GET.get(FILTERBY_VAR)
+            exclude_val = request.GET.get(EXCLUDEBY_VAR)
+            self.filters_by = [str(filter_val)] if filter_val else []
+            self.excludes_by = [str(exclude_val)] if exclude_val else []
 
         # Handle page size with validation
         try:
@@ -1089,6 +1130,116 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
         logger.debug("Search results %s", search_results)
         return search_results
 
+    def _matches(self, item: dict[str, str | int], lookup_field: str, value: str) -> bool | None:
+        """Return whether ``item`` satisfies ``lookup_field``/``value``.
+
+        ``lookup_field`` is ``<key>`` or ``<key>__<op>`` where ``<key>`` must be
+        ``value`` or ``label`` and ``<op>`` is a supported string lookup
+        (default ``exact``). Returns ``None`` to signal an invalid/unsupported
+        config (bad key, unknown op, or empty value), which the caller treats as
+        fail-closed.
+        """
+        parts = lookup_field.split("__", 1)
+        key = parts[0]
+        op = parts[1] if len(parts) == 2 else "exact"
+
+        if key not in self._FILTERABLE_KEYS:
+            logger.warning("Invalid iterable filter key %r (allowed: value, label)", key)
+            return None
+
+        item_value = str(item[key])
+
+        if op == "in":
+            tokens = [v for v in value.split(",") if v.strip() != ""]
+            if not tokens:
+                return None  # e.g. ``value__in=,`` or whitespace-only -> fail closed
+            return item_value in tokens
+
+        if not value.strip():
+            return None  # empty/whitespace value on a scalar lookup -> fail closed
+
+        candidate, target = item_value, value
+        if op in {"iexact", "icontains", "istartswith", "iendswith"}:
+            candidate, target = candidate.lower(), target.lower()
+
+        comparisons = {
+            "exact": lambda: candidate == target,
+            "iexact": lambda: candidate == target,
+            "contains": lambda: target in candidate,
+            "icontains": lambda: target in candidate,
+            "startswith": lambda: candidate.startswith(target),
+            "istartswith": lambda: candidate.startswith(target),
+            "endswith": lambda: candidate.endswith(target),
+            "iendswith": lambda: candidate.endswith(target),
+        }
+        compare = comparisons.get(op)
+        if compare is None:
+            logger.warning("Unsupported iterable filter lookup %r on key %r", op, key)
+            return None
+        return compare()
+
+    def apply_filters(self, items: list[dict[str, str | int]]) -> list[dict[str, str | int]]:
+        """Apply filter_by / exclude_by params to the iterable items.
+
+        Mirrors AutocompleteModelView.apply_filters semantics for non-ORM items:
+
+        - filter_by: keep items matching ALL filters (AND).
+        - exclude_by: drop items matching ANY exclude (the union).
+        - Invalid key, unsupported lookup, or empty value fails closed (returns
+          ``[]``), matching the model view and the dependent-dropdown contract
+          ("empty parent => empty dropdown").
+
+        Supports both setup()-populated ``filters_by``/``excludes_by`` lists and
+        legacy direct string assignment to ``filter_by``/``exclude_by``.
+        """
+        filters_by = getattr(self, "filters_by", []) or []
+        excludes_by = getattr(self, "excludes_by", []) or []
+        if not filters_by and getattr(self, "filter_by", None):
+            filters_by = [self.filter_by]
+        if not excludes_by and getattr(self, "exclude_by", None):
+            excludes_by = [self.exclude_by]
+
+        if not filters_by and not excludes_by:
+            return items
+
+        results = list(items)
+
+        for filter_str in filters_by:
+            result = self._apply_one(results, filter_str, is_exclude=False)
+            if result is None:
+                return []  # invalid config -> fail closed
+            results = result
+
+        for exclude_str in excludes_by:
+            result = self._apply_one(results, exclude_str, is_exclude=True)
+            if result is None:
+                return []  # invalid config -> fail closed
+            results = result
+
+        return results
+
+    def _apply_one(
+        self, items: list[dict[str, str | int]], filter_str: Any, *, is_exclude: bool
+    ) -> list[dict[str, str | int]] | None:
+        """Apply a single filter/exclude string. Returns the surviving items, or
+        ``None`` to signal fail-closed (invalid key/op/value or unparseable param).
+        """
+        if not isinstance(filter_str, str):
+            return items  # non-string config entry: skip, mirror model behavior
+        try:
+            lookup_field, value, _is_constant = parse_filter_string(filter_str)
+        except ValueError:
+            logger.warning("Unparseable iterable %s param: %r", "exclude_by" if is_exclude else "filter_by", filter_str)
+            return None
+        kept = []
+        for item in items:
+            match = self._matches(item, lookup_field, value)
+            if match is None:
+                return None
+            if match != is_exclude:  # keep on filter-match; keep on exclude-miss
+                kept.append(item)
+        return kept
+
     def paginate_iterable(self, results: list[dict[str, str | int]]) -> PaginatedResponse:
         """Paginate the filtered results."""
         try:
@@ -1126,6 +1277,7 @@ class AutocompleteIterablesView(JSONEncoderMixin, View):
 
         try:
             items = self.get_iterable()
+            items = self.apply_filters(items)
             filtered = self.search(items)
             data = self.paginate_iterable(filtered)
             return JsonResponse(data, encoder=self.get_json_encoder())  # type: ignore[arg-type]
