@@ -2,15 +2,7 @@
 
 ## Example Overview
 
-The "3-Level Filter-By" example demonstrates how to use `django_tomselect` to implement a hierarchical selection process, where options at one level depend on the user's choice in the previous level. This is ideal for use cases like selecting regions, countries, and local markets, where each level dynamically filters based on the prior selection.
-
-**Objective**:
-- To showcase a multi-tiered filtering process in forms using `TomSelectModelChoiceField`.
-- Demonstrates the power of `django_tomselect` plugins like `PluginDropdownHeader` for organizing data.
-
-**Use Case**:
-- Content publishing platforms selecting publishing regions, countries, and local markets.
-- Applications that require dependent dropdowns like car make >> model >> trim selection.
+This example chains three `TomSelectModelChoiceField` dropdowns into a hierarchical selection where each level filters on the choice made in the level above it: region, then country, then local market. Every level uses `PluginDropdownHeader` to present supporting metrics alongside the options. Use this pattern for any multi-tiered dependent selection, such as publishing regions down to local markets or car make >> model >> trim.
 
 **Visual Examples**
 
@@ -168,44 +160,98 @@ Dynamic filtering logic is handled by autocomplete endpoints in the backend.
 :::{admonition} Autocomplete Views
 :class: dropdown
 
+All three levels query the same self-referential `PublishingMarket` model
+(Region >> Country >> Local Market via the `parent` FK). Each dependent view
+reads the `parent_id` sent by its parent field and filters accordingly.
+
 ```python
-class PublishingMarket(models.Model):
-    """Represents geographic markets for publishing operations.
+class RegionAutocompleteView(AutocompleteModelView):
+    """Autocomplete view for top-level regions."""
 
-    Creates a three-level hierarchy: Region -> Country -> City/Market
-    """
+    model = PublishingMarket
+    search_lookups = ["name__icontains"]
+    value_fields = [
+        "id",
+        "name",
+        "total_markets",
+        "aggregated_readers",
+        "aggregated_publications",
+    ]
 
-    name = models.CharField(
-        max_length=100,
-        help_text="Name of the market. Either a region, country, or city/market.",
-    )
-    parent = models.ForeignKey(
-        "self",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="children",
-    )
-    market_size = models.IntegerField(
-        default=0,
-        help_text="Market size in millions of potential readers",
-    )
-    active_publications = models.IntegerField(
-        default=0,
-        help_text="Number of active publications in this market",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    skip_authorization = True
 
-    class Meta:
-        """Meta options for the model."""
+    def get_queryset(self):
+        """Return queryset of top-level regions with annotations."""
+        return (
+            super()
+            .get_queryset()
+            .filter(parent__isnull=True)
+            .annotate(
+                total_markets=Count("children__children"),
+                aggregated_readers=Sum("children__children__market_size"),
+                aggregated_publications=Sum("children__children__active_publications"),
+            )
+            .order_by("name")
+        )
 
-        ordering = ["name"]
-        verbose_name = "Publishing Market"
-        verbose_name_plural = "Publishing Markets"
 
-    def __str__(self):
-        return self.name
+class CountryAutocompleteView(AutocompleteModelView):
+    """Autocomplete view for countries within a region."""
+
+    model = PublishingMarket
+    search_lookups = ["name__icontains"]
+    value_fields = [
+        "id",
+        "name",
+        "total_local_markets",
+        "total_reader_base",
+        "total_pub_count",
+    ]
+
+    skip_authorization = True
+
+    def get_queryset(self):
+        """Return queryset of countries with annotations."""
+        queryset = super().get_queryset()
+
+        parent_id = self.request.GET.get("parent_id")
+        if parent_id:
+            queryset = queryset.filter(parent_id=parent_id)
+
+        return (
+            queryset.filter(parent__isnull=False, children__isnull=False)
+            .annotate(
+                total_local_markets=Count("children"),
+                total_reader_base=Sum("children__market_size"),
+                total_pub_count=Sum("children__active_publications"),
+            )
+            .distinct()
+            .order_by("name")
+        )
+
+
+class LocalMarketAutocompleteView(AutocompleteModelView):
+    """Autocomplete view for local markets within a country."""
+
+    model = PublishingMarket
+    search_lookups = ["name__icontains"]
+    value_fields = ["id", "name", "market_size", "active_publications"]
+
+    skip_authorization = True
+
+    def get_queryset(self):
+        """Return queryset of local markets."""
+        queryset = super().get_queryset()
+
+        parent_id = self.request.GET.get("parent_id")
+        if parent_id:
+            queryset = queryset.filter(parent_id=parent_id)
+
+        return (
+            queryset.filter(parent__parent__isnull=False)
+            .filter(children__isnull=True)  # Only get leaf nodes
+            .order_by("name")
+        )
 ```
 :::
 

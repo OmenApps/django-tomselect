@@ -2,14 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example demonstrates the use of `django_tomselect` to create dependent dropdowns, where selecting a "Main Category" dynamically filters the options available in the "Subcategories" field. Subcategories will only be loaded when a main category with no parent is selected.
-  - **Features Highlighted**:
-    - Dynamic filtering of options using the `filter_by` parameter.
-    - Integration with metadata-rich dropdowns using plugins like `PluginDropdownHeader`.
-
-- **Use Case**:
-  - Categorizing content (e.g., articles, products, or documents) by main and subcategories.
-  - Applications that require hierarchical selections, such as taxonomies or multi-level product filters.
+This example creates dependent dropdowns where selecting a "Main Category" filters the available "Subcategories" through the `filter_by` parameter, with subcategories loading only once a parent (root) category is chosen. It pairs filtering with metadata-rich dropdowns via `PluginDropdownHeader`, making it a good fit for hierarchical selections such as content taxonomies or multi-level product filters.
 
 **Visual Examples**
 
@@ -145,6 +138,8 @@ class CategoryAutocompleteView(AutocompleteModelView):
         "total_articles",
     ]
 
+    list_url = "category-list"
+    detail_url = "category-detail"
     create_url = "category-create"
     update_url = "category-update"
     delete_url = "category-delete"
@@ -164,7 +159,9 @@ class CategoryAutocompleteView(AutocompleteModelView):
         - Number of direct articles
         - Number of articles including subcategories
         """
-        queryset = super().get_queryset().distinct()  # Add distinct to base queryset
+        queryset = (
+            super().get_queryset().distinct().order_by(F("parent_id").asc(nulls_first=True), "name")
+        )  # Use distinct categories, with root categories (those with no parent) listed first
 
         # Filter by parent if specified
         parent_id = self.request.GET.get("parent")
@@ -236,15 +233,5 @@ class CategoryAutocompleteView(AutocompleteModelView):
         return queryset.filter(q_objects)
 ```
 :::
-
-## Design and Implementation Notes
-
-- **Key Features**:
-  - Use of `filter_by` to dynamically manage hierarchical relationships.
-  - Enhanced dropdowns with metadata and UI plugins like `PluginDropdownHeader` and `PluginRemoveButton`.
-
-- **Design Decisions**:
-  - Subcategories are implemented as a `TomSelectModelMultipleChoiceField` to allow multi-selection.
-  - Dropdowns use headers like `Parent Name` and `Total Articles` for better context.
 
 See the Article List and Create example for a more comprehensive demonstration, which includes this functionality.

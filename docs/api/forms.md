@@ -102,7 +102,6 @@ class ProductForm(forms.Form):
             placeholder='Select sizes...',
             value_field='value',
             label_field='label',
-            placeholder='Select sizes...',
         ),
         help_text="Select one or more sizes for the product"
     )

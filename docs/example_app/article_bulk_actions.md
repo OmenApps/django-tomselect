@@ -2,15 +2,7 @@
 
 ## Example Overview
 
-The **Article Bulk Actions** example demonstrates how to use `django_tomselect` to enable selecting multiple articles and applying bulk actions like publishing, archiving, or assigning categories/authors. The example highlights dynamic filtering and multi-select capabilities with rich dropdowns.
-
-**Objective**:
-- Showcase multi-select dropdowns for managing multiple articles at once.
-- Demonstrate filtering articles dynamically based on user-selected criteria such as date range, category, or status.
-
-**Use Case**:
-- Editorial platforms managing large volumes of articles requiring bulk operations.
-- Content moderation tools for efficiently updating the status or attributes of multiple items.
+This example uses `django_tomselect` to select multiple articles and apply bulk actions such as publishing, archiving, or assigning categories and authors. Filters for date range, category, and status dynamically narrow the multi-select list, and the action-specific fields appear only when relevant. Use this pattern for editorial or moderation tools that operate on many records at once.
 
 **Visual Examples**
 
@@ -695,12 +687,7 @@ def article_filtered_table(request):
 
 ---
 
-## Design and Implementation Notes
+## Implementation Notes
 
-### Key Features
-- **Multi-Select Dropdowns**: Easily select multiple articles and apply bulk operations.
-- **Dynamic Filtering**: Filters such as date range, category, and status dynamically refine the article selection process.
-
-### Design Decisions
 - `PluginDropdownHeader` provides additional metadata for each dropdown (e.g., category total articles).
 - Target fields like "Category" or "Author" are conditionally required based on the action type, ensuring flexibility.

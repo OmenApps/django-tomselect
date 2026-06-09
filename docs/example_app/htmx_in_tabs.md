@@ -2,11 +2,7 @@
 
 ## Example Overview
 
-This example demonstrates how to use Bootstrap 5 tabs with **[HTMX](https://htmx.org/)** to load tab content dynamically without full page reloads. Each tab makes an HTMX request when selected.
-
-### Key features highlighted:
-- Bootstrap 5 tabs integration
-- Automatic loading of initial tab content
+This example demonstrates how to use Bootstrap 5 tabs with **[HTMX](https://htmx.org/)** to load tab content (including `django_tomselect` fields) dynamically without full page reloads. Each tab fires its own HTMX request when selected, and the initially active tab loads on page load. Use this when you want to defer rendering a form until its tab is actually opened.
 
 ---
 
@@ -144,9 +140,12 @@ def htmx_form_fragment_view(request: HttpRequest) -> HttpResponse:
 
 ---
 
-## Design and Implementation Notes
+## Implementation Notes
 
-### Implementation Details
 - Each tab link contains the necessary HTMX attributes to trigger content loading
 - The initially active tab loads its content via the `data-hx-trigger="load"` attribute
 - Bootstrap's tab styling and behavior are preserved while enhancing with dynamic content loading
+
+## Related
+
+- {doc}`htmx` - the base HTMX demo, covering the `use_htmx=True` config flag for HTMX-swapped content.

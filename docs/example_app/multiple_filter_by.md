@@ -2,16 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example demonstrates how to filter options based on **multiple form fields** simultaneously using `django_tomselect`. The goal is to filter available articles by both the selected Magazine AND the selected Status, combining conditions with AND logic.
-  - **Problem Solved**: When users need to narrow down options based on multiple criteria, this pattern allows combining several filter conditions seamlessly.
-  - **Features Highlighted**:
-    - Multiple field filters using a list of tuples in the `filter_by` parameter.
-    - AND logic for combining filter conditions.
-
-- **Use Case**:
-  - Content management systems where articles are filtered by publication AND status.
-  - E-commerce applications filtering products by category AND availability.
-  - Any application requiring multi-dimensional filtering in dropdown menus.
+This example filters options against **multiple form fields** at once by passing a list of tuples to `filter_by`, narrowing the available articles to those matching both the selected Magazine AND the selected Status. Each condition is combined with AND logic and skipped when its field is empty, making this the pattern to use for multi-dimensional filtering such as articles by publication and status or products by category and availability.
 
 ## Key Code Segments
 
@@ -138,7 +129,11 @@ When both Magazine and Status are selected:
 ```
 :::
 
-## Design and Implementation Notes
+> This template snippet is abridged. The live template also defines a
+> `{% block extra_header %}` containing `{{ form.media }}` and a `<style>`
+> block; without `{{ form.media }}` the widgets render unstyled.
+
+## Implementation Notes
 
 - **Key Features**:
   - Combines multiple `filter_by` conditions with AND logic

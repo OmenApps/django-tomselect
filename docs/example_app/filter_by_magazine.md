@@ -2,15 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example demonstrates how to create dependent dropdowns using `django_tomselect`. The goal is to filter available options in the "Edition" dropdown based on the selected "Magazine." If not magazine is selected, the "Edition" dropdown remains empty. If a magazine is selected, the "Edition" dropdown will only show editions linked to that magazine.
-  - **Problem Solved**: Dynamically linking fields avoids presenting users with irrelevant or overwhelming options.
-  - **Features Highlighted**:
-    - Dynamic filtering of options using the `filter_by` parameter.
-
-- **Use Case**:
-  - Publishing systems where editions are linked to specific magazines.
-  - Applications needing cascaded or conditional dropdown menus, such as location selectors or product configurations.
-  - User interfaces requiring a clean and intuitive way to manage interdependent fields.
+This example builds a pair of dependent dropdowns where the "Edition" field is filtered by the selected "Magazine" via the `filter_by` parameter. With no magazine selected the Edition dropdown stays empty; once a magazine is chosen, only editions linked to it appear. Reach for this pattern whenever one field's options should be scoped by another, such as cascaded or conditional menus in publishing systems, location selectors, or product configurations.
 
 **Visual Examples**
 
@@ -102,7 +94,7 @@ The form is rendered in the `filter_by_magazine.html` template, which extends a 
 
 
 ### Autocomplete Views
-`autocomplete-magazine` and `autocomplete-edition` endpoints provide data for the dropdowns. These endpoints are backed by models and use `filter_by` logic to narrow results for the dependent field.
+`autocomplete-magazine` and `autocomplete-edition` endpoints provide data for the dropdowns. These are standard `AutocompleteModelView`s; the `filter_by` parameter is applied automatically by the base view to narrow results for the dependent field - no custom view logic is required.
 
 Note that we use `skip_authorization = True` to bypass the default authorization checks for simplicity in this example.
 
@@ -145,10 +137,5 @@ class MagazineAutocompleteView(AutocompleteModelView):
 ### Dependencies
 - Models: `Magazine` and `Edition` models must have a foreign key relationship to enable filtering.
 - URLs: Autocomplete views must be registered in the URL configuration.
-
-## Design and Implementation Notes
-
-- **Key Features**:
-  - Dependency management through `filter_by`.
 
 See the Article List and Create example for a more comprehensive demonstration, which includes this functionality.

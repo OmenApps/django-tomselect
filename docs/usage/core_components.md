@@ -52,7 +52,7 @@ Form fields integrate `django_tomselect` widgets into Django’s form system, ma
 **Key Features**:
 
 - Each field type automatically binds to a corresponding Tom Select widget.
-- Configurations (e.g., `url`, `placeholder`, `search_lookups`) are provided through `TomSelectConfig`.
+- Configurations (e.g., `url`, `placeholder`) are provided through `TomSelectConfig`. Note that `search_lookups` is not a `TomSelectConfig` option; it is an attribute set on the `AutocompleteModelView` that defines which model fields the server-side search filters against.
 - Behaves like a standard Django model field, making it easy to integrate into `ModelForm`s.
 - Ensures validation and data integrity: the chosen options must exist in the referenced queryset.
 
@@ -68,13 +68,13 @@ Widgets handle the front-end presentation and behavior of the fields. They rende
   - For multi-select fields.
   - Similar to `TomSelectModelWidget`, but allows multiple item selection.
 
-- **TomSelectWidget**:
-  - For static choice fields.
+- **TomSelectIterablesWidget**:
+  - For static choice fields (iterables, enums, tuples, ranges).
   - Renders a Tom Select-enhanced `<select>` field for static choices.
 
-- **TomSelectMultipleWidget**:
+- **TomSelectIterablesMultipleWidget**:
   - For static multiple choice fields.
-  - Similar to `TomSelectWidget`, but for multiple selections.
+  - Similar to `TomSelectIterablesWidget`, but for multiple selections.
 
 **Key Features**:
 
@@ -82,3 +82,22 @@ Widgets handle the front-end presentation and behavior of the fields. They rende
 - Seamless integration with autocomplete views: the widget automatically fetches data based on user input.
 - Supports advanced features like dependent/chained fields, custom templates, plugin configurations, and HTMX integration.
 - Works well with different CSS frameworks (e.g., Bootstrap) for styling, as well as custom templates for full UI control.
+
+## Token-based (Composite) Components
+
+For advanced search interfaces, `django_tomselect` provides a token-based workflow in which a single input can search across multiple entities at once. The user types a query made up of operator-scoped tokens (for example, `author:42 category:5 free text`).
+
+- **CompositeAutocompleteView**:
+  - Multiplexes multiple autocomplete views into a single token-aware endpoint.
+  - Exposes routes to list the registered operators, delegate value lookups to the appropriate bound autocomplete view per operator, and batch-resolve labels for given operator and id pairs.
+  - Enables the token-based (composite) autocomplete workflow where one input searches across several entities.
+
+- **TomSelectTokenWidget**:
+  - A token-style input that multiplexes multiple autocomplete views.
+  - Renders a single text input whose serialized value is a canonical token string (e.g., `author:42 category:5 free text`).
+  - Configured by a URL name pointing at the composite endpoint (class references are not accepted, since the browser plugin needs a URL to call).
+
+- **TomSelectTokenField**:
+  - A `CharField` that parses and validates a token-style query string.
+  - Its `clean()` method parses the input against the bound `CompositeAutocompleteView` using `parse_query()`, raising `ValidationError` for unknown operators, count overflows, or forbidden free text.
+  - Enforces per-operator `max_count`/`min_count` constraints from the operator registry.

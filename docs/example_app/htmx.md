@@ -2,16 +2,7 @@
 
 ## Example Overview
 
-This example is very similar to the BS5 styling example, and illustrates how to use `django_tomselect` with **[HTMX](https://htmx.org/)** to load dropdown content dynamically on page load. By combining htmx with `django_tomselect`, you can achieve advanced interactions such as dynamically loaded content without full page reloads. See the bulk actions example for a more advanced htmx use case.
-
-### Key features highlighted:
-- Dynamic form rendering with HTMX.
-- Integration with `django_tomselect` for autocomplete and enhanced dropdown functionality.
-
-### Use Case Scenarios:
-- Filtering dropdown options based on user input or selections in other fields.
-- Dynamic form rendering for creating or updating related models.
-- Inline editing or form embedding in modal dialogs.
+This example illustrates how to use `django_tomselect` with **[HTMX](https://htmx.org/)** to load a form (and its dropdowns) dynamically on page load, without a full page reload. The key piece is the `use_htmx=True` config flag, which adjusts the widget's JavaScript so Tom Select initializes correctly on HTMX-swapped content. Use this pattern when forms are injected into the page after load, such as inline editing or modal dialogs. See the bulk actions example for a more advanced HTMX use case.
 
 ---
 
@@ -42,8 +33,11 @@ class Bootstrap5StylingHTMXForm(Bootstrap5StylingForm):
             "class": "form-control mb-3",
             "id": "tomselect-custom-id",
         },
-        label="Single Select",
-        help_text="HTMX-enabled dropdown with dynamic content loading.",
+        label="Tomselect Single",
+        help_text=(
+            "TomSelectModelChoiceField with single select, placeholder text, checkboxes, dropdown "
+            "input, dropdown footer, remove, clear, edit, and highlighting"
+        ),
     )
     # Additional fields omitted for brevity
 ```
@@ -102,7 +96,9 @@ The `htmx.html` template renders the page and loads the dynamic fragment via HTM
 {% endblock %}
 
 {% block content %}
-    <div class="card" hx-get="{%  url 'demo-htmx-form-fragment' %}" hx-trigger="load" hx-swap="innerHTML">
+    <div class="card" hx-get="{%  url 'demo-htmx-form-fragment' %}" hx-trigger="load" hx-swap="innerHTML"></div>
+
+    <button class="btn btn-primary mt-5" hx-get="{%  url 'demo-htmx-form-fragment' %}" hx-target=".card" hx-swap="innerHTML">Re-render</button>
 {% endblock %}
 ```
 :::
@@ -111,7 +107,7 @@ The `htmx.html` template renders the page and loads the dynamic fragment via HTM
 ---
 
 ### Autocomplete View
-The backend for autocomplete remains consistent with thr styling examples, but HTMX makes the interaction seamless.
+The backend for autocomplete remains consistent with the styling examples, but HTMX makes the interaction seamless.
 
 :::{admonition} Autocomplete View
 :class: dropdown
@@ -136,11 +132,6 @@ class EditionAutocompleteView(AutocompleteModelView):
 
 ---
 
-## Design and Implementation Notes
+## Related
 
-### Key Features
-- **Dynamic Content Loading**: Leverages HTMX to dynamically load the form content on page load.
-- **Framework Integration**: Works seamlessly with `django_tomselect` and Bootstrap 5.
-
-### Design Decisions
-- **Reusable Templates**: Separates the dynamically loaded form (`htmx_fragment.html`) from the main template for modularity.
+- {doc}`htmx_in_tabs` - loads Tom Select content into Bootstrap 5 tabs using plain HTMX tab navigation.

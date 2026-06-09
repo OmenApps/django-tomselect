@@ -2,12 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example showcases how to dynamically exclude certain options in one field based on the selection in another field using `django_tomselect`. Specifically, the "Contributing Authors" field excludes the "Primary Author" selection to prevent redundant choices. Also, if no Primary Author is selected, the Contributing Authors field will remain empty.
-  - **Problem Solved**: Maintaining data integrity and logical consistency.
-
-- **Use Case**:
-  - Assigning roles to users where overlapping responsibilities are invalid (e.g., primary and secondary roles in a project).
-  - Preventing duplicate selections in multi-step forms or hierarchical data inputs.
+This example shows how to dynamically exclude options in one field based on the selection in another, using the `exclude_by` parameter. The "Contributing Authors" field excludes whoever is chosen as "Primary Author" so the same person can't fill both roles, and stays empty until a Primary Author is selected. Reach for this pattern whenever overlapping selections between two related fields would be invalid or redundant.
 
 **Visual Examples**
 
@@ -153,18 +148,5 @@ class AuthorAutocompleteView(AutocompleteModelView):
         return results
 ```
 :::
-
-## Design and Implementation Notes
-
-- **Key Features**:
-  - Dynamic exclusion using `exclude_by`.
-
-- **Design Decisions**:
-  - Chose `TomSelectModelMultipleChoiceField` for contributing authors to allow multi-selection.
-  - The `exclude_by` parameter ensures clean and efficient backend filtering without additional custom JavaScript.
-
-- **Potential Extensions**:
-  - Add metadata to the dropdown options, such as the number of articles authored.
-  - Extend the exclusion logic to handle multiple fields (e.g., exclude all team leads from a team member selection).
 
 See the Article List and Create example for a more comprehensive demonstration, which includes this functionality.

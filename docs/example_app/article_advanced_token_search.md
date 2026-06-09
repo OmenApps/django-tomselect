@@ -2,28 +2,7 @@
 
 ## Example Overview
 
-The **Article Token Search (Advanced)** example is the companion to the
-{doc}`basic Article Token-Style Search <article_token_search>`. Both demos use
-`TomSelectTokenWidget` against a `CompositeAutocompleteView`; the difference is
-which extension point of `Operator` each one exercises.
-
-- The basic demo uses `Operator.filter_lookup` - exact / `__in` matching only.
-- This advanced demo uses `Operator.q_translator` - a callable that receives
-  `(op, list[values])` and returns an arbitrary `Q` object, unlocking date
-  comparisons, numeric ranges, and any other ORM lookup you can express in `Q`.
-
-**Objective**:
-- Demonstrate `Operator.q_translator` as the path for non-equality lookups.
-- Show how to encode comparison and range syntax inside the token *value*,
-  since the tokenizer only understands `key:value` (and comma-multi).
-- Show clean error surfacing when the user types an invalid value
-  (`published_after:not-a-date`, `word_count:abc`).
-
-**Use Case**:
-- Triage / inbox / log-search UIs that need date and numeric filters in addition
-  to equality filters.
-- Bookmark-driven saved views combining "documents modified after X with size
-  between A and B written by author Y" in a single URL.
+This example is the companion to the {doc}`basic Article Token-Style Search <article_token_search>`. Both demos use `TomSelectTokenWidget` against a `CompositeAutocompleteView`, but where the basic demo uses `Operator.filter_lookup` for exact / `__in` matching, this one uses `Operator.q_translator` - a callable that receives `(op, list[values])` and returns an arbitrary `Q` object. That unlocks date comparisons, numeric ranges, and any other ORM lookup you can express in `Q`, with comparison/range syntax encoded inside the token value. Reach for it on triage, inbox, or log-search UIs that need date and numeric filters alongside equality filters in a single bookmarkable URL.
 
 **Visual Examples**
 
@@ -56,6 +35,9 @@ def _parse_iso_date(values):
 def _q_published_after(op, values):
     return Q(created_at__date__gte=_parse_iso_date(values))
 
+def _q_published_before(op, values):
+    return Q(created_at__date__lt=_parse_iso_date(values))
+
 def _q_word_count(op, values):
     """Accepts >500, <2000, >=1000, <=5000, =500, 100..2000, or a plain int."""
     raw = (values[0] or "").strip()
@@ -68,6 +50,11 @@ def _q_word_count(op, values):
             return Q(**{f"word_count__{lookup}": int(raw[len(prefix):])})
     return Q(word_count__exact=int(raw))
 ```
+
+> These callables are simplified for brevity. The live source in
+> `example_project/example/autocompletes.py` wraps error strings for
+> translation and adds more `ValueError` guards (e.g. inverted ranges,
+> non-integer values).
 
 ### `NoSuggestionAutocompleteView`
 
@@ -97,19 +84,19 @@ class NoSuggestionAutocompleteView(AutocompleteModelView):
 class ArticleAdvancedTokenQueryView(CompositeAutocompleteView):
     operators = [
         Operator(key="author", view=AuthorAutocompleteView,
-                 value_field="id", label_field="name",
+                 value_field="id", label_field="name", label=_("Author"),
                  filter_lookup="authors__id", multi=True),
         Operator(key="status", view=ArticleStatusAutocompleteView,
-                 value_field="value", label_field="label",
+                 value_field="value", label_field="label", label=_("Status"),
                  filter_lookup="status", multi=True),
         Operator(key="published_after", view=NoSuggestionAutocompleteView,
-                 value_field="id", label_field="id",
+                 value_field="id", label_field="id", label=_("Published after (YYYY-MM-DD)"),
                  q_translator=_q_published_after, max_count=1),
         Operator(key="published_before", view=NoSuggestionAutocompleteView,
-                 value_field="id", label_field="id",
+                 value_field="id", label_field="id", label=_("Published before (YYYY-MM-DD)"),
                  q_translator=_q_published_before, max_count=1),
         Operator(key="word_count", view=NoSuggestionAutocompleteView,
-                 value_field="id", label_field="id",
+                 value_field="id", label_field="id", label=_("Word count (e.g. >500, 100..2000)"),
                  q_translator=_q_word_count, max_count=1),
     ]
     free_text_lookups = ["title__icontains"]
@@ -130,6 +117,8 @@ class ArticleAdvancedTokenSearchForm(forms.Form):
     )
 ```
 
+> The live form also passes `widget_kwargs={"placeholder": _("e.g. published_after:2024-01-01 word_count:>500 author:1")}` and a `help_text` enumerating the supported operators; both are omitted here for brevity.
+
 ### View
 
 Error handling matches the basic token demo. `ParsedQuery.apply()` catches
@@ -146,7 +135,10 @@ def article_advanced_token_search_view(request):
     form = ArticleAdvancedTokenSearchForm(request.GET or None)
     articles = Article.objects.none()
 
-    if form.is_valid():
+    if not request.GET:
+        # First load (no query string): show a sample of recent articles.
+        articles = Article.objects.all().distinct()[:50]
+    elif form.is_valid():
         q = form.cleaned_data.get("q", "") or ""
         if q:
             parsed = parse_query(q, ArticleAdvancedTokenQueryView)
@@ -154,6 +146,8 @@ def article_advanced_token_search_view(request):
                 articles = parsed.apply(Article.objects.all()).distinct()[:50]
             except ValidationError as exc:
                 form.add_error("q", exc)
+        else:
+            articles = Article.objects.all().distinct()[:50]
 
     return TemplateResponse(
         request,
@@ -195,7 +189,7 @@ path(
 | Type `word_count:100..2000` | Inclusive numeric range. |
 | Type `word_count:>=1000` | Greater-or-equal comparison. |
 | Type `status:draft,published` | Multi-value via comma (`filter_lookup` path, unchanged). |
-| Type `published_after:not-a-date` | Inline `ValidationError`: "Invalid date: 'not-a-date'. Use YYYY-MM-DD." |
+| Type `published_after:not-a-date` | Inline `ValidationError` naming the operator and mentioning "Invalid date: 'not-a-date'. Use YYYY-MM-DD." (`apply()` wraps the translator's `ValueError`, so the displayed text is longer than the bare message). |
 | Type `published_after:` (no value) | Tom Select dropdown shows nothing (the placeholder view returns an empty queryset). |
 | Bookmark a URL with a tokenized query | Chips rehydrate on reload, including the free-form date/range tokens. |
 

@@ -22,21 +22,13 @@ Until those are addressed in the package, the demo bypasses that wiring at
 the JavaScript layer and uses Tom Select's native `settings.create` callback
 to talk to a JSON endpoint. The pattern below is the recommended recipe today.
 
-**Objective**:
-- Provide an end-to-end working "create on the fly" recipe.
-- Pin down a server response contract for the JSON endpoint:
-  `{"action": "select", "value", "label", "is_new"}` on success;
-  `{"action": "error", "error"}` on validation failure.
-- Show how an HTMX OOB swap can layer onto the JSON-based flow: the JS bridge
-  fires a `tag-created` custom event and an out-of-band HTMX `hx-trigger`
-  refreshes a "tags created this session" panel.
-
-**Use Case**:
-- Tag selectors where the user knowledge is in their head, not in your
-  database yet.
-- Free-form attribute inputs (skills, technologies, dietary preferences).
-- Any "we'll backfill the canonical list as users teach us their vocabulary"
-  pattern.
+The demo pins down a JSON response contract (`{"action": "select", "value",
+"label", "is_new"}` on success, `{"action": "error", "error"}` on validation
+failure) and shows how an out-of-band HTMX swap can layer onto it: the JS
+bridge fires a `tag-created` event that refreshes a "tags created this
+session" panel. Reach for this pattern with tag selectors, free-form
+attribute inputs (skills, technologies, dietary preferences), or any case
+where you backfill the canonical list as users teach you their vocabulary.
 
 **Visual Examples**
 
@@ -205,7 +197,7 @@ path(
 
 | Action | Result |
 |---|---|
-| Type a new tag (e.g. `quantum-computing`) | Dropdown shows "Add **quantum-computing**…". Click → chip appears, no reload, and the sidebar updates. |
+| Type a new tag (e.g. `quantum-computing`) | Dropdown shows "Add **quantum-computing**…". Click >> chip appears, no reload, and the sidebar updates. |
 | Type an existing tag and click its "Add" option | Same chip is selected; no duplicate row; sidebar does NOT update (the heading is "Tags **created** this session" and the entry already existed). |
 | Pick an existing tag directly from the autocomplete suggestions | Chip appears in the field. Sidebar does NOT update - only fresh creations land there. |
 | Type an invalid name (`has spaces!`, `--bad--`, `-x`) | Inline error appears under the field via the model's `clean()` rules; no chip added. |
@@ -235,5 +227,5 @@ starting point.
 ## Related
 
 - {doc}`tagging` - the simpler version that persists tags only at form submit
-  via `get_or_create` in the field's `clean()`.
+  via `get_or_create` in the form's `clean_tags()`.
 - API reference: `TomSelectConfig`, `TomSelectMultipleChoiceField`.

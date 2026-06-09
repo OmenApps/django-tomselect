@@ -2,15 +2,7 @@
 
 ## Example Overview
 
-This is one of the most comprehensive examples showcasing the capabilities of `django_tomselect` in a real-world scenario.
-
-The **List and Create Articles** example demonstrates how to integrate `django_tomselect` for filtering and managing articles efficiently. The "List" view enables filtering based on various attributes like edition year and word count using `django_tomselect` with iterables, while the "Create / Update" views facilitate adding or updating articles with fields powered by `django_tomselect`.
-
-We also incorporate the filter-by and exclude-by examples into the form to demonstrate the flexibility of the plugin.
-
-**Objective**:
-- Showcase dynamic filtering in the article list view using `TomSelectChoiceField` and `TomSelectModelChoiceField`.
-- Demonstrate a feature-rich forms leveraging the power of plugins and configurations in `django_tomselect`.
+This comprehensive example wires `django_tomselect` into a full article workflow. The list view filters articles by edition year and word count using iterable-backed fields, while the create/update form manages relationships to magazines, editions, authors, and categories with model-backed fields, plugins, and `filter_by`/`exclude_by` dependencies. Reach for this pattern when you need a realistic, feature-rich form alongside dynamic list filtering.
 
 **Visual Examples**
 
@@ -184,6 +176,8 @@ class DynamicArticleForm(forms.ModelForm):
         config=TomSelectConfig(
             url="autocomplete-category",
             show_list=True,
+            show_detail=True,
+            show_delete=True,
             show_create=True,
             show_update=True,
             value_field="id",
@@ -932,7 +926,7 @@ def article_create_view(request: HttpRequest) -> HttpResponse:
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Article "{form.cleaned_data["title"]}" has been created.')
+            messages.success(request, f"Article {form.cleaned_data['title']!r} has been created.")
         else:
             messages.error(request, "Please correct the errors below.")
 
@@ -953,7 +947,7 @@ def article_update_view(request: HttpRequest, pk: int) -> HttpResponse:
     if request.POST:
         if form.is_valid():
             form.save()
-            messages.success(request, f'Article "{form.cleaned_data["title"]}" has been updated.')
+            messages.success(request, f"Article {form.cleaned_data['title']!r} has been updated.")
             return HttpResponseRedirect(reverse("article-list"))
         else:
             messages.error(request, "Please correct the errors below.")
@@ -965,12 +959,7 @@ def article_update_view(request: HttpRequest, pk: int) -> HttpResponse:
 
 ---
 
-## Design and Implementation Notes
+## Implementation Notes
 
-### Key Features
-- **Dynamic Filtering**: Use `django_tomselect` for real-time filtering in the article list.
-- **Relationship Management**: Leverage multi-select dropdowns for managing complex relationships like authors and categories.
-
-### Design Decisions
 - Using `plugin_dropdown_header` enhances the dropdown with contextual information (e.g., article count for authors).
 - `plugin_dropdown_footer` allows quick navigation to related views, like creating new magazines.

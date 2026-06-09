@@ -8,7 +8,7 @@ One of the simplest ways to customize the look of your TomSelect widgets is by c
 
 ### CSS Framework Selection
 
-`django_tomselect` supports `default`, `bootstrap4`, and `bootstrap5` frameworks out-of-the-box. You can configure the framework and the use of minified assets in your project’s Django settings:
+You can configure the framework and the use of minified assets in your project’s Django settings. For the full list of supported framework values, see [CSS Framework Options](configuration.md).
 
 ```python
 # settings.py
@@ -208,10 +208,10 @@ def prepare_results(self, results):
     data = []
     for author in results:
         data.append({
-            "id": author["id"],
-            "name": author["name"],
-            "article_count": author["article_count"],
-            "formatted_name": f"{author['name']} ({author['article_count']} articles)",
+            "id": author.id,
+            "name": author.name,
+            "article_count": author.article_count,
+            "formatted_name": f"{author.name} ({author.article_count} articles)",
         })
     return data
 ```

@@ -261,25 +261,25 @@ When the widget's `label_field` points to a relation (e.g., `label_field="author
 
 5. **Permission Handling**
 
-Multiple ways to configure permissions:
+Quick reference for the permission hooks and attributes:
 
 ```python
 class BookAutocomplete(AutocompleteModelView):
-    # Option 1: Specify required permissions
     permission_required = ('myapp.view_book', 'myapp.search_book')
-
-    # Option 2: Allow anonymous access
     allow_anonymous = True
-
-    # Option 3: Skip all permission checks
     skip_authorization = False
 
-    # Option 4: Custom permission checking
+    # action is one of "view"/"create"/"update"/"delete"
     def has_permission(self, request, action="view"):
         if action == "create":
             return request.user.is_staff
         return super().has_permission(request, action)
 ```
+
+For the full permission model - what each attribute does, their priority order
+(`skip_authorization` >> `allow_anonymous` >> `permission_required`), object-level
+permissions via `has_object_permission()`, and custom auth integration - see
+[Security Considerations](../usage/security.md).
 
 6. **Result Preparation**
 
@@ -509,32 +509,14 @@ The views include built-in error handling:
 1. Invalid permissions return 403 Forbidden
 2. Unauthenticated users are redirected to login
 3. Invalid queries return empty results
-4. Database errors return a 200 response with an error message and empty results
+4. Database (and other unexpected) errors return a **500** response with empty results - `{"results": [], "page": 1, "has_more": false}` (the model view also includes `"show_create_option": false`); the traceback is included under an `error` key only when `DEBUG=True`
 
 ## Caching
 
-The views support permission caching to improve performance:
-
-```python
-# settings.py
-PERMISSION_CACHE = {
-    'TIMEOUT': 300,  # Cache permissions for 5 minutes
-    'KEY_PREFIX': 'myapp',
-    'NAMESPACE': 'permissions'
-}
-```
-
-To invalidate the cache:
-
-```python
-from django_tomselect.autocompletes import AutocompleteModelView
-
-# Invalidate for specific user
-AutocompleteModelView.invalidate_permissions(user=request.user)
-
-# Invalidate all cached permissions
-AutocompleteModelView.invalidate_permissions()
-```
+The views support optional permission caching to improve performance, and expose
+`AutocompleteModelView.invalidate_permissions(user=...)` for clearing it when permissions
+change. For configuration, behavior, backend support, and the full invalidation API, see
+[Permission Caching](utilities.md).
 
 ## Security Considerations
 
@@ -598,6 +580,14 @@ class ArticleTokenQueryView(CompositeAutocompleteView):
   `filter_lookup` or `q_translator`.
 - **`bound_lookup`:** ORM lookup field for chip resolution. Defaults to
   `value_field`. Override when `prepare_results()` projects renamed/computed keys.
+- **`label`:** `str | None = None`. Human-readable operator name shown as the
+  dropdown hint. When `None`, the `key` is used.
+- **`multi`:** `bool = False`. When `True`, a comma-separated token value (e.g.
+  `status:draft,published`) is split and, for `filter_lookup` operators, applied
+  as `field__in=[values]`.
+- **`free_form`:** `bool | None = None`. Auto-set in `__post_init__` to `True`
+  when a `q_translator` is provided (else `False`); tells the front end whether
+  to let the user commit a typed value that has no matching dropdown row.
 - **`filter_lookup`:** exact-match field path (e.g. `"authors__id"`,
   `"status"`). For `multi=True` the per-token lookup is `field__in=[values]`. For
   non-exact behavior (icontains, gt/lt, custom expressions), use `q_translator`
@@ -608,10 +598,11 @@ class ArticleTokenQueryView(CompositeAutocompleteView):
   deliberately disables search; non-empty list overrides for this operator only
   (instance-scoped per-request, no cross-request leakage).
 - **`max_count` / `min_count`:** enforced by `TomSelectTokenField.clean()`.
+  `min_count` defaults to `0` (no minimum).
 
 ### `split_search` flag (opt-in)
 
-`AutocompleteModelView` gained a `split_search: bool = False` class attribute.
+`AutocompleteModelView` has a `split_search: bool = False` class attribute.
 When `True`, `search()` splits the query on whitespace using a quote-aware
 tokenizer; each term is OR'd across `search_lookups`, and per-term Qs are
 ANDed together. Quoted phrases stay single terms. Default `False` preserves
@@ -622,10 +613,10 @@ existing behavior verbatim.
 - **Iterables operators have no `has_permission()` hook** - they are
   public-by-default. The composite view emits a one-time logger warning on
   subclass registration. Gate sensitive iterables at the form/view layer.
-- **Object-level permissions are NOT enforced row-by-row.** The resolve flow
-  honors queryset-level scoping (whatever your `get_queryset()` returns) and
-  dispatch-level `has_permission()`, but `has_object_permission()` is not
-  applied per-row by `prepare_results()`. Override `get_queryset()` for
-  per-row checks.
+- **Object-level permissions ARE enforced row-by-row.** The resolve flow
+  applies `has_object_permission(request, obj, "view")` to each row (in
+  addition to dispatch-level `has_permission()` and queryset-level scoping
+  from `get_queryset()`) before projecting labels. Override
+  `has_object_permission()` to control per-row visibility.
 
 See {doc}`../example_app/article_token_search` for an end-to-end demo.

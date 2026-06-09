@@ -2,14 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example demonstrates how to implement tagging functionality in a Django form using `django_tomselect`. Users can create new tags dynamically or select from existing ones. The tags are validated and saved to the database with support for autocomplete and real-time updates.
-  - **Features Highlighted**:
-    - Support for dynamic tag creation with the `create` feature.
-    - Real-time autocomplete of existing tags using `django_tomselect`.
-
-- **Use Case**:
-  - Content management systems where articles or products require tagging for organization and filtering.
-  - Applications requiring user-generated metadata to categorize or describe entities.
+This example implements tagging in a Django form with `django_tomselect`. Users can autocomplete existing tags or create new ones on the fly with the `create` feature, and the tags are validated and saved to the database on submit. Reach for this pattern in content management systems or anywhere users generate metadata to categorize entities.
 
 **Visual Examples**
 
@@ -91,16 +84,16 @@ class TaggingForm(forms.Form):
 
             # Validate the tag format
             if len(name) < 2:
-                raise ValidationError(f"Tag '{name}' is too short")
+                raise ValidationError(f"Tag {name!r} is too short")
 
             if not all(c.isalnum() or c in "-_" for c in name):
-                raise ValidationError(f"Tag '{name}' contains invalid characters")
+                raise ValidationError(f"Tag {name!r} contains invalid characters")
 
             if "--" in name or "__" in name:
-                raise ValidationError(f"Tag '{name}' contains consecutive special characters")
+                raise ValidationError(f"Tag {name!r} contains consecutive special characters")
 
             if not name[0].isalnum() or not name[-1].isalnum():
-                raise ValidationError(f"Tag '{name}' must start and end with a letter or number")
+                raise ValidationError(f"Tag {name!r} must start and end with a letter or number")
 
             # Try to get existing tag or create new one
             tag, _ = PublicationTag.objects.get_or_create(
@@ -262,7 +255,7 @@ The form is rendered in the `tagging_publication.html` template, providing an in
 ```
 :::
 
-Upon form submission, the `clean_tags` method is called to validate and save the tags to the database. If successful, the user is redirected to a success page; otherwise, the form is re-rendered with error messages.
+Upon form submission, the `clean_tags` method is called to validate and save the tags to the database. If successful, the user is shown a success page; otherwise, the form is re-rendered with error messages.
 
 :::{admonition} Success Template
 :class: dropdown
@@ -319,7 +312,7 @@ Upon form submission, the `clean_tags` method is called to validate and save the
 ### Autocomplete Views
 The `autocomplete-publication-tag` endpoint provides tag suggestions based on user input.
 
-In this example, we are mixing iterable-based choices with a model-based autocomplete field, so we need to override the `get_iterable` method to provide the iterable interface for the `TomSelectIterablesWidget`.
+In this example the form field (`DynamicTagField`, built on `TomSelectMultipleChoiceField`) drives the iterables widget, while `PublicationTagAutocompleteView` is a model-based view. To bridge the two, we override `get_iterable` so the model view also emits the `{value, label}` iterable shape the `TomSelectIterablesWidget` expects.
 
 :::{admonition} Autocomplete View
 :class: dropdown
@@ -401,13 +394,3 @@ def tagging_view(request):
     return TemplateResponse(request, template, context)
 ```
 :::
-
-## Design and Implementation Notes
-
-- **Key Features**:
-  - `create` feature allows users to add new tags dynamically.
-  - Form validation ensures only valid tags are added, preventing duplicates or invalid formats.
-
-- **Design Decisions**:
-  - The `DynamicTagField` simplifies the addition of new tags while reusing existing logic.
-  - Error messages and validation rules provide clear feedback to users.

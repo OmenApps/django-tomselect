@@ -41,10 +41,11 @@ This module provides the widget classes that render Tom Select elements in Djang
             +build_attrs()
         }
 
-        TomSelectWidgetMixin <-- TomSelectModelWidget
-        TomSelectWidgetMixin <-- TomSelectIterablesWidget
-        TomSelectModelWidget <-- TomSelectModelMultipleWidget
-        TomSelectIterablesWidget <-- TomSelectIterablesMultipleWidget
+        TomSelectWidgetMixin <|-- TomSelectModelWidget
+        TomSelectWidgetMixin <|-- TomSelectIterablesWidget
+        TomSelectWidgetMixin <|-- TomSelectTokenWidget
+        TomSelectModelWidget <|-- TomSelectModelMultipleWidget
+        TomSelectIterablesWidget <|-- TomSelectIterablesMultipleWidget
 ```
 
 ### TomSelectModelWidget
@@ -240,7 +241,7 @@ from django_tomselect import TomSelectTokenWidget
 
 widget = TomSelectTokenWidget(
     composite_view="autocomplete-article-token",  # URL name
-    placeholder="Filter articles…",
+    placeholder="Filter articles...",
     allow_free_text=True,
     max_query_length=4096,   # utf-8 byte cap on the serialized value
     max_tokens=32,

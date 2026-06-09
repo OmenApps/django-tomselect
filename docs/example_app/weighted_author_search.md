@@ -2,15 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example demonstrates how to implement a sophisticated weighted search for authors using `django_tomselect`. Results are dynamically ordered based on relevance metrics like name match, article count, and recent activity, providing an enhanced search experience. Initially, the list is sorted by name, but as the user types, the results are re-ordered based on the weighted relevance score.
-  - **Problem Solved**: Standard alphabetical sorting isn't always sufficient for user-friendly searches. This weighted search prioritizes results based on meaningful criteria, improving user satisfaction and efficiency.
-  - **Features Highlighted**:
-    - Dynamic search result ordering using weighted relevance.
-    - Enhanced dropdown display with metadata for each result.
-
-- **Use Case**:
-  - Applications requiring intelligent search ordering, such as finding authors, contributors, or experts.
-  - Scenarios where results need to be ranked by relevance rather than alphabetical or arbitrary order.
+This example implements a weighted author search where results are ranked by a relevance score combining name-match quality, article count, and recent activity rather than plain alphabetical order. The list starts sorted by name and re-orders as the user types, with a `PluginDropdownHeader` surfacing the score and supporting metadata in extra columns. Reach for this pattern when alphabetical sorting isn't enough and you want the most relevant records (authors, contributors, experts) to surface first.
 
 **Visual Examples**
 
@@ -247,13 +239,3 @@ class WeightedAuthorAutocompleteView(AutocompleteModelView):
         return results
 ```
 :::
-
-## Design and Implementation Notes
-
-- **Key Features**:
-  - Relevance-based ordering using annotations in the `hook_queryset` method.
-  - Metadata display in dropdown results, including article count and last active date.
-
-- **Design Decisions**:
-  - The `relevance_score` combines multiple factors for intelligent search ranking.
-  - Metadata columns (e.g., `Articles`, `Relevance`) provide clear insights into each result.

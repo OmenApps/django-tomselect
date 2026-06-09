@@ -24,6 +24,7 @@ django_tomselect/templates/django_tomselect/
 │   ├── option.html           # Individual option display
 │   └── select.html           # Base select element
 ├── tomselect_setup.html      # Global setup and initialization
+├── tomselect_token.html      # Token search widget template
 └── tomselect.html            # Main template
 ```
 
@@ -90,8 +91,8 @@ This template is used to set up the global TomSelect configuration and initializ
 {% load i18n %}
 {% load django_tomselect %}
 
-<script>
-    {% block tomselect_global_setup %}
+{% block tomselect_global_setup %}
+    <script{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
         // Global namespace for django-tomselect
         if (!window.djangoTomSelect) {
             window.djangoTomSelect = {
@@ -111,9 +112,11 @@ This template is used to set up the global TomSelect configuration and initializ
                 }
             };
         }
-    {% endblock tomselect_global_setup %}
-</script>
+    </script>
+{% endblock tomselect_global_setup %}
 ```
+
+The `<script>` tag lives **inside** the block, and carries the CSP `nonce` when one is present. Keep that structure when overriding so the nonce is preserved and the block actually emits output in a child template.
 
 ## Helper Templates
 
@@ -126,10 +129,11 @@ A utility helper that safely decodes HTML entities only when needed.
 Helper function to safely decode HTML entities only if they exist.
 {% endcomment %}
 function decodeIfNeeded(str) {
-    if (!str || typeof str !== 'string') return '';
+    if (str === undefined || str === null) return '';
+    if (typeof str !== 'string') return str;
 
-    // Check if string contains HTML entities
-    if (/&[a-z]+;|&#[0-9]+;/i.test(str)) {
+    // Check for HTML entities, including hex (Django escapes ' >> &#x27; since 3.0)
+    if (/&[a-z]+;|&#[0-9]+;|&#x[0-9a-f]+;/i.test(str)) {
         const textarea = document.createElement('textarea');
         textarea.innerHTML = str;
         return textarea.value;
@@ -147,10 +151,12 @@ function decodeIfNeeded(str) {
 Base `<select>` element template. Override this to modify the fundamental HTML structure.
 
 ```django
+{% load i18n %}
 <select name="{{ widget.name }}"
         id="{% if 'id' in widget.attrs.keys and widget.attrs.id %}{{ widget.attrs.id }}{% else %}{{ widget.name }}{% endif %}"
         {% include "django/forms/widgets/attrs.html" with widget=widget %}
-        aria-label="{% translate 'Select option' %}"
+        aria-label="{% blocktranslate with field_name=widget.aria_label %}Select {{ field_name }}{% endblocktranslate %}"
+        {% if widget.required %}aria-required="true"{% endif %}
         aria-expanded="false"
         role="combobox">
 </select>
@@ -190,17 +196,17 @@ option: function(data, escape) {
         let columns = '';
 
         {% if widget.plugins.dropdown_header.show_value_field %}
-            columns += `<div class="col" role="gridcell">${escape(data[this.settings.valueField])}</div>
-            <div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`;
+            columns += `<div class="col" role="presentation">${escape(decodeIfNeeded(data[this.settings.valueField]))}</div>
+            <div class="col" role="presentation">${escape(decodeIfNeeded(data[this.settings.labelField]))}</div>`;
         {% else %}
-            columns += `<div class="col" role="gridcell">${escape(data[this.settings.labelField])}</div>`;
+            columns += `<div class="col" role="presentation">${escape(decodeIfNeeded(data[this.settings.labelField]))}</div>`;
         {% endif %}
 
         {% for item in widget.plugins.dropdown_header.extra_values %}
-            columns += `<div class="col" role="gridcell">${escape(data['{{ item|escapejs }}'] || '')}</div>`;
+            columns += `<div class="col" role="presentation">${escape(decodeIfNeeded(data['{{ item|escapejs }}'] || ''))}</div>`;
         {% endfor %}
 
-        return `<div class="row" role="row">${columns}</div>`;
+        return `<div class="row">${columns}</div>`;
     {% else %}
         const safeValue = escape(decodeIfNeeded(data['{{ widget.label_field|escapejs }}']));
 
@@ -310,8 +316,6 @@ html: function(data){
                 aria-label="${escape(data.title)}"
                 tabindex="0">&times;</div>`;
 },
-title: "{% translate "Clear Selection" %}",
-className: "clear-button",
 {% endblock code %}
 ```
 
@@ -324,23 +328,22 @@ Configures the dropdown header display.
 Renders the Dropdown Header plugin's HTML.
 {% endcomment %}
 {% load i18n %}
-
 html: function (data) {
     let header = '';
 
     {% if widget.plugins.dropdown_header.show_value_field %}
         header += `
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.value_field_label|escapejs }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="presentation">{{ widget.plugins.dropdown_header.value_field_label|escapejs }}</span>
         </div>
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="presentation">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
         </div>
         `;
     {% else %}
         header += `
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="presentation">{{ widget.plugins.dropdown_header.label_field_label|escapejs }}</span>
         </div>
         `;
     {% endif %}
@@ -348,12 +351,12 @@ html: function (data) {
     {% for header_text in widget.plugins.dropdown_header.extra_headers %}
         header += `
         <div class="col">
-            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="columnheader">{{ header_text|escapejs }}</span>
+            <span class="{{ widget.plugins.dropdown_header.label_class }}" role="presentation">{{ header_text|escapejs }}</span>
         </div>
         `;
     {% endfor %}
 
-    return `<div class="{{ widget.plugins.dropdown_header.header_class }}" title="{{ widget.plugins.dropdown_header.title|escapejs }}" role="row">
+    return `<div class="{{ widget.plugins.dropdown_header.header_class }}" title="{{ widget.plugins.dropdown_header.title|escapejs }}" role="presentation">
                 <div class="{{ widget.plugins.dropdown_header.title_row_class }}">${header}</div>
             </div>`;
 },
@@ -475,7 +478,7 @@ option_create: function(data, escape) {
                     hx-post="{{ widget.view_create_url|escapejs }}"
                     hx-swap="outerHTML"
                     hx-trigger="click"
-                    hx-target="#id_{{ widget.name|escapejs }}"
+                    hx-target="#${this.input.id}"
                     role="option"
                     aria-label="{% translate 'Create new item' %}">${escape(data.input)}</div>`;
     {% else %}
@@ -540,13 +543,18 @@ The following context variables are available in all templates:
   - `name`: Field name
   - `value`: Current value
   - `attrs`: HTML attributes
-  - `config`: TomSelect configuration
+  - `value_field` / `label_field`: configured value and label field names
+  - `is_tabular`: Boolean indicating tabular (multi-column) rendering
+  - `use_htmx` / `create_with_htmx`: HTMX integration flags
+  - `view_create_url` / `view_list_url`: resolved create and list URLs
   - `is_multiple`: Boolean indicating multiple selection
   - `selected_options`: List of currently selected options
   - `plugins`: Configuration for all enabled plugins
   - `show_detail`: Whether to show detail links
   - `show_update`: Whether to show update links
   - `show_delete`: Whether to show delete links
+
+The `view_create_url` / `view_list_url`, `create_with_htmx`, and `show_detail` / `show_update` / `show_delete` keys are populated only for the model widgets (`TomSelectModelWidget` / `TomSelectModelMultipleWidget`); they are absent for the iterables and token widgets, which is why the shipped templates guard them with `{% if "key" in widget %}` before access.
 
 ## Overriding Templates
 
@@ -579,11 +587,13 @@ TEMPLATES = [
 For HTMX-enabled templates, additional attributes and functionality are available:
 
 ```django
-{% if widget.use_htmx %}
+{% if 'create_with_htmx' in widget.keys and widget.create_with_htmx and 'view_create_url' in widget.keys and widget.view_create_url %}
     {# In option_create.html for creating new items #}
-    hx-post="{{ widget.create_url }}"
+    hx-post="{{ widget.view_create_url|escapejs }}"
     hx-swap="outerHTML"
     hx-trigger="click"
-    hx-target="#id_{{ widget.name|escapejs }}"
+    hx-target="#${this.input.id}"
 {% endif %}
 ```
+
+The inline-create HTMX path is gated on `create_with_htmx` (plus a resolved `view_create_url`), **not** on `use_htmx`. The two are distinct flags: `use_htmx` switches the widget's AJAX fetch strategy, while `create_with_htmx` is what drives the create-option markup above.

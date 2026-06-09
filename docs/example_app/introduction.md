@@ -54,7 +54,7 @@ This may take a couple of minutes to complete. It creates a large number of obje
    uv run python manage.py runserver 0.0.0.0:8000
    ```
 
-5. Open the browser and go to `http://localhost:8000/admin` to login (or directly `http://localhost:8000/` to view as AnonymousUser - some links and bttons to list/create/update/delete will not be available).
+5. Open the browser and go to `http://localhost:8000/admin` to login (or directly `http://localhost:8000/` to view as AnonymousUser - some links and buttons to list/create/update/delete will not be available).
 
 6. Go to `http://localhost:8000/` to view the example project.
 

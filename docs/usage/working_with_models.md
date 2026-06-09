@@ -160,9 +160,9 @@ class CategoryAutocompleteView(AutocompleteModelView):
         data = []
         for cat in results:
             data.append({
-                "id": cat["id"],
-                "name": cat["name"],
-                "article_count": cat["article_count"],
+                "id": cat.id,
+                "name": cat.name,
+                "article_count": cat.article_count,
             })
         return data
 ```

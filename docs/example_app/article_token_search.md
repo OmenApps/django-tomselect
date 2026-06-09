@@ -2,22 +2,7 @@
 
 ## Example Overview
 
-The **Article Token-Style Search** example demonstrates the `TomSelectTokenWidget` -
-a single text input that parses `key:value` tokens against multiple bound autocomplete
-views, with free-text fallback. It collapses what would normally be several side-by-side
-filter dropdowns into one keyboard-friendly bar.
-
-**Objective**:
-- Show how to multiplex per-model autocomplete views into a single token-aware endpoint.
-- Demonstrate URL-canonical, bookmarkable filter state with chip rehydration on reload.
-- Show server-side validation across operator counts (`max_count`, `min_count`),
-  free-text gating (`allow_free_text`), and ORM-coercion errors at apply time.
-
-**Use Case**:
-- List-page filter bars that today have 3+ sidebar dropdowns plus a search box.
-- Admin / triage / inbox UIs where power users prefer typing operators while new users
-  still get a discoverable dropdown affordance.
-- Bookmark-driven saved views (no new database tables needed - the URL IS the saved view).
+This example demonstrates the `TomSelectTokenWidget` - a single text input that parses `key:value` tokens against multiple bound autocomplete views, with free-text fallback. It collapses several side-by-side filter dropdowns into one keyboard-friendly bar, keeps filter state URL-canonical and bookmarkable (with chip rehydration on reload), and validates operator counts and ORM coercion server-side. Reach for it on list-page filter bars that otherwise need 3+ sidebar dropdowns plus a search box, or on triage/inbox UIs where power users prefer typing operators.
 
 **Visual Examples**
 
@@ -180,13 +165,15 @@ Two limitations the implementation **does not** automatically solve:
    `logger.warning` at subclass-registration time. If the iterable is sensitive,
    gate access at the form/view layer or extend the iterables view yourself.
 
-2. **Object-level permissions are NOT enforced row-by-row.** `AutocompleteModelView`
-   defines `has_object_permission()` but neither `get_queryset()` nor
-   `prepare_results()` calls it on rows. The resolve flow inherits this: it enforces
-   queryset-level scoping (whatever your `get_queryset()` filters out is gone) and
-   dispatch-level `has_permission()`, but a user with model-level view permission can
-   hydrate labels for any row your queryset returns. Override `get_queryset()` on the
-   bound view to apply per-row checks if you need them.
+2. **The live suggestion dropdown is not object-permission gated row-by-row.**
+   `AutocompleteModelView.has_object_permission()` is **not** called by
+   `get_queryset()` or `prepare_results()`, so the normal suggestion endpoint returns
+   any row your queryset includes (subject only to queryset-level scoping and
+   dispatch-level `has_permission()`). Override `get_queryset()` on the bound view to
+   scope suggestions per user. Note the **resolve/rehydration flow is stricter**:
+   `CompositeAutocompleteView._resolve_model_view()` *does* call
+   `has_object_permission()` on each row before projecting labels (catching
+   `PermissionDenied`), so bookmarked chips only rehydrate for rows the user may view.
 
 ---
 

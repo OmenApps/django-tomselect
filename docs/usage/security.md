@@ -39,7 +39,7 @@ Security often begins with permission checks. `django_tomselect` supports permis
 ### Model-type vs. Iterables-type Components
 
 - **Model-type Components:**
-  When using `AutocompleteModelView`, permissions are integrated. You can rely on the model’s defined permissions (e.g., `view`, `add`, `change`, `delete`) to restrict access. If a user lacks `view` permission, that user will not see the corresponding model instances.
+  When using `AutocompleteModelView`, permissions are integrated. You can rely on the model’s defined permissions (e.g., `view`, `add`, `change`, `delete`) to restrict access. Note that built-in view-permission enforcement is opt-in: it only applies when you set `permission_required` on the view (or override `has_permission`). By default `permission_required = None`, in which case `has_permission` returns `True` for any authenticated user, so a user without the `view` permission will still see the model instances. Set `permission_required = "app_label.view_modelname"` to require the `view` permission.
 
 - **Iterables-type Components:**
   For iterables-based autocomplete (`AutocompleteIterablesView`), there are no out-of-the-box permission checks. You must implement your own filtering or conditional logic in the view to ensure only allowed data is returned.
@@ -83,7 +83,7 @@ By aligning autocomplete views with Django’s permission model, you ensure cons
 
 ## Object-level Permissions
 
-If your application requires more granular, object-level permissions (e.g., user A can see only articles they own, while user B can see all articles), you can override `has_object_permission()`:
+Override `has_object_permission()` to evaluate access for a single resolved object:
 
 ```python
 class ArticleAutocompleteView(AutocompleteModelView):
@@ -92,6 +92,19 @@ class ArticleAutocompleteView(AutocompleteModelView):
     def has_object_permission(self, request, obj, action="view"):
         # Restrict visibility to objects owned by the current user
         return obj.owner == request.user
+```
+
+```{important}
+`has_object_permission()` runs when the view resolves specific objects by ID - for example when a `CompositeAutocompleteView` (token search) turns previously-selected IDs back into labels. It is **not** called for every row of the autocomplete suggestion listing. To restrict which objects appear in the dropdown as the user types (e.g. "user A can see only articles they own, while user B can see all"), filter the queryset instead.
+```
+
+```python
+class ArticleAutocompleteView(AutocompleteModelView):
+    model = Article
+
+    def get_queryset(self):
+        # Only the current user's own articles appear in the dropdown
+        return super().get_queryset().filter(owner=self.request.user)
 ```
 
 Combine object-level checks with Django’s permission system or third-party packages like `django-guardian` to implement fine-grained access control.
@@ -106,8 +119,10 @@ For more complex scenarios (e.g., OAuth, SSO, or custom backends), subclass `Aut
 
 If you need complete control over the authorization process, override key methods in `AutocompleteModelView`:
 
-- **`has_permission()`**: Called before processing the request; return `False` to deny access.
-- **`has_object_permission()`**: Evaluate permissions on each object returned.
+- **`has_permission(request, action="view")`**: Called before processing the request; return `False` to deny access.
+- **`has_object_permission(request, obj, action="view")`**: Evaluate permissions on a single object during ID/label resolution (e.g. token-search resolve). It is **not** invoked per row of the suggestion listing - use `get_queryset()` to filter what the dropdown shows.
+
+Both methods accept an `action` argument - one of `"view"`, `"create"`, `"update"`, or `"delete"`. The action-specific Django model permissions (`add_`/`change_`/`delete_`) only apply when `permission_required` is also set. The default `has_permission()` first checks `permission_required`; if no permissions are required (the default `permission_required = None`) it returns `True` before any action permission is considered. So configuring `create_url` alone does not require `app_label.add_modelname` - that permission is only appended (for `action="create"`) when `permission_required` is set as well. The same applies to `update_url`/`change_` and `delete_url`/`delete_`. Override these methods to branch on `action` for finer-grained control.
 
 For instance, to apply a custom logic that checks a user’s organization membership before displaying data:
 
@@ -122,12 +137,9 @@ class OrganizationRestrictedAutocompleteView(AutocompleteModelView):
 
 ## User Permission Caching and Invalidation
 
-Checking permissions repeatedly can be costly. `django_tomselect` provides a permission caching mechanism to speed up subsequent checks. When enabled, permissions are cached per user and view for improved performance. If user permissions change, you can invalidate the cache:
+Checking permissions repeatedly can be costly. `django_tomselect` provides an optional permission caching mechanism to speed up subsequent checks. When enabled, permissions are cached per user, model, and action, so changes in user roles or memberships require invalidating the cache (via `AutocompleteModelView.invalidate_permissions(user=...)` or the module-level `permission_cache`) to take effect immediately.
 
-- **`invalidate_user(user_id)`**: Clear cached permissions for a specific user.
-- **`invalidate_all()`**: Clear all cached permissions globally.
-
-This ensures that changes in user roles or memberships are reflected immediately in the autocomplete results.
+For configuration, behavior, cache-backend support, and the full invalidation API, see [Permission Caching](../api/utilities.md).
 
 ## Content Security Policy (CSP) Nonce Support
 

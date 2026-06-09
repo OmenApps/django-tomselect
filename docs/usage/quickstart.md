@@ -8,8 +8,7 @@ The simplest approach is to add a `TomSelectModelChoiceField` to a basic form. T
 
 ```python
 from django import forms
-from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect.app_settings import TomSelectConfig
+from django_tomselect import TomSelectConfig, TomSelectModelChoiceField
 
 class SimpleForm(forms.Form):
     magazine = TomSelectModelChoiceField(
@@ -36,8 +35,7 @@ Integrating with a Django `ModelForm` is straightforward-just replace a standard
 
 ```python
 from django import forms
-from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect.app_settings import TomSelectConfig
+from django_tomselect import TomSelectConfig, TomSelectModelChoiceField
 from .models import Article
 
 class ArticleForm(forms.ModelForm):
@@ -83,7 +81,8 @@ This view will respond to requests from the widget, returning JSON data for matc
 Create a simple view that handles displaying and processing the `ArticleForm`:
 
 ```python
-from django.shortcuts import redirect, TemplateResponse
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 from .forms import ArticleForm
 
 def article_create_view(request):

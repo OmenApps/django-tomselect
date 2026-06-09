@@ -14,7 +14,7 @@
 **Example:**
 
 ```python
-from django_tomselect.app_settings import TomSelectConfig
+from django_tomselect import TomSelectConfig
 
 config = TomSelectConfig(
     url="author-autocomplete",
@@ -56,18 +56,12 @@ config = TomSelectConfig(
 
 ## Available Plugins
 
-Plugins enhance the default behavior of Tom Select. `django_tomselect` maps plugin configurations to Python classes that you can pass into `TomSelectConfig`. Common plugins include:
-
-- **Checkbox Options**: Display checkboxes alongside dropdown items.
-- **Clear Button**: A button to quickly clear all selections.
-- **Dropdown Header/Footer**: Custom headers and footers for grouping data, adding labels, or linking to external pages.
-- **Remove Button**: A small “x” icon to quickly remove selected items.
-- **Dropdown Input**: Adds a searchable input inside the dropdown itself.
+Plugins enhance the default behavior of Tom Select. `django_tomselect` maps plugin configurations to Python classes that you can pass into `TomSelectConfig`. The available plugin classes are `PluginCheckboxOptions`, `PluginClearButton`, `PluginDropdownHeader`, `PluginDropdownFooter`, `PluginDropdownInput`, and `PluginRemoveButton`. For the full catalogue of plugins and their parameters, see [Plugin Configurations](../api/config.md).
 
 **Example:**
 
 ```python
-from django_tomselect.app_settings import (
+from django_tomselect import (
     TomSelectConfig,
     PluginClearButton,
     PluginDropdownHeader
@@ -117,21 +111,22 @@ TOMSELECT = {
 
 ```python
 # settings.py
-from django_tomselect.app_settings import TomSelectConfig
-
-GLOBAL_TOMSELECT_CONFIG = TomSelectConfig(
-    minimum_query_length=2,
-    highlight=True,
-    preload="focus"
-)
+TOMSELECT = {
+    "DEFAULT_CONFIG": {
+        "minimum_query_length": 2,
+        "highlight": True,
+        "preload": "focus",
+    },
+}
 ```
+
+`DEFAULT_CONFIG` is a dict of `TomSelectConfig` field values. The package merges it into the package-level default config, so every field inherits these unless it overrides them.
 
 **Field-level Overrides**: When you create a form field, you can pass a custom `TomSelectConfig` to override global defaults for that specific field. This ensures local control where needed, without duplicating common settings everywhere.
 
 ```python
 from django import forms
-from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect.app_settings import TomSelectConfig
+from django_tomselect import TomSelectConfig, TomSelectModelChoiceField
 
 class AuthorForm(forms.Form):
     author = TomSelectModelChoiceField(
@@ -151,11 +146,12 @@ Bringing it all together, here’s a more complete example:
 
 ```python
 from django import forms
-from django_tomselect.forms import TomSelectModelChoiceField, TomSelectModelMultipleChoiceField
-from django_tomselect.app_settings import (
+from django_tomselect import (
     TomSelectConfig,
+    TomSelectModelChoiceField,
+    TomSelectModelMultipleChoiceField,
     PluginRemoveButton,
-    PluginDropdownFooter
+    PluginDropdownFooter,
 )
 
 # Single-select field configuration

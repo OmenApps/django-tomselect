@@ -2,9 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example showcases how to customize the display of content in the page based on selected items using `django_tomselect`.
-  - **Features Highlighted**:
-    - Custom rendering of page content based on selected dropdown items.
+This example shows how to render custom page content in response to the items a user selects in a `django_tomselect` field. A JavaScript `change` handler reads the metadata attached to the chosen option and updates surrounding markup, which is useful whenever a selection should drive richer on-page detail beyond the dropdown itself.
 
 **Visual Examples**
 
@@ -151,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function() {
 :::
 
 ### Autocomplete Views
-The `autocomplete-enriched-content` endpoint provides the necessary data for the display. Here we override the `hook_prepare_results` method to format the response with additional fields.
+The `autocomplete-embargo-region` endpoint provides the necessary data for the display. Here we override the `hook_prepare_results` method to format the response with additional fields.
 
 :::{admonition} Autocomplete View
 :class: dropdown

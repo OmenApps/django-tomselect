@@ -4,28 +4,13 @@
 
 The **Generic Foreign Key Picker** example demonstrates a single autocomplete
 field that can pick *any* row from multiple model types - an Article, an
-Author, or a Magazine - and store the choice as a `GenericForeignKey`.
-
-The widget is wired to a small **adapter view** (`MultiTypeFeaturedAdapterView`)
+Author, or a Magazine - and store the choice as a `GenericForeignKey`. The
+widget is wired to a small **adapter view** (`MultiTypeFeaturedAdapterView`)
 that fans out to the per-type autocomplete views and merges their results into
 a single response, prefixing each row's `value` with the type key
-(`"article:42"`, `"author:7"`, `"magazine:3"`).
-
-**Objective**:
-- Show how to back a single tomselect widget with multiple heterogeneous
-  autocomplete sources without modifying the package.
-- Pin down the adapter pattern using Django's `as_view()` dispatch - the same
-  approach the package's own `CompositeAutocompleteView._delegate_value` uses,
-  so per-type permissions, search, pagination, and `prepare_results` continue
-  to run normally per subview.
-- Document why `CompositeAutocompleteView` cannot be plugged directly into
-  `TomSelectModelWidget` and what to do instead.
-
-**Use Case**:
-- "Featured item" widgets (spotlights, attachments, mentions) where any
-  model can be the subject.
-- Audit-log row pickers - pick the object the log entry is about.
-- "Tag any of N kinds of thing" workflows in admin / triage tools.
+(`"article:42"`, `"author:7"`, `"magazine:3"`). Reach for this pattern for
+"featured item" widgets, audit-log row pickers, or any "tag one of N kinds of
+thing" workflow where a single field must accept heterogeneous targets.
 
 **Visual Examples**
 
@@ -54,7 +39,7 @@ class Spotlight(models.Model):
 
 The adapter subclasses `AutocompleteIterablesView` and overrides `get()`
 directly. Each subview is dispatched via Django's `as_view()` so it runs its
-own full `setup → dispatch → get_queryset → search → prepare_results → paginate`
+own full `setup >> dispatch >> get_queryset >> search >> prepare_results >> paginate`
 pipeline. The adapter merges the JSON results, prefixes each row's `value`
 with the type key, and sanitizes the final row.
 
@@ -116,21 +101,101 @@ iterables widget instead. We override `_get_selected_options` to parse
 the package's render path can consume.
 
 ```python
+_GFK_TYPE_MAP = {
+    "article": "article",
+    "author": "author",
+    "magazine": "magazine",
+}
+
+
 class TomSelectGFKWidget(TomSelectIterablesWidget):
-    def _get_selected_options(self, value):
+    """Widget that resolves selected ``type:id`` values to ``{value, label}`` server-side.
+
+    Overriding ``_get_selected_options`` lets us look up the underlying model
+    instance and emit a human-readable label without making a roundtrip through
+    the autocomplete URL. The widget context preserves the configured
+    ``value_field``/``label_field`` ("value"/"label") so the rendered
+    ``allOptions`` array carries the same row shape the AJAX endpoint emits.
+
+    The ``scope`` constructor kwarg, when set, narrows results to one operator
+    by appending ``?scope=<key>`` to the autocomplete URL via
+    ``get_autocomplete_params`` (the widget mixin's documented extension point
+    for extra query-string params).
+    """
+
+    def __init__(self, *args, scope: str | None = None, **kwargs):
+        """Capture the optional ``scope`` kwarg before delegating to the widget."""
+        self.scope = (scope or "").strip() or None
+        super().__init__(*args, **kwargs)
+
+    def get_autocomplete_params(self):  # type: ignore[override]
+        """Append ``scope=<key>`` to the autocomplete URL's query string."""
+        base = super().get_autocomplete_params() or ""
+        if not self.scope:
+            return base
+        suffix = f"scope={self.scope}"
+        if not base:
+            return suffix
+        # Append to existing query string. The mixin's default return is a
+        # string (possibly empty) - concatenate with '&' on either side.
+        sep = "&" if not base.endswith("&") else ""
+        return f"{base}{sep}{suffix}"
+
+    def get_autocomplete_context(self):  # type: ignore[override]
+        """Expose ``autocomplete_params`` so the iterables template renders it."""
+        # The iterables widget's get_autocomplete_context does NOT call
+        # get_autocomplete_params (only the model widget does). Add the key
+        # ourselves so the template can render ``autocompleteParams:``.
+        ctx = super().get_autocomplete_context()
+        ctx["autocomplete_params"] = self.get_autocomplete_params()
+        return ctx
+
+    def _resolve_pair(self, raw: str):
+        """Parse ``"type:id"`` and return ``(value, label)`` or ``None``."""
+        from example_project.example.models import (
+            Article as _Article,
+            Author as _Author,
+            Magazine as _Magazine,
+        )
+
+        raw = (raw or "").strip()
+        if not raw or ":" not in raw:
+            return None
+        type_key, _, obj_id = raw.partition(":")
+        type_key = type_key.strip()
+        if type_key not in _GFK_TYPE_MAP or not obj_id.strip():
+            return None
+        try:
+            pk = int(obj_id.strip())
+        except ValueError:
+            return None
+        try:
+            if type_key == "article":
+                obj = _Article.objects.get(pk=pk)
+                label = obj.title
+            elif type_key == "author":
+                obj = _Author.objects.get(pk=pk)
+                label = obj.name
+            else:  # magazine
+                obj = _Magazine.objects.get(pk=pk)
+                label = obj.name
+        except Exception:
+            return None
+        return raw, label
+
+    def _get_selected_options(self, value):  # type: ignore[override]
         if not value:
             return []
         values = value if isinstance(value, (list, tuple)) else [value]
         rows = []
         for raw in values:
-            type_key, _, obj_id = raw.partition(":")
-            model = {"article": Article, "author": Author, "magazine": Magazine}.get(type_key)
-            try:
-                obj = model.objects.get(pk=int(obj_id))
-                label = obj.title if type_key == "article" else obj.name
-            except Exception:
-                label = raw
-            rows.append({"value": raw, "label": label})
+            pair = self._resolve_pair(raw)
+            if pair is None:
+                # Fall back to the raw value so the chip is still rendered.
+                rows.append({"value": raw, "label": raw})
+                continue
+            v, label = pair
+            rows.append({"value": v, "label": label})
         return rows
 ```
 
@@ -160,13 +225,46 @@ window.dtsGfkRenderers = (function () {
 
 ```python
 class TomSelectGenericForeignKeyField(forms.CharField):
+    """Form field that round-trips a ``"type:id"`` opaque string.
+
+    ``clean`` parses the value into ``(content_type, object_id)``, validates
+    that the referenced object exists, and stashes the resolved pair on
+    ``self._gfk_resolved`` so the view can apply it to a ``Spotlight``.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the field and reset the resolved-pair cache."""
+        super().__init__(*args, **kwargs)
+        self._gfk_resolved = None
+
     def clean(self, value):
+        """Validate the ``"type:id"`` string and resolve it to a real instance."""
         raw = super().clean(value)
+        self._gfk_resolved = None
         if not raw:
+            if self.required:
+                raise ValidationError(self.error_messages["required"], code="required")
             return ""
-        type_key, _, obj_id = raw.partition(":")
+        if ":" not in raw:
+            raise ValidationError(_("Invalid value. Expected '<type>:<id>'."))
+        type_key, _sep, obj_id = raw.partition(":")
+        type_key = type_key.strip()
+        if type_key not in _GFK_TYPE_MAP:
+            raise ValidationError(_("Unknown type %(t)r.") % {"t": type_key})
+        try:
+            pk = int((obj_id or "").strip())
+        except ValueError as exc:
+            raise ValidationError(_("Object id must be an integer.")) from exc
+
+        # Resolve to ContentType + object so the view can persist a Spotlight.
+        from django.contrib.contenttypes.models import ContentType
+        from example_project.example.models import Article, Author, Magazine
+
         model = {"article": Article, "author": Author, "magazine": Magazine}[type_key]
-        obj = model.objects.get(pk=int(obj_id))
+        try:
+            obj = model.objects.get(pk=pk)
+        except model.DoesNotExist as exc:
+            raise ValidationError(_("Selected object no longer exists.")) from exc
         ct = ContentType.objects.get_for_model(model)
         self._gfk_resolved = (ct, obj.pk, obj)
         return raw
@@ -175,9 +273,19 @@ class TomSelectGenericForeignKeyField(forms.CharField):
 ### View - persisting a Spotlight
 
 ```python
-def gfk_picker_view(request):
+def gfk_picker_view(request: HttpRequest) -> HttpResponse:
+    """Generic Foreign Key picker demo.
+
+    On submit, persists a :class:`Spotlight` row using the resolved
+    ``(content_type, object_id)`` from the form field. The optional
+    ``?scope=`` query param narrows the picker to a single operator key.
+    """
+    scope = (request.GET.get("scope") or "").strip() or None
+    if scope not in (None, "article", "author", "magazine"):
+        scope = None
+
     if request.method == "POST":
-        form = SpotlightForm(request.POST)
+        form = SpotlightForm(request.POST, scope=scope)
         if form.is_valid():
             ct, obj_id, _obj = form.fields["featured"]._gfk_resolved
             Spotlight.objects.create(
@@ -185,12 +293,23 @@ def gfk_picker_view(request):
                 content_type=ct,
                 object_id=obj_id,
             )
-            return HttpResponseRedirect(reverse("gfk-picker"))
+            target = reverse("gfk-picker")
+            if scope:
+                target = f"{target}?scope={scope}"
+            return HttpResponseRedirect(target)
     else:
-        form = SpotlightForm()
-    spotlights = Spotlight.objects.select_related("content_type")[:25]
-    return TemplateResponse(request, "example/advanced_demos/gfk_picker.html",
-                            {"form": form, "spotlights": spotlights})
+        form = SpotlightForm(scope=scope)
+
+    spotlights = (
+        Spotlight.objects.select_related("content_type")
+        .order_by("-featured_at")[:25]
+    )
+
+    return TemplateResponse(
+        request,
+        "example/advanced_demos/gfk_picker.html",
+        {"form": form, "spotlights": spotlights, "scope": scope or ""},
+    )
 ```
 
 ### Form widget config
@@ -208,6 +327,8 @@ featured = TomSelectGenericForeignKeyField(
             value_field="value",
             label_field="label",
             placeholder="Search Articles / Authors / Magazines…",
+            minimum_query_length=1,
+            load_throttle=300,
         ),
     ),
 )

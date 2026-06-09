@@ -47,7 +47,7 @@ This makes the request object available in templates for TomSelect widgets, whic
    :show-inheritance:
 ```
 
-The middleware component manages the request object in thread-local storage, making it available throughout the TomSelect widget rendering process.
+The middleware component manages the request object in thread/async-local storage (`asgiref.local.Local`, falling back to `threading.local`), making it available throughout the TomSelect widget rendering process.
 
 ### Installation
 
@@ -63,7 +63,7 @@ MIDDLEWARE = [
 ### How It Works
 
 The middleware:
-1. Stores the request object in thread-local storage
+1. Stores the request object in thread/async-local storage
 2. Makes it available during widget rendering
 3. Cleans up the storage after the response
 4. Supports both synchronous and asynchronous requests
@@ -95,7 +95,7 @@ application = get_asgi_application()
 ### Thread Safety
 
 The middleware ensures thread safety by:
-- Using thread-local storage
+- Using thread/async-local storage
 - Properly cleaning up after each request
 - Supporting concurrent requests
 

@@ -12,12 +12,12 @@ Permission caching is **disabled by default**. Enable it by setting a timeout in
 
 ```python
 # settings.py
-TOMSELECT = {
-    "PERMISSION_CACHE": {
-        "TIMEOUT": 300,        # Cache timeout in seconds (required to enable)
-        "KEY_PREFIX": "myapp", # Optional: prefix for cache keys
-        "NAMESPACE": "perms",  # Optional: namespace for cache keys (default: "tomselect")
-    }
+
+# PERMISSION_CACHE is a top-level Django setting, not a key inside TOMSELECT.
+PERMISSION_CACHE = {
+    "TIMEOUT": 300,        # Cache timeout in seconds (required to enable)
+    "KEY_PREFIX": "myapp", # Optional: prefix for cache keys
+    "NAMESPACE": "perms",  # Optional: namespace for cache keys (default: "tomselect")
 }
 ```
 
@@ -42,7 +42,9 @@ For production deployments with permission changes, Redis or Memcached is recomm
 
 ### Invalidation
 
-When user permissions change, invalidate the cache using the global `permission_cache` instance:
+When user permissions change, invalidate the cache. There are two equivalent entry points:
+
+**1. The module-level `permission_cache` instance** (lowest level):
 
 ```python
 from django_tomselect.cache import permission_cache
@@ -53,6 +55,24 @@ permission_cache.invalidate_user(user_id=42)
 # Invalidate all cached permissions globally
 permission_cache.invalidate_all()
 ```
+
+**2. The `AutocompleteModelView.invalidate_permissions()` classmethod** (convenience wrapper):
+
+```python
+from django_tomselect.autocompletes import AutocompleteModelView
+
+# Invalidate for a specific user
+AutocompleteModelView.invalidate_permissions(user=request.user)
+
+# Invalidate all cached permissions
+AutocompleteModelView.invalidate_permissions()
+```
+
+The classmethod is a thin delegate: when given a `user` it calls
+`permission_cache.invalidate_user(user.id)`, and with no argument it calls
+`permission_cache.invalidate_all()`. Use whichever fits your code - the
+classmethod when you have a `user` object on hand (e.g. in a view), or the
+module-level instance when you only have a `user_id`.
 
 ### Using the Decorator
 

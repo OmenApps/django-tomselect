@@ -2,17 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example demonstrates how to filter options using **constant values** that don't come from form fields. The goal is to always filter articles to only show published ones, while optionally allowing additional filtering by magazine.
-  - **Problem Solved**: When you need to enforce business rules in the UI (e.g., only show active items, only show published content), constant filters allow you to bake these rules into the widget configuration.
-  - **Features Highlighted**:
-    - The `Const` helper function for creating constant filter values.
-    - Mixing constant and field-based filters in a single configuration.
-
-- **Use Case**:
-  - Content management: Only show published articles to editors.
-  - E-commerce: Only show in-stock products.
-  - Multi-tenant applications: Always filter by current organization.
-  - User management: Only show active users.
+This example filters options by **constant values** baked into the widget configuration rather than read from form fields, using the `Const` helper to always restrict articles to published ones while still allowing an optional magazine filter. Mixing constant and field-based filters lets you enforce business rules in the UI, such as only showing active items, in-stock products, or records for the current organization.
 
 ## Key Code Segments
 
@@ -143,7 +133,11 @@ When the form loads and the user searches for articles:
 ```
 :::
 
-## Design and Implementation Notes
+> This template snippet is abridged. The live template also defines a
+> `{% block extra_header %}` containing `{{ form.media }}` and a `<style>`
+> block; without `{{ form.media }}` the widgets render unstyled.
+
+## Implementation Notes
 
 - **Key Features**:
   - Constant filters are always applied, regardless of form state
@@ -155,7 +149,7 @@ When the form loads and the user searches for articles:
   | Use Case | Const Example |
   |----------|---------------|
   | Only published content | `Const("published", "status")` |
-  | Only active items | `Const("true", "is_active")` |
+  | Only active items | `Const(True, "is_active")` |
   | Specific category | `Const("5", "category_id")` |
   | Current year | `Const("2024", "year")` |
   | Specific set of IDs (`__in`) | `Const([11, 13], "id__in")` |

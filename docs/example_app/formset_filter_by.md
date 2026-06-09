@@ -2,18 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example demonstrates how to use `filter_by` and `exclude_by` parameters within Django formsets. When working with formsets, each row needs its own independent dependent field relationships - selecting a value in row 1 should only affect the dependent fields in row 1, not in other rows.
-  - **Problem Solved**: Enabling dependent/chained fields within formsets where each row operates independently.
-  - **Features Highlighted**:
-    - Using `filter_by` to create dependent fields in formsets
-    - Using `exclude_by` to prevent circular references in model formsets
-    - Automatic form prefix handling for multi-row forms
-    - Dynamic row addition with working filter relationships
-
-- **Use Case**:
-  - Bulk data entry forms where each row has related fields (e.g., magazine/edition pairs)
-  - Model formsets where you need to prevent invalid selections (e.g., a category being its own parent)
-  - Any formset-based interface requiring cascading dropdown behavior
+This example demonstrates `filter_by` and `exclude_by` inside Django formsets, where each row needs its own independent dependent-field relationships - a selection in row 1 should only affect row 1's dependent fields. It covers automatic form-prefix handling, dynamically added rows, and using `exclude_by` to prevent circular references in model formsets (such as a category becoming its own parent). Use it for bulk data-entry forms or any formset interface that needs cascading dropdown behavior per row.
 
 ## Key Code Segments
 
@@ -52,6 +41,7 @@ class EditionWithFilterFormsetForm(forms.Form):
             plugin_dropdown_input=PluginDropdownInput(),
             plugin_clear_button=PluginClearButton(title="Clear Selection"),
         ),
+        attrs={"class": "form-control mb-3"},
         label="Magazine",
         help_text="Select a magazine to filter available editions",
     )
@@ -70,6 +60,7 @@ class EditionWithFilterFormsetForm(forms.Form):
             plugin_clear_button=PluginClearButton(title="Clear Selection"),
             plugin_dropdown_footer=PluginDropdownFooter(),
         ),
+        attrs={"class": "form-control mb-3"},
         label="Edition",
         help_text="Editions are filtered based on the selected magazine",
         required=False,
@@ -85,7 +76,7 @@ EditionWithFilterFormset = formset_factory(
 
 **Explanation**:
 - The `filter_by=("magazine", "magazine_id")` parameter tells the edition field to watch the magazine field in the same form row
-- When a magazine is selected, the edition field will query the autocomplete endpoint with `?f=magazine__id=<selected_value>`
+- When a magazine is selected, the edition field will query the autocomplete endpoint with `?f='magazine__magazine_id=<selected_value>'`
 - Form prefixes (e.g., `myformset-0-magazine`, `myformset-1-magazine`) are automatically handled by the JavaScript
 
 ### Using exclude_by in Model Formsets
@@ -99,26 +90,50 @@ For model formsets, you can use `exclude_by` to prevent invalid selections. A co
 from django import forms
 from django.forms import modelformset_factory
 from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect.app_settings import TomSelectConfig
+from django_tomselect.app_settings import (
+    TomSelectConfig,
+    PluginDropdownHeader,
+    PluginDropdownInput,
+    PluginClearButton,
+)
 from .models import Category
 
 
 class CategoryModelForm(forms.ModelForm):
-    """ModelForm demonstrating exclude_by in model formsets."""
+    """ModelForm for managing categories with their parent categories using TomSelect.
 
+    Demonstrates exclude_by in a model formset to prevent circular parent-child relationships.
+    """
+
+    # Override the parent field to use TomSelect with tabular display
     parent = TomSelectModelChoiceField(
         config=TomSelectConfig(
             url="autocomplete-category",
+            show_list=True,
             value_field="id",
             label_field="name",
-            exclude_by=("id", "id"),  # Exclude current category from options
+            exclude_by=("id", "id"),  # Exclude current category from parent options (prevents circular references)
             css_framework="bootstrap5",
+            highlight=True,
+            open_on_focus=True,
+            preload="focus",
             placeholder="Select a parent category (optional)",
+            plugin_dropdown_header=PluginDropdownHeader(
+                show_value_field=False,
+                label_field_label="Category",
+                extra_columns={
+                    "direct_articles": "Direct Articles",
+                    "total_articles": "Total Articles",
+                },
+            ),
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(title="Clear Selection"),
         ),
-        queryset=None,
+        queryset=None,  # Queryset is set by the widget's autocomplete view
         required=False,
+        attrs={"class": "form-control mb-3"},
         label="Parent Category",
-        help_text="Current category is excluded to prevent circular references",
+        help_text="Select a parent category (optional) - current category is excluded to prevent circular references",
     )
 
     class Meta:
@@ -183,7 +198,7 @@ def formset_filter_demo(request: HttpRequest) -> HttpResponse:
                         # Process the data here
             messages.success(
                 request,
-                f"Processed {processed_count} magazine-edition selections!"
+                f"Successfully processed {processed_count} magazine-edition selections!"
             )
             return HttpResponseRedirect(request.path)
         messages.error(request, "Please correct the errors below.")
@@ -199,7 +214,7 @@ def formset_filter_demo(request: HttpRequest) -> HttpResponse:
 :class: dropdown
 
 ```html
-{% extends 'base.html' %}
+{% extends 'example/base_with_bootstrap5.html' %}
 
 {% block content %}
     {{ formset.media }}
@@ -238,66 +253,86 @@ def formset_filter_demo(request: HttpRequest) -> HttpResponse:
             const formContainer = document.getElementById('form-container');
             const totalForms = document.getElementById('id_edition_filter-TOTAL_FORMS');
 
-            // Store TomSelect configs from the first form
-            const magazineSelect = document.querySelector(
-                'select[name$="-magazine"][data-tomselect]'
-            );
-            const editionSelect = document.querySelector(
-                'select[name$="-edition"][data-tomselect]'
-            );
-            const magazineConfig = magazineSelect
-                ? window.djangoTomSelect.configs.get(magazineSelect.id)
-                : null;
-            const editionConfig = editionSelect
-                ? window.djangoTomSelect.configs.get(editionSelect.id)
-                : null;
+            // Store references to TomSelect configs from the first form
+            const magazineSelect = document.querySelector('select[name$="-magazine"][data-tomselect]');
+            const editionSelect = document.querySelector('select[name$="-edition"][data-tomselect]');
+            const magazineConfig = magazineSelect ? window.djangoTomSelect.configs.get(magazineSelect.id) : null;
+            const editionConfig = editionSelect ? window.djangoTomSelect.configs.get(editionSelect.id) : null;
 
             addButton.addEventListener('click', function() {
                 const formCount = parseInt(totalForms.value);
                 const firstForm = formContainer.children[0];
 
-                // Clone the form structure
+                // Create a new div to hold our cloned form
                 const container = document.createElement('div');
                 container.classList.add('filter-form');
+
+                // Clone only the form structure, excluding scripts
                 const formStructure = firstForm.querySelector('.row').cloneNode(true);
                 container.appendChild(formStructure);
 
-                // Update form indices
+                // Update form indices and row number
                 container.innerHTML = container.innerHTML
+                    .replace(/form-(\d+)/g, `form-${formCount}`)
                     .replace(/id_edition_filter-(\d+)/g, `id_edition_filter-${formCount}`)
-                    .replace(/edition_filter-(\d+)/g, `edition_filter-${formCount}`);
+                    .replace(/edition_filter-(\d+)/g, `edition_filter-${formCount}`)
+                    .replace(/Row \d+/g, `Row ${formCount + 1}`);
 
-                // Clean up cloned TomSelect elements
+                // Clean up TomSelect elements and prepare new selects
                 const selectElements = container.querySelectorAll('select[data-tomselect]');
-                selectElements.forEach(selectElement => {
+                selectElements.forEach((selectElement, index) => {
+                    // Remove any ts-wrapper divs that might have been cloned
                     const parentElement = selectElement.parentElement;
                     while (parentElement.querySelector('.ts-wrapper')) {
                         parentElement.querySelector('.ts-wrapper').remove();
                     }
+
+                    // Clean the select element
                     selectElement.className = selectElement.className
                         .replace(/\btomselected\b/g, '')
                         .replace(/\bts-hidden-accessible\b/g, '');
                     selectElement.style.display = '';
+                    selectElement.removeAttribute('tabindex');
+                    selectElement.removeAttribute('data-ts-hidden');
+
+                    // Clear existing options (keeping only empty option if present)
+                    while (selectElement.options.length > 1) {
+                        selectElement.remove(1);
+                    }
+                    if (selectElement.options.length > 0) {
+                        selectElement.options[0].selected = true;
+                    }
                 });
 
+                // Remove any existing script tags
+                container.querySelectorAll('script').forEach(script => script.remove());
+
+                // Append the clean container
                 formContainer.appendChild(container);
 
-                // Initialize TomSelect on new selects
+                // Initialize TomSelect on the new selects
                 const newMagazineSelect = container.querySelector('select[name$="-magazine"]');
                 const newEditionSelect = container.querySelector('select[name$="-edition"]');
 
                 if (newMagazineSelect && magazineConfig) {
-                    const newConfig = window.djangoTomSelect.cloneConfig(magazineConfig);
-                    delete newConfig.items;
-                    window.djangoTomSelect.initialize(newMagazineSelect, newConfig);
+                    const newMagazineConfig = window.djangoTomSelect.cloneConfig(magazineConfig);
+                    delete newMagazineConfig.items;
+                    delete newMagazineConfig.renderCache;
+                    window.djangoTomSelect.initialize(newMagazineSelect, newMagazineConfig);
                 }
 
                 if (newEditionSelect && editionConfig) {
-                    const newConfig = window.djangoTomSelect.cloneConfig(editionConfig);
-                    delete newConfig.items;
-                    window.djangoTomSelect.initialize(newEditionSelect, newConfig);
+                    const newEditionConfig = window.djangoTomSelect.cloneConfig(editionConfig);
+                    delete newEditionConfig.items;
+                    delete newEditionConfig.renderCache;
+                    // Update the filter_by reference to point to the new magazine field
+                    if (newEditionConfig.filterByFieldId) {
+                        newEditionConfig.filterByFieldId = newMagazineSelect.id;
+                    }
+                    window.djangoTomSelect.initialize(newEditionSelect, newEditionConfig);
                 }
 
+                // Update the total forms count
                 totalForms.value = formCount + 1;
             });
         });
@@ -319,13 +354,7 @@ The JavaScript automatically:
 - Extracts the prefix and index from the field name
 - Updates `filter_by` references to point to the correct field in the same row
 
-## Design and Implementation Notes
-
-- **Key Features**:
-  - Independent filtering per formset row
-  - Automatic form prefix detection and handling
-  - Support for dynamically added rows
-  - Works with both regular formsets and model formsets
+## Implementation Notes
 
 - **Technical Details**:
   - The widget's JavaScript listens for changes on the parent field

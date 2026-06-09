@@ -126,8 +126,11 @@ The template tags support the following CSS frameworks:
 {% tomselect_media css_framework="bootstrap5" %}
 ```
 
-!!! note "Static file ordering for Bootstrap themes"
-    When using `bootstrap4` or `bootstrap5`, load the corresponding Bootstrap CSS **before** `{% tomselect_media %}` in your template. The Bootstrap 5 theme in particular relies on CSS custom properties (`--bs-border-color`, `--bs-body-bg`, etc.) defined by Bootstrap. Built-in fallback values ensure basic rendering even without Bootstrap loaded, but including Bootstrap first gives the most accurate styling.
+```{note}
+**Static file ordering for Bootstrap themes**
+
+When using `bootstrap4` or `bootstrap5`, load the corresponding Bootstrap CSS **before** `{% tomselect_media %}` in your template. The Bootstrap 5 theme in particular relies on CSS custom properties (`--bs-border-color`, `--bs-body-bg`, etc.) defined by Bootstrap. Built-in fallback values ensure basic rendering even without Bootstrap loaded, but including Bootstrap first gives the most accurate styling.
+```
 
 ## Development vs Production
 

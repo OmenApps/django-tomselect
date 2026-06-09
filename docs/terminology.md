@@ -26,6 +26,14 @@
   - **AutocompleteModelView**: For Django model-based lookups
   - **AutocompleteIterablesView**: For choices and iterables-based lookups
 
+- **CompositeAutocompleteView**: An autocomplete view that multiplexes several autocomplete views into a single token-aware endpoint, so one input can search across multiple entities using operator-scoped tokens (e.g., `author:42 category:5`).
+
+- **TomSelectTokenField**: A Django form field (a `CharField`) that parses and validates a token-style query string against a bound `CompositeAutocompleteView`.
+
+- **TomSelectTokenWidget**: The widget that renders a single token-style input whose serialized value is a canonical token string, backed by a composite (token-aware) endpoint.
+
+For full descriptions of these field, widget, and view types, see [Core Components](usage/core_components.md).
+
 ### Configuration Components
 
 - **Plugin**: A module that adds specific functionality to Tom Select. Our package includes several built-in plugins:
@@ -35,6 +43,8 @@
   - **ClearButton**: Adds a button to clear all selections
   - **RemoveButton**: Adds buttons to remove individual selections
   - **DropdownInput**: Adds an input field in the dropdown for filtering
+
+  For each plugin's parameters and configuration, see [Plugin Configurations](api/config.md).
 
 ## Field Configuration
 

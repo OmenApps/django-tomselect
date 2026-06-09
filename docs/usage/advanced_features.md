@@ -42,8 +42,7 @@ To achieve this, `django_tomselect` supports dependent (chained) fields. When se
 
 ```python
 from django import forms
-from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect import TomSelectConfig
+from django_tomselect import TomSelectConfig, TomSelectModelChoiceField
 
 class CategoryForm(forms.Form):
     category = TomSelectModelChoiceField(
@@ -70,7 +69,13 @@ class CategoryForm(forms.Form):
 You can filter by multiple fields using a list of tuples. All conditions are combined (aka: AND):
 
 ```python
-from django_tomselect.app_settings import TomSelectConfig
+from django import forms
+from django_tomselect import (
+    TomSelectConfig,
+    TomSelectChoiceField,
+    TomSelectModelChoiceField,
+    TomSelectModelMultipleChoiceField,
+)
 
 class ArticleFilterForm(forms.Form):
     magazine = TomSelectModelChoiceField(
@@ -119,7 +124,7 @@ See the [Formset with filter_by](../example_app/formset_filter_by.md) example fo
 For **nested formsets**, where an inner row needs to filter by a value on the outer parent row, use `FilterSpec` with `levels_up`:
 
 ```python
-from django_tomselect.app_settings import TomSelectConfig, FilterSpec
+from django_tomselect import TomSelectConfig, FilterSpec, TomSelectModelChoiceField
 
 class LineItemForm(forms.Form):
     product = TomSelectModelChoiceField(
@@ -141,7 +146,13 @@ class LineItemForm(forms.Form):
 Use the `Const` helper to filter by a constant value that doesn't come from a form field. This is useful for enforcing business rules in the UI:
 
 ```python
-from django_tomselect.app_settings import TomSelectConfig, Const
+from django import forms
+from django_tomselect import (
+    TomSelectConfig,
+    Const,
+    TomSelectModelChoiceField,
+    TomSelectModelMultipleChoiceField,
+)
 
 class PublishedArticleForm(forms.Form):
     magazine = TomSelectModelChoiceField(
@@ -167,10 +178,7 @@ Common use cases for constant filters:
 - Restrict to specific primary keys via `__in`: `Const([11, 13], "id__in")`
 - Restrict to a numeric range via `__range`: `Const([2020, 2024], "year__range")`
 
-`Const` accepts a list or tuple value when the lookup expects an iterable
-(`__in`, `__range`); items are comma-joined for transport and split server-side
-before the queryset filter is applied. Items must not themselves contain
-commas.
+For the full `Const` signature, list/tuple handling for `__in`/`__range` lookups, and the rules around comma-joined transport, see the [Const Helper reference](../api/config.md#const-helper).
 
 See the [Constant Filter-By](../example_app/constant_filter_by.md) example for complete demonstration.
 
@@ -214,6 +222,13 @@ The difference: an iterable item is just `{"value", "label"}` with no model behi
 lookup must target the `value` or `label` key rather than a model field.
 
 ```python
+from django import forms
+from django_tomselect import (
+    TomSelectConfig,
+    TomSelectChoiceField,
+    TomSelectModelChoiceField,
+)
+
 class ArticleForm(forms.Form):
     # Parent field (its value drives the dependent dropdown below)
     category = TomSelectModelChoiceField(
@@ -299,6 +314,8 @@ By extending `search()`, you gain fine-grained control over how queries are proc
 For example, to annotate a queryset and then filter by a calculated field:
 
 ```python
+from django.db.models import F
+
 class CustomAutocompleteView(AutocompleteModelView):
     model = Category
 

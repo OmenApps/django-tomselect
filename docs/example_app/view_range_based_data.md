@@ -2,15 +2,7 @@
 
 ## Example Overview
 
-- **Objective**: This example demonstrates how to implement dynamic range-based data selection with a live preview visualization. Users can select a range (e.g., word count) and instantly see data distributions, such as the number of articles within the selected range. The integration with `django_tomselect` ensures a smooth user experience with enhanced dropdowns.
-  - **Problem Solved**: It enables users to interactively select ranges and see associated data without requiring a page reload, improving data exploration and decision-making workflows.
-  - **Features Highlighted**:
-    - Dynamic range selection with `TomSelectChoiceField`.
-    - Live data preview updates using HTMX.
-
-- **Use Case**:
-  - Applications requiring interactive filtering and visualization, such as analytics dashboards or content management systems.
-  - Scenarios where users need to select ranges dynamically, such as price filters, date ranges, or statistical data bins.
+This example pairs a `TomSelectChoiceField` range selector with an HTMX-driven live preview: selecting a word-count range instantly redraws a bar chart of how many articles fall in each sub-bin (the selected range is broken into 10-word bins), all without a page reload. Use this pattern for interactive filtering and visualization - analytics dashboards, price or date-range filters, or any UI where users explore data distributions by selecting a range.
 
 **Visual Examples**
 
@@ -141,7 +133,7 @@ The form is rendered in the `range_preview.html` template, where HTMX is used to
                  hx-target="#preview-container"
                  hx-include="#id_word_count"
                  hx-swap="innerHTML">
-                 {% comment %} {% include "example/advanced_demos/range_preview_bars.html" %} {% endcomment %}
+                 {% comment %} {% include "example/intermediate_demos/range_preview_bars.html" %} {% endcomment %}
             </div>
             <div hx-get="{% url 'update-range-preview' %}"
                  hx-trigger="load"
@@ -187,6 +179,7 @@ We load the preview container with the initial data on page load and update it w
     </div>
 {% endif %}
 ```
+:::
 
 ### HTMX Endpoint for Preview Updates
 The `update-range-preview` endpoint processes the selected range and returns the updated data visualization. It uses the `get_detailed_range_statistics` function to calculate the distribution within the selected range. If no range is selected, it displays the overall distribution.
@@ -318,12 +311,7 @@ class WordCountRangeAutocompleteView(AutocompleteIterablesView):
 ```
 :::
 
-## Design and Implementation Notes
+## Implementation Notes
 
-- **Key Features**:
-  - Integration with HTMX for dynamic updates.
-  - `TomSelectChoiceField` enables a smooth user experience for range selection with iterables.
-
-- **Potential Extensions**:
-  - Add filters for other metrics (e.g., publication date or author popularity).
-  - Include summary statistics or additional charts alongside the range preview.
+- The autocomplete view's `get_iterable` override turns each range tuple into a labeled option carrying its live article count, so the dropdown labels stay in sync with the data.
+- `get_detailed_range_statistics` bins the selected range into fixed-size sub-ranges (default 10 words) to drive the detailed preview; with no range selected, `get_range_statistics` returns the overall per-range distribution instead.

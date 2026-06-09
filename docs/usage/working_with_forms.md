@@ -4,27 +4,7 @@ Integrating `django_tomselect` into your forms is straightforward and leverages 
 
 ## Basic Form Integration
 
-You can start using `django_tomselect` fields in regular Django forms without any additional configuration beyond defining the widget in the field. For example, to create a form that allows users to filter results based on a selected `Magazine`:
-
-```python
-from django import forms
-from django_tomselect.forms import TomSelectModelChoiceField
-from django_tomselect import TomSelectConfig
-
-class MagazineFilterForm(forms.Form):
-    magazine = TomSelectModelChoiceField(
-        config=TomSelectConfig(
-            url="autocomplete-magazine",
-            value_field="id",
-            label_field="name",
-            placeholder="Select a magazine...",
-            preload="focus",
-            highlight=True,
-        )
-    )
-```
-
-This form can be used to filter data in a view or dynamically update a portion of a page with JavaScript. The TomSelect widget handles autocompletion, pagination, and other interactive features automatically.
+Building on the basic form from the [Quickstart](quickstart.md), you can drop `django_tomselect` fields into any regular Django form to add autocompletion, pagination, and other interactive features automatically. The sections below cover the patterns that go beyond that starter form.
 
 ## Working with ModelForms
 
@@ -32,8 +12,11 @@ When dealing with database-backed models, `ModelForm` provides a more integrated
 
 ```python
 from django import forms
-from django_tomselect.forms import TomSelectModelChoiceField, TomSelectModelMultipleChoiceField
-from django_tomselect import TomSelectConfig
+from django_tomselect import (
+    TomSelectConfig,
+    TomSelectModelChoiceField,
+    TomSelectModelMultipleChoiceField,
+)
 from .models import Article
 
 class ArticleForm(forms.ModelForm):
@@ -66,7 +49,8 @@ ModelForms automatically populate initial values from the provided model instanc
 `django_tomselect` handles initial values just like any other Django form field. For ModelForms, the field will display the current related objects, so if you’re editing an existing `Article`:
 
 ```python
-from django.shortcuts import get_object_or_404, TemplateResponse, redirect
+from django.shortcuts import get_object_or_404, redirect
+from django.template.response import TemplateResponse
 
 def article_edit_view(request, pk):
     article = get_object_or_404(Article, pk=pk)

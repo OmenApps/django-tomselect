@@ -2,22 +2,7 @@
 
 ## Example Overview
 
-The **Rich Author Multi-Select** example pairs with the [Rich Article Select](rich_article_select.md) demo and pushes the idea further: **three multi-select widgets on one page, all driven by the same autocomplete endpoint, each rendering the data with a different visual treatment and a different TomSelect plugin combination.**
-
-This is the place to look when you want to compare side-by-side what `attrs["render"]` lets you do without changing the backend. The same author payload powers a minimal "slim" card, a data-viz-forward "stats" card with an inline SVG sparkline and a global peer rank, and an information-dense "full" card with a status-mix bar, top categories, and an activity indicator.
-
-**Objective**:
-
-- Demonstrate **multi-select** with `TomSelectModelMultipleChoiceField`, including `PluginRemoveButton`, `PluginClearButton`, and `PluginCheckboxOptions`.
-- Showcase **three different option templates** rendered from one shared payload, so the lesson "same data, different rendering" is explicit.
-- Illustrate how to compute and surface non-trivial per-row data (deterministic gradient avatars, status buckets, monthly sparklines, global peer rank) without pulling in a charting library.
-- Show how to handle **POST** of a multi-widget form and present per-widget summary cards that aggregate the user's selections.
-
-**Use Case**:
-
-- Editorial dashboards where editors pick co-authors, reviewers, or contributors for a piece.
-- Any "people picker" interface where richer context (recent activity, area of expertise, output volume) helps the user choose confidently.
-- Internal admin or CRM screens where comparing several rendering styles for the same dataset is useful when prototyping.
+This example pairs with the [Rich Article Select](rich_article_select.md) demo and pushes the idea further: three multi-select widgets on one page, all driven by the same `autocomplete-rich-author` endpoint, each rendering the same author payload with a different visual treatment and a different TomSelect plugin combination (slim card, a data-viz "stats" card with an inline SVG sparkline and peer rank, and an information-dense "full" card). It is the place to compare side-by-side what `attrs["render"]` lets you do without changing the backend, including how to compute non-trivial per-row data and handle POST of a multi-widget form with per-widget summary cards. Reach for these patterns on people-picker dashboards or when prototyping several rendering styles over one dataset.
 
 **Visual Examples**
 

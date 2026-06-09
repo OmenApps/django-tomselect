@@ -2,17 +2,7 @@
 
 ## Example Overview
 
-The **Rich Article Select** example showcases an advanced implementation of `django_tomselect` that enriches the selection interface with a highly detailed, visually appealing dropdown. This example is perfect for scenarios where users need to search for and select articles based on multiple attributes such as title, authors, categories, word count, and completion progress.
-
-The options in the dropdown are rendered with custom HTML structures that include author avatars, status badges, freshness indicators, category tags, and progress bars. This detailed metadata provides editors with a comprehensive overview of each article, making it easier to identify and select the right content.
-
-**Objective**:
-- Enhance the article selection experience with a detailed, visually rich dropdown interface.
-- Demonstrates advanced `django_tomselect` features like custom rendering for options and selected items.
-
-**Use Case**:
-- Editorial platforms where editors need to browse articles with detailed information before selection.
-- Project management tools with tasks that have multiple attributes to display in dropdowns.
+This example enriches the selection interface with a detailed, visually appealing dropdown. Each option is rendered with custom HTML - author avatars, status badges, freshness indicators, category tags, and progress bars - giving editors a comprehensive overview of each article before they select. Reach for this pattern when users need to browse and choose records based on several attributes at once.
 
 **Visual Examples**
 
@@ -48,7 +38,7 @@ class RichArticleSelectForm(forms.Form):
             attrs={
                 "render": {
                     "option": """
-                        return `<div class="article-option">
+                        `<div class="article-option">
                             <div class="article-avatar">
                                 ${data.authors.map(author => `
                                     <div class="author-avatar" title="${escape(author.name)}">
@@ -82,7 +72,7 @@ class RichArticleSelectForm(forms.Form):
                         </div>`
                     """,
                     "item": """
-                        return `<div class="selected-article d-flex align-items-center gap-2">
+                        `<div class="selected-article d-flex align-items-center gap-2">
                             <span class="freshness-indicator freshness-${data.freshness}"></span>
                             <span class="status-badge status-${data.status.toLowerCase()}">
                                 ${escape(data.status_display)}
@@ -468,9 +458,6 @@ class RichArticleAutocompleteView(AutocompleteModelView):
 
 ---
 
-## Design and Implementation Notes
+## Implementation Notes
 
-### Key Features
-- **Custom Rendering**: The `attrs["render"]` configuration allows defining unique HTML structures for dropdown options and selected items.
-- **Dynamic Attributes**: Supports displaying progress bars, badges, and tags to highlight article attributes visually.
 - **Preloading**: The dropdown is preloaded when focused to enhance user experience. If the preload option is disabled, the dropdown will load results only after the user starts typing.

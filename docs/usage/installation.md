@@ -9,7 +9,7 @@ Most of the code samples below are based on the example app provided with the pa
 You can install `django_tomselect` via pip:
 
 ```bash
-pip install django_tomselect
+pip install django-tomselect
 ```
 
 This installs the latest release of `django_tomselect` and its dependencies.
@@ -141,7 +141,7 @@ While `{{ form.media }}` is suitable for inline, one-off usage, the template tag
 
 ## Optional: Configure CSS Framework
 
-`django_tomselect` supports multiple CSS frameworks for styling: `default`, `bootstrap4`, and `bootstrap5`. You can choose a default framework in `settings.py`:
+`django_tomselect` supports multiple CSS frameworks for styling. You can choose a default framework in `settings.py`:
 
 ```python
 TOMSELECT = {
@@ -149,7 +149,7 @@ TOMSELECT = {
 }
 ```
 
-You can override this at any point using template tags (e.g., `{% tomselect_media css_framework="bootstrap4" %}`) or by configuring the widget on a per-field basis.
+You can override this at any point using template tags (e.g., `{% tomselect_media css_framework="bootstrap4" %}`) or by configuring the widget on a per-field basis. For the full list of supported values and how they affect styling, see [CSS Framework Options](configuration.md).
 
 !!! note "Load Bootstrap CSS first"
     When using `bootstrap5` (or `bootstrap4`), include the Bootstrap stylesheet **before** `{% tomselect_media %}`. The Bootstrap 5 theme relies on CSS custom properties that Bootstrap defines. Fallback values are included so the widget renders without Bootstrap, but loading Bootstrap first ensures the most accurate styling.

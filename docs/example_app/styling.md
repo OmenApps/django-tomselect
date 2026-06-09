@@ -2,18 +2,7 @@
 
 ## Example Overview
 
-This example demonstrates the use of `django_tomselect` with Default, Bootstrap 4, and Bootstrap 5 styling to create responsive, dynamic `<select>` fields. The example includes various configurations for single and multiple selections, highlighting the integration with a modern CSS framework.
-
-### What problem does it solve?
-This setup simplifies the creation of user-friendly, visually appealing dropdowns with advanced features like:
-- Autocomplete.
-- Placeholder text.
-- Tabular dropdown headers.
-- Options for creating and managing items directly from the dropdown.
-
-### Key features highlighted:
-- Single and multiple select fields with Bootstrap 4 styling.
-- Server-side autocomplete with configurable behavior.
+This example renders responsive, dynamic `<select>` fields with `django_tomselect` across Default, Bootstrap 4, and Bootstrap 5 styling, covering both single and multiple selection. It is the place to see how a single `css_framework` setting adapts the same autocomplete, placeholder, tabular dropdown header, and create/manage features to your project's chosen CSS framework.
 
 **Visual Examples**
 
@@ -25,9 +14,9 @@ This setup simplifies the creation of user-friendly, visually appealing dropdown
 ## Key Code Segments
 
 ### Forms
-The `DefaultStylingForm`, `Bootstrap4StylingForm`, and `Bootstrap5StylingForm` in `forms/basic_demos.py` configures fields using `TomSelectConfig` for the prefered styling.
+The `DefaultStylingForm`, `Bootstrap4StylingForm`, and `Bootstrap5StylingForm` in `forms/basic_demos.py` configures fields using `TomSelectConfig` for the preferred styling.
 
-:::{admonition} Default Styling
+:::{admonition} Bootstrap 4 Styling
 :class: dropdown
 
 ```python
@@ -35,17 +24,29 @@ class Bootstrap4StylingForm(forms.Form):
     tomselect = TomSelectModelChoiceField(
         config=TomSelectConfig(
             url="autocomplete-edition",
+            show_list=True,
+            show_create=True,
+            show_update=True,
+            value_field="id",
+            label_field="name",
             css_framework="bootstrap4",  # <<-- Bootstrap 4 styling
-            placeholder="Select a value",
             highlight=True,
             open_on_focus=True,
-            plugin_clear_button=PluginClearButton(
-                title="Clear Selection", class_name="clear-button"
-            ),
+            preload="focus",
+            placeholder="Select a value",
+            minimum_query_length=2,
+            plugin_dropdown_input=PluginDropdownInput(),
+            plugin_clear_button=PluginClearButton(title="Clear Selection", class_name="clear-button"),
         ),
-        attrs={"class": "form-control mb-3"},
-        label="Single Select",
-        help_text="Example of single select with autocomplete and clear button.",
+        attrs={
+            "class": "form-control mb-3",
+            "id": "tomselect-custom-id",
+        },
+        label="Tomselect Single",
+        help_text=(
+            "TomSelectModelChoiceField with single select, placeholder text, checkboxes, dropdown "
+            "input, dropdown footer, remove, clear, edit, and highlighting"
+        ),
     )
     # Other fields omitted for brevity
 ```
@@ -57,7 +58,7 @@ class Bootstrap4StylingForm(forms.Form):
 ---
 
 ### Template
-The `default.html`. `bs4.html`, and `bs5.html` templates render the form using the specified styling. They extend the base layout and include the necessary CSS and JavaScript assets.
+The `default.html`, `bs4.html`, and `bs5.html` templates render the form using the specified styling. They extend the base layout and include the necessary CSS and JavaScript assets.
 
 :::{admonition} Template
 :class: dropdown
@@ -162,6 +163,3 @@ def bootstrap4_demo(request: HttpRequest) -> HttpResponse:
 ### Alternative Approaches
 - Use the "default" styling if Bootstrap is not integrated into the project.
 - Use additional plugins like `dropdown_footer` to add create and list buttons directly in the dropdown.
-
-### Potential Extensions
-- Add dependent dropdowns where one field’s options are filtered based on another field’s selection.

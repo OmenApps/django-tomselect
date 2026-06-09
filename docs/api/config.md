@@ -59,7 +59,16 @@ config = TomSelectConfig(
 #### Complete Configuration Example
 
 ```python
-from django_tomselect.app_settings import TomSelectConfig, Const
+from django_tomselect.app_settings import (
+    TomSelectConfig,
+    Const,
+    PluginCheckboxOptions,
+    PluginClearButton,
+    PluginDropdownHeader,
+    PluginDropdownFooter,
+    PluginDropdownInput,
+    PluginRemoveButton,
+)
 
 config = TomSelectConfig(
     # Core Settings
@@ -108,8 +117,8 @@ config = TomSelectConfig(
     show_delete=False,
 
     # Framework Settings
-    css_framework='bootstrap5',
-    use_minified=True,
+    css_framework='bootstrap5',  # shown as an override; default is 'default' (set TOMSELECT["DEFAULT_CSS_FRAMEWORK"] to change globally)
+    use_minified=True,           # shown as an override; default is True only when settings.DEBUG is False
 
     # Plugins
     plugin_checkbox_options=PluginCheckboxOptions(),
@@ -353,7 +362,7 @@ TOMSELECT = {
 
     # Default plugin configurations
     'PLUGINS': {
-        'checkbox_options': True,
+        'checkbox_options': {},
         'clear_button': {
             'title': 'Clear Selection',
             'class_name': 'clear-btn'
@@ -368,7 +377,7 @@ TOMSELECT = {
         },
         'remove_button': {
             'title': 'Remove',
-            'label': '×'
+            'label': '&times;'
         }
     },
 
@@ -378,17 +387,16 @@ TOMSELECT = {
     # Custom proxy request class
     'PROXY_REQUEST_CLASS': 'path.to.CustomProxyRequest',
 
-    # Permission cache settings (optional)
-    'PERMISSION_CACHE': {
-        'TIMEOUT': 3600,  # Cache timeout in seconds
-        'KEY_PREFIX': 'myapp',  # Prefix for cache keys
-        'NAMESPACE': 'tomselect'  # Namespace for cache keys
-    },
-
     # Custom JSON encoder for autocomplete responses (optional)
     'DEFAULT_JSON_ENCODER': 'path.to.CustomJSONEncoder',
 }
+
+# Permission cache settings are a TOP-LEVEL Django setting (not inside TOMSELECT) -
+# see [Permission Caching](utilities.md)
+PERMISSION_CACHE = {...}
 ```
+
+For the available `PERMISSION_CACHE` sub-keys and how the cache behaves, see [Permission Caching](utilities.md).
 
 ## Advanced Usage
 
@@ -647,8 +655,8 @@ To automate the interaction between a widget and its associated autocomplete vie
 from django_tomselect.request import DefaultProxyRequest
 
 class CustomProxyRequest(DefaultProxyRequest):
-    def __init__(self, request, extra_data):
-        super().__init__(request)
+    def __init__(self, *args, model=None, user=None, extra_data=None, **kwargs):
+        super().__init__(*args, model=model, user=user, **kwargs)
         self.extra_data = extra_data
 ```
 
@@ -739,8 +747,11 @@ class CustomConfig(TomSelectConfig):
         # Add custom validation logic
         if self.placeholder and len(self.placeholder) > 100:
             raise ValidationError("Placeholder text is too long")
-        if self.show_create and not self.create_field:
-            raise ValidationError("create_field must be set when show_create is enabled")
+        if self.show_create and not self.plugin_dropdown_footer:
+            raise ValidationError(
+                "plugin_dropdown_footer must be configured when show_create is enabled "
+                "(and create_url must be set on the autocomplete view)"
+            )
 ```
 
 ### Dynamic Configuration
