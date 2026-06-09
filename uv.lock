@@ -373,7 +373,7 @@ wheels = [
 
 [[package]]
 name = "django-tomselect"
-version = "2026.5.6"
+version = "2026.6.1"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
@@ -405,7 +405,6 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-django" },
-    { name = "python-environ" },
     { name = "pyupgrade" },
     { name = "ruff" },
     { name = "sphinx" },
@@ -442,7 +441,6 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.26.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.1.1" },
     { name = "pytest-django", marker = "extra == 'dev'", specifier = ">=4.11.1" },
-    { name = "python-environ", marker = "extra == 'dev'", specifier = ">=0.4.54" },
     { name = "pyupgrade", marker = "extra == 'dev'", specifier = ">=3.21.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.13" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=8.2.3" },
@@ -1194,12 +1192,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/b1/fb/55d580352db26eb3d
 wheels = [
     { url = "https://files.pythonhosted.org/packages/be/ac/bd0608d229ec808e51a21044f3f2f27b9a37e7a0ebaca7247882e67876af/pytest_django-4.11.1-py3-none-any.whl", hash = "sha256:1b63773f648aa3d8541000c26929c1ea63934be1cfa674c76436966d73fe6a10", size = 25281, upload-time = "2025-04-03T18:56:07.678Z" },
 ]
-
-[[package]]
-name = "python-environ"
-version = "0.4.54"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0c/5d/8d4462fe29d3d3357eaac0f8321b7d0e77d0a4ea64505be1e6a90fba42dc/python-environ-0.4.54.tar.gz", hash = "sha256:6249a14057f95aba3b4906d73276f770e01e659f8098b3f3b34295feac42865b", size = 22947, upload-time = "2020-04-13T06:42:49.443Z" }
 
 [[package]]
 name = "pyupgrade"
