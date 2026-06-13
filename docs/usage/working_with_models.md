@@ -93,6 +93,84 @@ class ArticleForm(forms.ModelForm):
 
 Your autocomplete views should return the relevant model instances, and the widget will ensure the correct options are presented to the user.
 
+## Using a UUID `value_field` with a separate integer primary key
+
+Some projects keep an auto-incrementing integer as the real primary key while exposing an opaque, non-sequential `UUIDField` as the public identifier:
+
+```python
+# models.py
+import uuid
+from django.db import models
+
+
+class Customer(models.Model):
+    pkid = models.AutoField(primary_key=True)
+    id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=100)
+```
+
+Point `value_field` at the UUID column so the rendered option values are the opaque UUIDs rather than the sequential integers:
+
+```python
+config = TomSelectConfig(
+    url="customer-autocomplete",
+    value_field="id",      # the UUID column, not the integer pkid
+    label_field="name",
+)
+```
+
+```{important}
+The field named in `value_field` must be **unique**. It identifies a single row when an option is selected, so a non-unique column cannot reliably round-trip a selection.
+```
+
+### Preselected values on bound `ModelForm`s
+
+When a `ModelForm` is bound to an existing instance and the field is a `ForeignKey` (or `ManyToManyField`) to a model like the one above, Django renders the field's initial value as the related object's **integer primary key**, not the UUID. This is a consequence of how Django builds form initials: `model_to_dict` reduces a relation to the related object's primary key, and `ModelChoiceField.prepare_value` only applies `to_field_name` to model instances, not to the raw integer it receives.
+
+`django-tomselect` handles this for you. When `value_field` is a `UUIDField` on a model whose primary key is a separate integer column, an incoming integer (or its string form, as submitted by a re-rendered bound form) is resolved by primary key, and the **UUID is always emitted as the option value**. The integer primary key is never exposed in the rendered widget, and no extra configuration is required.
+
+For the `Customer` model above, a form pointing a `ForeignKey` at it needs nothing special - editing an existing instance preselects correctly:
+
+```python
+# models.py
+class Order(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+
+# forms.py
+from django.forms import ModelForm
+from django_tomselect.forms import TomSelectModelChoiceField
+
+
+class OrderForm(ModelForm):
+    customer = TomSelectModelChoiceField(
+        config=TomSelectConfig(url="customer-autocomplete", value_field="id", label_field="name"),
+    )
+
+    class Meta:
+        model = Order
+        fields = ["customer"]
+
+# views.py - binding to an existing order hands the widget the related Customer's
+# integer pkid; the widget resolves it and renders the UUID with no extra config.
+form = OrderForm(instance=order)
+```
+
+```{note}
+Package logging is on by default (`ENABLE_LOGGING` defaults to `True`; set `TOMSELECT = {"ENABLE_LOGGING": False}` to silence it). While enabled, the widget emits a `DEBUG` line each time it resolves a preselected value through this path - handy when verifying the behavior.
+```
+
+### Models whose primary key *is* a `UUIDField` are unaffected
+
+This behavior is narrowly scoped to the separate-column case. If your model uses a UUID as its actual primary key - the common pattern below - nothing changes: the incoming value is already a UUID, and the widget resolves it through the normal `value_field` path exactly as it always has.
+
+```python
+class Customer(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+```
+
+The fallback only ever activates when the model's real primary key is an integer column **and** `value_field` points at a separate `UUIDField`, so existing UUID-primary-key configurations are never rerouted.
+
 ## Implementing Search
 
 Searching is a key feature of `AutocompleteModelView`. By setting `search_lookups`, you define which model fields should be searched against the user’s query.

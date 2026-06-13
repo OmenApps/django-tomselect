@@ -495,10 +495,16 @@ class ModelWithUUIDPk(models.Model):
 
 
 class ModelWithPKIDAndUUIDId(models.Model):
-    """A model with a UUID field as a non-primary key."""
+    """A model with a UUID field as a non-primary key.
+
+    The UUID ``id`` is ``unique`` because it is meant to be used as the widget ``value_field`` -
+    an opaque, stable external identifier - while the integer ``pkid`` stays the real primary key.
+    A non-unique ``value_field`` cannot reliably identify a single row, so uniqueness is required
+    for selection to round-trip correctly.
+    """
 
     pkid = models.AutoField(primary_key=True)
-    id = models.UUIDField(default=uuid.uuid4, editable=False)
+    id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=100)
 
     class Meta:

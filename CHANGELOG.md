@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.6.2
+
+- `TomSelectModelWidget` (and the multiple-select subclass): when `value_field` is a `UUIDField` on a model whose real primary key is a separate integer column, a selected value that arrives as that integer primary key now resolves correctly and renders the UUID as the option value. This is the shape produced when a bound `ModelForm` renders a `ForeignKey` to such a model (`model_to_dict` reduces the FK initial to the related object's integer pk, and `ModelChoiceField.prepare_value` only honors `to_field_name` for model instances), which previously preselected blank or raised on PostgreSQL. The integer pk is handled whether it arrives as an `int` or as its string form (the shape a re-rendered bound form pulls from submitted data). The fallback is narrowly guarded - it triggers only when `value_field` is a `UUIDField`, the model's real primary key is a single integer column, and the incoming value is an integer pk - so an integer-typed `value_field`, a composite primary key, and (importantly) a model whose primary key **is** a `UUIDField` (the common `id = UUIDField(primary_key=True)` pattern) are never rerouted. Non-breaking: no configuration change is required, and the integer primary key is never exposed in the rendered widget.
+
+## 2026.6.1
+
+- `AutocompleteIterablesView` now honors `filter_by` and `exclude_by`, bringing dependent/chained filtering to iterable-backed fields (previously only `AutocompleteModelView` supported them). Filters are matched against the iterable's dict items - `filter_by` keeps items matching all filters (AND), `exclude_by` drops items matching any exclude (the union) - and the same `Const(...)` / `__const__` constant-filter form works across both view types.
+- Reorganize the documentation: split the monolithic `usage.md` into focused pages (installation, quickstart, configuration, core components, working with forms, working with models, customization, security, advanced features).
+
 ## 2026.5.6
 
 - `TomSelectConfig` now raises `ImproperlyConfigured` when `label_field` is a Python dunder (e.g. `label_field="__str__"`). A dunder is not selectable via `QuerySet.values()`, so it silently rendered empty labels. **Potentially breaking:** configs that relied on a dunder `label_field` must switch to a real field, a relation lookup (e.g. `"author__name"`), or a queryable annotation exposed in the view's `hook_queryset()` - see the autocomplete views docs

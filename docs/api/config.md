@@ -56,6 +56,10 @@ config = TomSelectConfig(
 )
 ```
 
+```{note}
+`value_field` may point at any unique field, not just the primary key. If you expose a `UUIDField` as `value_field` on a model whose real primary key is a separate integer column, preselected values on bound `ModelForm`s are handled automatically - see [Using a UUID value_field with a separate integer primary key](../usage/working_with_models.md#using-a-uuid-value_field-with-a-separate-integer-primary-key).
+```
+
 #### Complete Configuration Example
 
 ```python

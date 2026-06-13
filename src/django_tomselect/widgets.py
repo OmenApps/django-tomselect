@@ -16,7 +16,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from django import forms
-from django.db.models import Model, Q, QuerySet
+from django.core.exceptions import FieldDoesNotExist
+from django.db.models import IntegerField, Model, Q, QuerySet, UUIDField
 from django.forms.renderers import BaseRenderer
 from django.http import HttpRequest
 from django.urls import NoReverseMatch
@@ -898,6 +899,63 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         return context
 
+    @staticmethod
+    def _value_field_needs_pk_fallback(model: type[Model] | None, value_field: str, selected_values: list[Any]) -> bool:
+        """Return True when value_field is a UUIDField but the incoming value(s) are integer pks.
+
+        A model whose real primary key is a separate integer column can expose an opaque UUID
+        through ``value_field`` (for example ``value_field="id"`` on a model whose primary key is an
+        integer ``pkid``). A bound ``ModelForm`` renders such a ForeignKey's initial as the related
+        object's integer primary key (``model_to_dict`` reduces it, and ``prepare_value`` only
+        honors ``to_field_name`` for model instances), which a UUID ``value_field`` cannot match. In
+        that case the rows are resolved by primary key instead, while the emitted option value stays
+        the UUID.
+
+        The guard is intentionally narrow and only fires when all three conditions hold:
+
+        - every incoming value is an integer pk (a plain ``int`` or its digit-string form, the
+          shape a re-rendered bound form pulls out of the data dict); booleans are excluded since
+          ``bool`` subclasses ``int``,
+        - ``value_field`` resolves to a ``UUIDField`` (so the integer cannot be a direct
+          ``value_field`` match and must be a primary key), and
+        - the model's real primary key is a single integer column, so ``Q(pk__in=...)`` is a valid
+          lookup (this also excludes composite primary keys, where ``pk__in`` expects tuples).
+
+        Because of the ``UUIDField`` requirement, a legitimately integer-typed ``value_field`` is
+        never rerouted, and a canonical UUID string always contains hyphens (so it never satisfies
+        the digit-string check), so accepting an integer pk only ever rescues a lookup that would
+        otherwise raise against the UUID column.
+        """
+        if model is None:
+            return False
+        candidate_values = [candidate for candidate in selected_values if candidate is not None]
+        if not candidate_values:
+            return False
+        if not all(TomSelectModelWidget._looks_like_integer_pk(candidate) for candidate in candidate_values):
+            return False
+        try:
+            field = model._meta.get_field(value_field)
+        except (FieldDoesNotExist, AttributeError):
+            return False
+        if not isinstance(field, UUIDField):
+            return False
+        # Only reroute to the primary key when it is a single integer column. A UUID, string, or
+        # composite primary key cannot accept ``Q(pk__in=[<int>])``; rerouting those would either
+        # match nothing or raise, so leave them on the normal value_field path.
+        return isinstance(model._meta.pk, IntegerField)
+
+    @staticmethod
+    def _looks_like_integer_pk(candidate: Any) -> bool:
+        """Return True when candidate is an integer primary key as an int or a digit-string.
+
+        ``bool`` is a subclass of ``int`` and is never a primary key, so it is excluded.
+        """
+        if isinstance(candidate, bool):
+            return False
+        if isinstance(candidate, int):
+            return True
+        return isinstance(candidate, str) and candidate.isdigit()
+
     def _get_selected_options(self, value: Any, autocomplete_view: AutocompleteModelView) -> list[dict[str, Any]]:
         """Get selected options from value."""
         selected: list[dict[str, Any]] = []
@@ -910,7 +968,21 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         selected_values = [value] if not isinstance(value, (list, tuple)) else value
 
-        if value_field == "pk":
+        needs_pk_fallback = value_field != "pk" and self._value_field_needs_pk_fallback(
+            queryset.model, value_field, selected_values
+        )
+        if value_field == "pk" or needs_pk_fallback:
+            if needs_pk_fallback:
+                # A UUID value_field was handed the integer pk (a bound ModelForm ForeignKey
+                # initial). Resolve by primary key; the option value emitted in the loop below is
+                # still getattr(obj, value_field) = the UUID, so the integer pk is never exposed in
+                # the rendered widget.
+                logger.debug(
+                    "value_field %r is a UUIDField but received integer pk(s) %r; resolving by "
+                    "primary key and emitting the UUID as the option value.",
+                    value_field,
+                    selected_values,
+                )
             final_filter = Q(pk__in=selected_values)  # type: ignore[misc]
         else:
             # Filter on the value_field
@@ -920,7 +992,6 @@ class TomSelectModelWidget(TomSelectWidgetMixin, forms.Select):
 
         # Detect if label_field is a relation and add select_related to prevent N+1 queries
         label_field = self.label_field or "name"
-        from django.core.exceptions import FieldDoesNotExist
 
         try:
             field_obj = selected_objects.model._meta.get_field(label_field)  # type: ignore[union-attr]
